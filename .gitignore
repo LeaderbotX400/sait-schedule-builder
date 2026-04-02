@@ -1,5 +1,5 @@
 .direnv/
-__pycache__/
-output/
+node_modules/
+dist/
 
 data.json
