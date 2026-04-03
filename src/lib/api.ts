@@ -1,83 +1,192 @@
-import type { BannerCredentials, BannerResponse } from "./types";
+import type { BannerResponse } from "./types";
+
+const API_BASE = "/api/banner";
+
+export interface BannerCredentials {
+  cookies: Record<string, string>;
+  synchronizerToken: string;
+  uniqueSessionId: string;
+}
 
 /**
- * Parse raw HTTP request headers (copied from browser DevTools) to extract
- * session cookies and synchronizer token for Banner API access.
+ * Parse raw HTTP request headers (copied from browser DevTools Network tab)
+ * and extract session cookies + synchronizer token.
  */
 export function parseRequestHeaders(raw: string): BannerCredentials {
   const lines = raw.split("\n").map((l) => l.trim());
 
-  let cookies = "";
+  const cookies: Record<string, string> = {};
   let synchronizerToken = "";
-  let baseUrl = "https://bannerssb.sait.ca/StudentRegistrationSsb";
+  let uniqueSessionId = "";
+
+  // Try to extract uniqueSessionId from URL in the headers
+  const sessionIdMatch = raw.match(/uniqueSessionId=([^&\s]+)/);
+  if (sessionIdMatch) {
+    uniqueSessionId = sessionIdMatch[1].trim();
+  }
 
   for (const line of lines) {
     const lower = line.toLowerCase();
+
     if (lower.startsWith("cookie:")) {
-      cookies = line.slice("cookie:".length).trim();
+      const cookieStr = line.slice("cookie:".length).trim();
+      for (const part of cookieStr.split(";")) {
+        const eqIdx = part.indexOf("=");
+        if (eqIdx > 0) {
+          const name = part.slice(0, eqIdx).trim();
+          const value = part.slice(eqIdx + 1).trim();
+          cookies[name] = value;
+        }
+      }
     } else if (lower.startsWith("x-synchronizer-token:")) {
       synchronizerToken = line.slice("x-synchronizer-token:".length).trim();
-    } else if (lower.startsWith("origin:")) {
-      const origin = line.slice("origin:".length).trim();
-      if (origin.includes("sait.ca")) {
-        baseUrl = origin + "/StudentRegistrationSsb";
-      }
     }
   }
 
-  if (!cookies) {
-    throw new Error("Could not find Cookie header in pasted headers");
+  if (Object.keys(cookies).length === 0) {
+    throw new Error("No cookies found in pasted headers");
   }
 
-  return { cookies, synchronizerToken, baseUrl };
+  return { cookies, synchronizerToken, uniqueSessionId };
+}
+
+function cookieString(cookies: Record<string, string>): string {
+  return Object.entries(cookies)
+    .map(([k, v]) => `${k}=${v}`)
+    .join("; ");
 }
 
 /**
- * Search for courses via the Banner API.
- * Note: This requires CORS to be handled (e.g., via a proxy or browser extension).
+ * Build headers for Banner API requests.
+ *
+ * "Cookie" is a forbidden header in the browser Fetch API — the browser
+ * silently strips it. So we send credentials via custom X-Banner-* headers,
+ * which the Vite proxy rewrites into real Cookie / X-Synchronizer-Token
+ * headers on the outgoing request to Banner.
  */
-export async function searchCourses(
-  credentials: BannerCredentials,
+function bannerHeaders(creds: BannerCredentials): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: "application/json, text/javascript, */*; q=0.01",
+    "Cache-Control": "no-cache",
+    Pragma: "no-cache",
+    "X-Requested-With": "XMLHttpRequest",
+    // Custom headers — rewritten by the Vite proxy into real headers
+    "X-Banner-Cookies": cookieString(creds.cookies),
+  };
+
+  if (creds.synchronizerToken) {
+    headers["X-Banner-Sync-Token"] = creds.synchronizerToken;
+  }
+
+  return headers;
+}
+
+/** Save the selected term to the Banner session */
+export async function saveTerm(
+  creds: BannerCredentials,
   term: string,
-  subjects: string[],
-): Promise<BannerResponse> {
-  // First, save the term to the session
-  await fetch(`${credentials.baseUrl}/ssb/term/saveTerm`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Cookie: credentials.cookies,
-    },
-    body: `term=${term}`,
-    credentials: "include",
+): Promise<void> {
+  const params = new URLSearchParams({
+    mode: "registration",
+    term,
+    ...(creds.uniqueSessionId && {
+      uniqueSessionId: creds.uniqueSessionId,
+    }),
   });
 
-  // Then search for courses
-  const params = new URLSearchParams();
-  params.set("txt_term", term);
-  params.set("pageOffset", "0");
-  params.set("pageMaxSize", "500");
-  params.set("sortColumn", "subjectDescription");
-  params.set("sortDirection", "asc");
+  const res = await fetch(`${API_BASE}/ssb/term/saveTerm?${params}`, {
+    headers: bannerHeaders(creds),
+  });
 
-  for (const subject of subjects) {
-    params.append("txt_subject", subject);
+  if (!res.ok) {
+    throw new Error(`Failed to save term: ${res.status}`);
+  }
+}
+
+/** Search for course sections by subject+course combo (e.g. "CPRG307") */
+export async function searchCourses(
+  creds: BannerCredentials,
+  term: string,
+  courseCodes: string[],
+): Promise<BannerResponse> {
+  // First save the term
+  await saveTerm(creds, term);
+
+  // Search for each course code and merge results
+  const allData: BannerResponse["data"] = [];
+
+  for (const code of courseCodes) {
+    const params = new URLSearchParams({
+      txt_subjectcoursecombo: code,
+      txt_term: term,
+      pageOffset: "0",
+      pageMaxSize: "500",
+      sortColumn: "subjectDescription",
+      sortDirection: "asc",
+    });
+
+    const res = await fetch(
+      `${API_BASE}/ssb/searchResults/searchResults?${params}`,
+      { headers: bannerHeaders(creds) },
+    );
+
+    if (!res.ok) {
+      throw new Error(`Search failed for "${code}": ${res.status}`);
+    }
+
+    const json = (await res.json()) as BannerResponse;
+    if (json.data) {
+      allData.push(...json.data);
+    }
   }
 
-  const response = await fetch(
-    `${credentials.baseUrl}/ssb/classSearch/get_subjectcoursecombo?${params.toString()}`,
-    {
-      headers: {
-        Cookie: credentials.cookies,
-        "X-Synchronizer-Token": credentials.synchronizerToken,
-      },
-      credentials: "include",
-    },
+  return {
+    success: true,
+    totalCount: allData.length,
+    data: allData,
+  };
+}
+
+/** Fetch available terms from Banner */
+export async function getTerms(
+  creds: BannerCredentials,
+): Promise<{ code: string; description: string }[]> {
+  const params = new URLSearchParams({
+    searchTerm: "",
+    offset: "1",
+    max: "20",
+  });
+
+  const res = await fetch(
+    `${API_BASE}/ssb/classSearch/getTerms?${params}`,
+    { headers: bannerHeaders(creds) },
   );
 
-  if (!response.ok) {
-    throw new Error(`Banner API error: ${response.status} ${response.statusText}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch terms: ${res.status}`);
   }
 
-  return response.json();
+  return res.json();
+}
+
+/** Look up subject codes via autocomplete */
+export async function searchSubjects(
+  creds: BannerCredentials,
+  term: string,
+  searchTerm: string,
+): Promise<{ code: string; description: string }[]> {
+  const params = new URLSearchParams({
+    searchTerm,
+    term,
+    offset: "1",
+    max: "50",
+  });
+
+  const res = await fetch(
+    `${API_BASE}/ssb/classSearch/get_subjectcoursecombo?${params}`,
+    { headers: bannerHeaders(creds) },
+  );
+
+  if (!res.ok) return [];
+  return res.json();
 }

@@ -125,10 +125,30 @@ export interface CourseSection {
   instructionalMethod: string;
 }
 
+// Structured warning — carries enough info to highlight the problem in the UI
+export type WarningKind =
+  | "early_morning"
+  | "travel_gap"
+  | "campus_days"
+  | "large_gap"
+  | "partial"
+  | "blockout_conflict";
+
+export interface ScheduleWarning {
+  kind: WarningKind;
+  message: string;
+  /** Course identifiers involved */
+  courseIds: string[];
+  /** Days involved */
+  days: DayOfWeek[];
+  /** Specific time ranges that are problematic: [startTime, endTime] */
+  times: [number, number][];
+}
+
 export interface Schedule {
   id: number;
   qualityScore: number;
-  warnings: string[];
+  warnings: ScheduleWarning[];
   courses: CourseSection[];
   daysUsed: DayOfWeek[];
   daysCount: number;
@@ -139,28 +159,53 @@ export interface Schedule {
   travelTimePenalty: number;
   isPartial: boolean;
   omittedCourses: string[];
+  /** How well this schedule matches the user's blockout preferences (0-100, higher=better) */
+  blockoutFitScore: number;
 }
+
+// ---- Blockout / ideal schedule shape ----
+
+/**
+ * Cell state for a single hour-slot on the blockout grid.
+ * - "preferred": user wants classes here
+ * - "blocked": user does NOT want classes here
+ * - "neutral": no preference
+ */
+export type BlockoutCell = "preferred" | "blocked" | "neutral";
+
+/** Map of day -> hour -> cell state */
+export type BlockoutGrid = Record<DayOfWeek, Record<number, BlockoutCell>>;
 
 // User-configurable scheduling rules
 export interface ScheduleRules {
-  /** Earliest acceptable class start time, e.g. "0900" */
   earliestStart: string;
-  /** Latest acceptable class end time, e.g. "1700" */
   latestEnd: string;
-  /** Days the user wants to keep free (no classes) */
   freeDays: DayOfWeek[];
-  /** Preferred max number of on-campus days per week */
   maxOnCampusDays: number;
-  /** Minimum gap in minutes between an online and on-campus class */
   minTravelGapMinutes: number;
-  /** Whether to prefer clustered on-campus days */
   preferClusteredCampusDays: boolean;
-  /** Whether to allow partial schedules (missing some courses) */
   allowPartialSchedules: boolean;
-  /** Preferred max gap between classes on the same day (minutes), 0 = no preference */
   maxGapBetweenClasses: number;
-  /** Only show schedules with open seats */
   requireOpenSeats: boolean;
+  /** User-painted ideal schedule shape */
+  blockout: BlockoutGrid;
+  /** How strongly blockout preferences affect scoring (0-100) */
+  blockoutWeight: number;
+}
+
+export const WEEKDAYS: DayOfWeek[] = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+export const ALL_DAYS: DayOfWeek[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+export const GRID_HOURS = Array.from({ length: 15 }, (_, i) => i + 7); // 7am-9pm
+
+export function createEmptyBlockout(): BlockoutGrid {
+  const grid = {} as BlockoutGrid;
+  for (const day of ALL_DAYS) {
+    grid[day] = {};
+    for (const hour of GRID_HOURS) {
+      grid[day][hour] = "neutral";
+    }
+  }
+  return grid;
 }
 
 export const DEFAULT_RULES: ScheduleRules = {
@@ -173,11 +218,6 @@ export const DEFAULT_RULES: ScheduleRules = {
   allowPartialSchedules: false,
   maxGapBetweenClasses: 0,
   requireOpenSeats: false,
+  blockout: createEmptyBlockout(),
+  blockoutWeight: 50,
 };
-
-// Banner API session types
-export interface BannerCredentials {
-  cookies: string;
-  synchronizerToken: string;
-  baseUrl: string;
-}

@@ -3,15 +3,81 @@ import type {
   DayOfWeek,
   Schedule,
   ScheduleRules,
+  ScheduleWarning,
+  BlockoutGrid,
 } from "./types";
+import { ALL_DAYS, GRID_HOURS } from "./types";
 
-const ALL_DAYS: DayOfWeek[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-/** Convert "HHMM" time integer to minutes since midnight */
 function timeToMinutes(time: number): number {
-  const hours = Math.floor(time / 100);
-  const minutes = time % 100;
-  return hours * 60 + minutes;
+  return Math.floor(time / 100) * 60 + (time % 100);
+}
+
+/**
+ * Score how well a schedule matches the blockout grid (0-100).
+ *
+ * - Classes in "preferred" slots: +points
+ * - Classes in "blocked" slots: -points (and generate warnings)
+ * - Classes in "neutral" slots: 0
+ *
+ * Returns the fit score and any blockout conflict warnings.
+ */
+function scoreBlockoutFit(
+  courses: CourseSection[],
+  blockout: BlockoutGrid,
+): { fitScore: number; warnings: ScheduleWarning[] } {
+  let preferredHits = 0;
+  let preferredTotal = 0;
+  let blockedHits = 0;
+  const warnings: ScheduleWarning[] = [];
+
+  // Count total preferred cells
+  for (const day of ALL_DAYS) {
+    for (const hour of GRID_HOURS) {
+      if (blockout[day]?.[hour] === "preferred") preferredTotal++;
+    }
+  }
+
+  // No preferences painted — everything is a perfect fit
+  const hasAnyPreference = preferredTotal > 0 ||
+    ALL_DAYS.some((d) => GRID_HOURS.some((h) => blockout[d]?.[h] === "blocked"));
+  if (!hasAnyPreference) return { fitScore: 100, warnings: [] };
+
+  for (const course of courses) {
+    for (const meeting of course.meetings) {
+      const startHour = Math.floor(meeting.startTime / 100);
+      const endHour = Math.ceil(meeting.endTime / 100);
+
+      for (const day of meeting.days) {
+        for (let h = startHour; h < endHour; h++) {
+          const cell = blockout[day]?.[h];
+          if (cell === "preferred") {
+            preferredHits++;
+          } else if (cell === "blocked") {
+            blockedHits++;
+            warnings.push({
+              kind: "blockout_conflict",
+              message: `${course.identifier} on ${day} at ${h}:00 conflicts with a blocked time slot`,
+              courseIds: [course.identifier],
+              days: [day],
+              times: [[meeting.startTime, meeting.endTime]],
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // Score: reward covering preferred slots, heavily penalize blocked slots
+  let fitScore = 50; // baseline
+  if (preferredTotal > 0) {
+    fitScore += (preferredHits / preferredTotal) * 50;
+  }
+  fitScore -= blockedHits * 15;
+
+  return {
+    fitScore: Math.max(0, Math.min(100, Math.round(fitScore))),
+    warnings,
+  };
 }
 
 export function scoreSchedule(
@@ -21,11 +87,17 @@ export function scoreSchedule(
   isPartial: boolean,
   omittedCourses: string[],
 ): Schedule {
-  const warnings: string[] = [];
+  const warnings: ScheduleWarning[] = [];
   let score = 100;
 
-  // Collect per-day meetings
-  const dayMeetings: Record<string, { startTime: number; endTime: number; isOnline: boolean }[]> = {};
+  // Collect per-day meetings with course info for warning attribution
+  interface DayMeeting {
+    startTime: number;
+    endTime: number;
+    isOnline: boolean;
+    courseId: string;
+  }
+  const dayMeetings: Record<string, DayMeeting[]> = {};
   const daysUsedSet = new Set<DayOfWeek>();
   const onCampusDaysSet = new Set<DayOfWeek>();
   const onCampusPerDay: Record<string, number> = {};
@@ -39,6 +111,7 @@ export function scoreSchedule(
           startTime: m.startTime,
           endTime: m.endTime,
           isOnline: m.isOnline,
+          courseId: course.identifier,
         });
         if (!m.isOnline) {
           onCampusDaysSet.add(day);
@@ -51,24 +124,23 @@ export function scoreSchedule(
   const daysUsed = ALL_DAYS.filter((d) => daysUsedSet.has(d));
   const onCampusDays = ALL_DAYS.filter((d) => onCampusDaysSet.has(d));
 
-  // --- Penalty: early morning classes (before preferred start) ---
-  const earliestPreferred = parseInt(rules.earliestStart, 10);
+  // --- Penalty: early morning classes ---
   let earlyCount = 0;
   for (const course of courses) {
     for (const m of course.meetings) {
-      if (!m.isOnline && m.startTime < earliestPreferred + 100) {
-        // Classes starting within 1hr of earliest preferred get penalized
-        // Classes at 0800 when preferred is 0900 get a penalty
-        if (m.startTime <= 800) {
-          earlyCount += m.days.length;
-        }
+      if (!m.isOnline && m.startTime <= 800) {
+        earlyCount += m.days.length;
+        warnings.push({
+          kind: "early_morning",
+          message: `${course.identifier} starts at ${formatTimeShort(m.startTime)} on ${m.days.join(", ")}`,
+          courseIds: [course.identifier],
+          days: [...m.days],
+          times: [[m.startTime, m.endTime]],
+        });
       }
     }
   }
   const earlyMorningPenalty = earlyCount * 10;
-  if (earlyCount > 0) {
-    warnings.push(`${earlyCount} early morning on-campus class(es)`);
-  }
   score -= earlyMorningPenalty;
 
   // --- Penalty: insufficient travel gaps ---
@@ -77,33 +149,41 @@ export function scoreSchedule(
     const meetings = dayMeetings[day];
     if (!meetings || meetings.length < 2) continue;
 
-    // Sort by start time
     const sorted = [...meetings].sort((a, b) => a.startTime - b.startTime);
     for (let i = 0; i < sorted.length - 1; i++) {
       const current = sorted[i];
       const next = sorted[i + 1];
 
-      // Check online-to-campus transitions
       if (current.isOnline !== next.isOnline) {
         const gapMinutes =
           timeToMinutes(next.startTime) - timeToMinutes(current.endTime);
         if (gapMinutes < rules.minTravelGapMinutes) {
           travelGapViolations++;
+          warnings.push({
+            kind: "travel_gap",
+            message: `${gapMinutes}min gap between ${current.courseId} and ${next.courseId} on ${day} (need ${rules.minTravelGapMinutes}min for ${current.isOnline ? "online" : "campus"}\u2192${next.isOnline ? "online" : "campus"})`,
+            courseIds: [current.courseId, next.courseId],
+            days: [day as DayOfWeek],
+            times: [[current.startTime, current.endTime], [next.startTime, next.endTime]],
+          });
         }
       }
     }
   }
   const travelTimePenalty = travelGapViolations * 5;
-  if (travelGapViolations > 0) {
-    warnings.push(`${travelGapViolations} insufficient travel gap(s)`);
-  }
   score -= travelTimePenalty;
 
   // --- Penalty: too many on-campus days ---
   if (onCampusDays.length > rules.maxOnCampusDays) {
     const excess = onCampusDays.length - rules.maxOnCampusDays;
     score -= excess * 10;
-    warnings.push(`${onCampusDays.length} on-campus days (preferred max: ${rules.maxOnCampusDays})`);
+    warnings.push({
+      kind: "campus_days",
+      message: `${onCampusDays.length} on-campus days (preferred max: ${rules.maxOnCampusDays})`,
+      courseIds: [],
+      days: onCampusDays,
+      times: [],
+    });
   }
 
   // --- Penalty: on-campus day spread ---
@@ -131,9 +211,13 @@ export function scoreSchedule(
         const gap = timeToMinutes(sorted[i + 1].startTime) - timeToMinutes(sorted[i].endTime);
         if (gap > rules.maxGapBetweenClasses) {
           score -= 3;
-          warnings.push(
-            `${gap}min gap on ${day} exceeds preferred max of ${rules.maxGapBetweenClasses}min`,
-          );
+          warnings.push({
+            kind: "large_gap",
+            message: `${gap}min gap on ${day} between ${sorted[i].courseId} and ${sorted[i + 1].courseId}`,
+            courseIds: [sorted[i].courseId, sorted[i + 1].courseId],
+            days: [day as DayOfWeek],
+            times: [[sorted[i].startTime, sorted[i].endTime], [sorted[i + 1].startTime, sorted[i + 1].endTime]],
+          });
         }
       }
     }
@@ -142,7 +226,13 @@ export function scoreSchedule(
   // --- Penalty: partial schedule ---
   if (isPartial) {
     score -= 20;
-    warnings.push(`Partial schedule — missing ${omittedCourses.join(", ")}`);
+    warnings.push({
+      kind: "partial",
+      message: `Partial schedule \u2014 missing ${omittedCourses.join(", ")}`,
+      courseIds: [],
+      days: [],
+      times: [],
+    });
   }
 
   // --- Day concentration bonus ---
@@ -156,9 +246,21 @@ export function scoreSchedule(
   }
   score += dayConcentration;
 
+  // --- Blockout fit ---
+  const { fitScore: blockoutFitScore, warnings: blockoutWarnings } =
+    scoreBlockoutFit(courses, rules.blockout);
+  warnings.push(...blockoutWarnings);
+
+  // Blend blockout score into main score
+  const weight = rules.blockoutWeight / 100;
+  const baseScore = Math.max(0, Math.min(100, score));
+  const blendedScore = Math.round(
+    baseScore * (1 - weight) + blockoutFitScore * weight,
+  );
+
   return {
     id,
-    qualityScore: Math.max(0, Math.min(100, score)),
+    qualityScore: Math.max(0, Math.min(100, blendedScore)),
     warnings,
     courses,
     daysUsed,
@@ -170,5 +272,14 @@ export function scoreSchedule(
     travelTimePenalty,
     isPartial,
     omittedCourses,
+    blockoutFitScore,
   };
+}
+
+function formatTimeShort(t: number): string {
+  const h = Math.floor(t / 100);
+  const m = (t % 100).toString().padStart(2, "0");
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${h12}:${m}${period}`;
 }

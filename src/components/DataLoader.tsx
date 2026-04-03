@@ -1,24 +1,38 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 
 interface Props {
   onLoad: (json: unknown) => void;
+  error?: string | null;
 }
 
-export default function DataLoader({ onLoad }: Props) {
+export default function DataLoader({ onLoad, error: externalError }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const error = externalError ?? localError;
 
   const handleFile = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
+      setLocalError(null);
+
+      if (!file.name.endsWith(".json")) {
+        setLocalError(`Expected a .json file, got "${file.name}".`);
+        return;
+      }
+
       const reader = new FileReader();
+      reader.onerror = () => {
+        setLocalError("Failed to read the file. It may be too large or inaccessible.");
+      };
       reader.onload = () => {
         try {
           const json = JSON.parse(reader.result as string);
           onLoad(json);
         } catch {
-          alert("Invalid JSON file");
+          setLocalError("The file contains invalid JSON. Make sure it's a valid data.json from the Banner API.");
         }
       };
       reader.readAsText(file);
@@ -27,13 +41,17 @@ export default function DataLoader({ onLoad }: Props) {
   );
 
   const handlePaste = useCallback(() => {
-    const text = textRef.current?.value;
-    if (!text) return;
+    const text = textRef.current?.value?.trim();
+    if (!text) {
+      setLocalError("Paste some JSON first.");
+      return;
+    }
+    setLocalError(null);
     try {
       const json = JSON.parse(text);
       onLoad(json);
     } catch {
-      alert("Invalid JSON");
+      setLocalError("Invalid JSON. Make sure you copied the full contents of data.json.");
     }
   }, [onLoad]);
 
@@ -73,6 +91,12 @@ export default function DataLoader({ onLoad }: Props) {
           Load JSON
         </button>
       </div>
+
+      {error && (
+        <div className="rounded-lg bg-red-900/30 border border-red-800 px-3 py-2 text-xs text-red-400">
+          {error}
+        </div>
+      )}
     </div>
   );
 }

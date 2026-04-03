@@ -1,4 +1,5 @@
-import type { DayOfWeek, ScheduleRules } from "../lib/types";
+import type { DayOfWeek, ScheduleRules, BlockoutGrid } from "../lib/types";
+import BlockoutGridComponent from "./BlockoutGrid";
 
 interface Props {
   rules: ScheduleRules;
@@ -36,8 +37,12 @@ export default function RulesPanel({ rules, onChange }: Props) {
     update("freeDays", next);
   };
 
+  const handleBlockoutChange = (blockout: BlockoutGrid) => {
+    update("blockout", blockout);
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <h3 className="text-sm font-medium text-gray-300">Schedule Rules</h3>
 
       {/* Time bounds */}
@@ -181,6 +186,36 @@ export default function RulesPanel({ rules, onChange }: Props) {
           />
           Only show sections with open seats
         </label>
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-gray-800" />
+
+      {/* Blockout grid */}
+      <BlockoutGridComponent
+        blockout={rules.blockout}
+        onChange={handleBlockoutChange}
+      />
+
+      {/* Blockout weight */}
+      <div>
+        <label className="block text-xs text-gray-400 mb-1">
+          Blockout influence: {rules.blockoutWeight}%
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={rules.blockoutWeight}
+          onChange={(e) =>
+            update("blockoutWeight", parseInt(e.target.value, 10))
+          }
+          className="w-full accent-blue-500"
+        />
+        <p className="text-[10px] text-gray-600 mt-0.5">
+          0% = ignore blockout, 100% = blockout fit is all that matters
+        </p>
       </div>
     </div>
   );
