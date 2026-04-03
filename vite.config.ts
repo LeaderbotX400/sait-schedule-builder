@@ -15,8 +15,8 @@ export default defineConfig({
         cookieDomainRewrite: "localhost",
         configure: (proxy) => {
           // The browser's Fetch API silently strips "Cookie" (a forbidden header).
-          // So the React app sends credentials via custom X-Banner-* headers,
-          // and we rewrite them here into the real headers Banner expects.
+          // We send credentials via custom X-Banner-* headers and rewrite them
+          // here into the real headers that Banner expects and validates.
           proxy.on("proxyReq", (proxyReq) => {
             const cookies = proxyReq.getHeader("x-banner-cookies");
             if (cookies) {
@@ -28,6 +28,20 @@ export default defineConfig({
             if (syncToken) {
               proxyReq.setHeader("X-Synchronizer-Token", syncToken);
               proxyReq.removeHeader("x-banner-sync-token");
+            }
+
+            // Banner validates the Referer header
+            const referer = proxyReq.getHeader("x-banner-referer");
+            if (referer) {
+              proxyReq.setHeader("Referer", referer);
+              proxyReq.removeHeader("x-banner-referer");
+            }
+
+            // Some POST endpoints need the real Origin
+            const origin = proxyReq.getHeader("x-banner-origin");
+            if (origin) {
+              proxyReq.setHeader("Origin", origin);
+              proxyReq.removeHeader("x-banner-origin");
             }
           });
         },

@@ -1,6 +1,12 @@
 import type { BannerResponse } from "./types";
 
 const API_BASE = "/api/banner";
+const BANNER_ORIGIN =
+  "https://sait-sust-prd-prd1-ban-ss-ssag6.sait.ca";
+const REFERER_REGISTRATION =
+  `${BANNER_ORIGIN}/StudentRegistrationSsb/ssb/classRegistration/classRegistration`;
+const REFERER_TERM =
+  `${BANNER_ORIGIN}/StudentRegistrationSsb/ssb/term/termSelection?mode=registration`;
 
 export interface BannerCredentials {
   cookies: Record<string, string>;
@@ -47,6 +53,11 @@ export function parseRequestHeaders(raw: string): BannerCredentials {
     throw new Error("No cookies found in pasted headers");
   }
 
+  // Generate a uniqueSessionId if not found in headers
+  if (!uniqueSessionId) {
+    uniqueSessionId = `sched${Date.now()}`;
+  }
+
   return { cookies, synchronizerToken, uniqueSessionId };
 }
 
@@ -59,19 +70,22 @@ function cookieString(cookies: Record<string, string>): string {
 /**
  * Build headers for Banner API requests.
  *
- * "Cookie" is a forbidden header in the browser Fetch API — the browser
- * silently strips it. So we send credentials via custom X-Banner-* headers,
- * which the Vite proxy rewrites into real Cookie / X-Synchronizer-Token
- * headers on the outgoing request to Banner.
+ * Browser Fetch silently strips "Cookie" (forbidden header), so we send
+ * credentials via custom X-Banner-* headers. The Vite proxy rewrites
+ * them into real Cookie / X-Synchronizer-Token / Referer headers.
  */
-function bannerHeaders(creds: BannerCredentials): Record<string, string> {
+function bannerHeaders(
+  creds: BannerCredentials,
+  referer: string = REFERER_REGISTRATION,
+): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: "application/json, text/javascript, */*; q=0.01",
     "Cache-Control": "no-cache",
     Pragma: "no-cache",
     "X-Requested-With": "XMLHttpRequest",
-    // Custom headers — rewritten by the Vite proxy into real headers
+    // Custom headers — rewritten by the Vite proxy
     "X-Banner-Cookies": cookieString(creds.cookies),
+    "X-Banner-Referer": referer,
   };
 
   if (creds.synchronizerToken) {
@@ -81,21 +95,29 @@ function bannerHeaders(creds: BannerCredentials): Record<string, string> {
   return headers;
 }
 
-/** Save the selected term to the Banner session */
-export async function saveTerm(
+// ---- Session initialization ----
+
+/** Step 0 & 3: Fetch usage tracking (required to initialize/finalize session) */
+async function fetchUsageTracking(creds: BannerCredentials): Promise<void> {
+  await fetch(`${API_BASE}/ssb/userPreference/fetchUsageTracking`, {
+    headers: bannerHeaders(creds),
+  });
+  // Best-effort — don't throw on failure
+}
+
+/** Step 1: Save the selected term to the Banner session (GET) */
+async function saveTermStep(
   creds: BannerCredentials,
   term: string,
 ): Promise<void> {
   const params = new URLSearchParams({
     mode: "registration",
     term,
-    ...(creds.uniqueSessionId && {
-      uniqueSessionId: creds.uniqueSessionId,
-    }),
+    uniqueSessionId: creds.uniqueSessionId,
   });
 
   const res = await fetch(`${API_BASE}/ssb/term/saveTerm?${params}`, {
-    headers: bannerHeaders(creds),
+    headers: bannerHeaders(creds, REFERER_TERM),
   });
 
   if (!res.ok) {
@@ -103,47 +125,122 @@ export async function saveTerm(
   }
 }
 
-/** Search for course sections by subject+course combo (e.g. "CPRG307") */
+/** Step 2: POST term search to confirm term selection */
+async function confirmTermStep(
+  creds: BannerCredentials,
+  term: string,
+): Promise<void> {
+  const body = new URLSearchParams({
+    term,
+    studyPath: "",
+    studyPathText: "",
+    startDatepicker: "",
+    endDatepicker: "",
+    uniqueSessionId: creds.uniqueSessionId,
+  });
+
+  const headers = bannerHeaders(creds, REFERER_TERM);
+  headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8";
+  headers["X-Banner-Origin"] = BANNER_ORIGIN;
+
+  await fetch(`${API_BASE}/ssb/term/search?mode=registration`, {
+    method: "POST",
+    headers,
+    body: body.toString(),
+  });
+  // Best-effort
+}
+
+/**
+ * Full term initialization sequence — must run before any course search.
+ *
+ * 0. fetchUsageTracking
+ * 1. saveTerm (GET)
+ * 2. term/search (POST)
+ * 3. fetchUsageTracking again
+ */
+export async function initializeTermSession(
+  creds: BannerCredentials,
+  term: string,
+): Promise<void> {
+  await fetchUsageTracking(creds);
+  await saveTermStep(creds, term);
+  await confirmTermStep(creds, term);
+  await fetchUsageTracking(creds);
+}
+
+// ---- Course search ----
+
+export interface SearchResult {
+  response: BannerResponse;
+  /** Per-code breakdown: which codes returned data and which didn't */
+  perCode: { code: string; count: number; error?: string }[];
+}
+
+/**
+ * Search for course sections by subject+course combo (e.g. "CPRG307").
+ *
+ * Banner's searchResults endpoint is session-stateful — after one search
+ * the context changes and subsequent searches return nothing. So we
+ * re-initialize the term session before EACH course code search.
+ */
 export async function searchCourses(
   creds: BannerCredentials,
   term: string,
   courseCodes: string[],
-): Promise<BannerResponse> {
-  // First save the term
-  await saveTerm(creds, term);
-
-  // Search for each course code and merge results
+): Promise<SearchResult> {
   const allData: BannerResponse["data"] = [];
+  const perCode: SearchResult["perCode"] = [];
 
   for (const code of courseCodes) {
-    const params = new URLSearchParams({
-      txt_subjectcoursecombo: code,
-      txt_term: term,
-      pageOffset: "0",
-      pageMaxSize: "500",
-      sortColumn: "subjectDescription",
-      sortDirection: "asc",
-    });
+    try {
+      // Re-initialize term session for each search
+      await initializeTermSession(creds, term);
 
-    const res = await fetch(
-      `${API_BASE}/ssb/searchResults/searchResults?${params}`,
-      { headers: bannerHeaders(creds) },
-    );
+      const params = new URLSearchParams({
+        txt_subjectcoursecombo: code,
+        txt_term: term,
+        startDatepicker: "",
+        endDatepicker: "",
+        uniqueSessionId: creds.uniqueSessionId,
+        pageOffset: "0",
+        pageMaxSize: "500",
+        sortColumn: "subjectDescription",
+        sortDirection: "asc",
+      });
 
-    if (!res.ok) {
-      throw new Error(`Search failed for "${code}": ${res.status}`);
-    }
+      const res = await fetch(
+        `${API_BASE}/ssb/searchResults/searchResults?${params}`,
+        { headers: bannerHeaders(creds) },
+      );
 
-    const json = (await res.json()) as BannerResponse;
-    if (json.data) {
-      allData.push(...json.data);
+      if (!res.ok) {
+        perCode.push({ code, count: 0, error: `HTTP ${res.status}` });
+        continue;
+      }
+
+      const json = (await res.json()) as BannerResponse;
+      const count = json.data?.length ?? 0;
+      if (json.data && count > 0) {
+        allData.push(...json.data);
+      }
+      perCode.push({ code, count });
+    } catch (e) {
+      perCode.push({
+        code,
+        count: 0,
+        error: e instanceof Error ? e.message : "Unknown error",
+      });
     }
   }
 
   return {
-    success: true,
-    totalCount: allData.length,
-    data: allData,
+    response: {
+      success: true,
+      totalCount: allData.length,
+      data: allData,
+    },
+    perCode,
   };
 }
 

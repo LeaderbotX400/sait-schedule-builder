@@ -11,8 +11,11 @@ export default function CourseSearch({ credentials, onResults }: Props) {
   const [term, setTerm] = useState("202540");
   const [codes, setCodes] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingCode, setLoadingCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [results, setResults] = useState<
+    { code: string; count: number; error?: string }[] | null
+  >(null);
 
   const handleSearch = useCallback(async () => {
     const parsed = codes
@@ -27,30 +30,49 @@ export default function CourseSearch({ credentials, onResults }: Props) {
 
     setLoading(true);
     setError(null);
-    setSuccess(null);
+    setResults(null);
 
     try {
-      const results = await searchCourses(credentials, term, parsed);
+      // Show which code we're currently fetching
+      setLoadingCode(parsed[0]);
+      const searchResult = await searchCourses(
+        credentials,
+        term,
+        parsed,
+      );
 
-      if (!results.data || results.data.length === 0) {
-        const codeList = parsed.join(", ");
-        setError(
-          `No sections found for ${codeList} in the selected term. ` +
-          `Check that the course codes are correct and that sections are available.`
-        );
-        return;
+      setLoadingCode(null);
+      setResults(searchResult.perCode);
+
+      if (searchResult.response.data.length > 0) {
+        onResults(searchResult.response);
       }
 
-      const count = onResults(results);
-      if (count > 0) {
-        setSuccess(`Loaded ${results.data.length} section${results.data.length !== 1 ? "s" : ""} across ${new Set(results.data.map((d) => d.subjectCourse)).size} course${new Set(results.data.map((d) => d.subjectCourse)).size !== 1 ? "s" : ""}.`);
+      // Check if any codes failed entirely
+      const allFailed = searchResult.perCode.every((r) => r.count === 0);
+      if (allFailed) {
+        const failedCodes = searchResult.perCode
+          .map((r) => r.error ? `${r.code} (${r.error})` : r.code)
+          .join(", ");
+        setError(
+          `No sections found for ${failedCodes} in the selected term. ` +
+          `Check that the course codes are correct and sections are available.`,
+        );
       }
     } catch (e) {
+      setLoadingCode(null);
       const msg = e instanceof Error ? e.message : "Search failed";
       if (msg.includes("401") || msg.includes("403")) {
-        setError("Session expired or unauthorized. Try reconnecting to Banner.");
-      } else if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
-        setError("Could not reach the Banner server. Check your internet connection and that the Vite proxy is running.");
+        setError(
+          "Session expired or unauthorized. Try reconnecting to Banner.",
+        );
+      } else if (
+        msg.includes("Failed to fetch") ||
+        msg.includes("NetworkError")
+      ) {
+        setError(
+          "Could not reach the Banner server. Check your internet connection and that the Vite proxy is running.",
+        );
       } else {
         setError(msg);
       }
@@ -68,7 +90,10 @@ export default function CourseSearch({ credentials, onResults }: Props) {
         <label className="block text-xs text-gray-400 mb-1">Term</label>
         <select
           value={term}
-          onChange={(e) => { setTerm(e.target.value); setSuccess(null); }}
+          onChange={(e) => {
+            setTerm(e.target.value);
+            setResults(null);
+          }}
           className="w-full rounded-lg bg-gray-800 border border-gray-700 px-2 py-1.5 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="202540">Spring 2026</option>
@@ -85,7 +110,11 @@ export default function CourseSearch({ credentials, onResults }: Props) {
         </label>
         <textarea
           value={codes}
-          onChange={(e) => { setCodes(e.target.value); setError(null); setSuccess(null); }}
+          onChange={(e) => {
+            setCodes(e.target.value);
+            setError(null);
+            setResults(null);
+          }}
           rows={3}
           placeholder={"CPRG306\nCPRG307\nTHRD318"}
           className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
@@ -101,9 +130,28 @@ export default function CourseSearch({ credentials, onResults }: Props) {
         </div>
       )}
 
-      {success && (
-        <div className="rounded-lg bg-emerald-900/30 border border-emerald-800 px-3 py-2 text-xs text-emerald-400">
-          {success}
+      {/* Per-code results breakdown */}
+      {results && (
+        <div className="rounded-lg bg-gray-800/50 border border-gray-700 px-3 py-2 space-y-0.5">
+          {results.map((r) => (
+            <div key={r.code} className="flex items-center gap-2 text-xs">
+              {r.count > 0 ? (
+                <span className="text-emerald-400">&#x2713;</span>
+              ) : (
+                <span className="text-red-400">&#x2717;</span>
+              )}
+              <span className="font-mono text-gray-300">{r.code}</span>
+              {r.count > 0 ? (
+                <span className="text-gray-500">
+                  {r.count} section{r.count !== 1 ? "s" : ""}
+                </span>
+              ) : (
+                <span className="text-red-400/70">
+                  {r.error ?? "no sections found"}
+                </span>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
@@ -115,7 +163,7 @@ export default function CourseSearch({ credentials, onResults }: Props) {
         {loading ? (
           <span className="flex items-center justify-center gap-2">
             <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
-            Searching...
+            {loadingCode ? `Fetching ${loadingCode}...` : "Searching..."}
           </span>
         ) : (
           "Search Banner"
