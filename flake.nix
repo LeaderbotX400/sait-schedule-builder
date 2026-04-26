@@ -16,7 +16,7 @@
           buildInputs = with pkgs; [
             python3
             pnpm
-            
+            nodejs
           ];
         };
       }

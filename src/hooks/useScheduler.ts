@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
-import type { CourseSection, Schedule, ScheduleRules, BannerResponse } from "../lib/types";
-import { DEFAULT_RULES } from "../lib/types";
+import type { CourseSection, Schedule, ScheduleRules, BannerResponse, CurrentRegistration } from "../lib/types";
+import { DEFAULT_RULES, sectionsHaveConflict } from "../lib/types";
 import { parseRawJson, parseBannerData } from "../lib/parser";
 import { generateSchedules } from "../lib/scheduler";
 import type { BannerCredentials } from "../lib/api";
@@ -25,6 +25,38 @@ export function useScheduler() {
   const [activeScheduleIndex, setActiveScheduleIndex] = useState(0);
   const [credentials, setCredentials] = useState<BannerCredentials | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  
+  // Current registrations tracking
+  const [currentRegistrations, setCurrentRegistrations] = useState<Map<string, CurrentRegistration>>(
+    new Map(),
+  );
+  // Track section swaps: subjectCourse -> sectionIdentifier being used
+  const [sectionOverrides, setSectionOverrides] = useState<Map<string, string>>(new Map());
+  // Track which courses are toggled on/off in current schedule
+  const [includedCourses, setIncludedCourses] = useState<Set<string>>(new Set());
+
+  /** Initialize current registrations from loaded courses (simulates Banner enrollment data) */
+  const initializeCurrentRegistrations = useCallback((fromCourseGroups: Map<string, CourseSection[]>) => {
+    const regs = new Map<string, CurrentRegistration>();
+    const included = new Set<string>();
+
+    for (const [subjectCourse, sections] of fromCourseGroups) {
+      if (sections.length > 0) {
+        // Default to first section as "current registration"
+        const currentSection = sections[0];
+        regs.set(subjectCourse, {
+          subjectCourse,
+          currentSection,
+          isIncluded: true,
+        });
+        included.add(subjectCourse);
+      }
+    }
+
+    setCurrentRegistrations(regs);
+    setIncludedCourses(included);
+    setSectionOverrides(new Map());
+  }, []);
 
   /** Load from raw JSON (file upload / paste) */
   const loadData = useCallback((json: unknown) => {
@@ -40,10 +72,12 @@ export function useScheduler() {
       setSchedules([]);
       setActiveScheduleIndex(0);
       setGenerationStatus({ kind: "idle" });
+      // Initialize current registrations from loaded data
+      initializeCurrentRegistrations(groups);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Failed to parse data");
     }
-  }, []);
+  }, [initializeCurrentRegistrations]);
 
   /** Load from Banner API response — merges into existing data. Returns count of new sections. */
   const loadBannerResponse = useCallback((response: BannerResponse): number => {
@@ -76,9 +110,11 @@ export function useScheduler() {
     setSchedules([]);
     setActiveScheduleIndex(0);
     setGenerationStatus({ kind: "idle" });
+    // Initialize current registrations from loaded data
+    initializeCurrentRegistrations(newGroups);
 
     return response.data.length;
-  }, []);
+  }, [initializeCurrentRegistrations]);
 
   const clearCourses = useCallback(() => {
     setCourseGroups(new Map());
@@ -87,6 +123,9 @@ export function useScheduler() {
     setActiveScheduleIndex(0);
     setGenerationStatus({ kind: "idle" });
     setLoadError(null);
+    setCurrentRegistrations(new Map());
+    setIncludedCourses(new Set());
+    setSectionOverrides(new Map());
   }, []);
 
   const toggleCourse = useCallback((subjectCourse: string) => {
@@ -184,6 +223,92 @@ export function useScheduler() {
     [schedules, activeScheduleIndex],
   );
 
+  /** Swap a course to a different section and check for conflicts */
+  const swapSection = useCallback((subjectCourse: string, newSectionIdentifier: string) => {
+    // Find the section in courseGroups
+    const sections = courseGroups.get(subjectCourse);
+    if (!sections) return { success: false, conflicts: [] as CourseSection[] };
+
+    const newSection = sections.find((s) => s.identifier === newSectionIdentifier);
+    if (!newSection) return { success: false, conflicts: [] as CourseSection[] };
+
+    // Check for conflicts with other courses in current schedule
+    const conflicts: CourseSection[] = [];
+    for (const [course, reg] of currentRegistrations) {
+      if (course === subjectCourse) continue;
+      if (!includedCourses.has(course)) continue;
+
+      const otherSection = sectionOverrides.has(course)
+        ? courseGroups.get(course)?.find((s) => s.identifier === sectionOverrides.get(course))
+        : reg.currentSection;
+
+      if (otherSection && sectionsHaveConflict(newSection, otherSection)) {
+        conflicts.push(otherSection);
+      }
+    }
+
+    // Apply the swap
+    setSectionOverrides((prev) => {
+      const next = new Map(prev);
+      next.set(subjectCourse, newSectionIdentifier);
+      return next;
+    });
+
+    return { success: true, conflicts };
+  }, [courseGroups, currentRegistrations, includedCourses, sectionOverrides]);
+
+  /** Toggle a course on/off in the current schedule */
+  const toggleCurrentCourse = useCallback((subjectCourse: string) => {
+    setIncludedCourses((prev) => {
+      const next = new Set(prev);
+      if (next.has(subjectCourse)) {
+        next.delete(subjectCourse);
+      } else {
+        next.add(subjectCourse);
+      }
+      return next;
+    });
+  }, []);
+
+  /** Build a Schedule object from current registrations + modifications */
+  const getCurrentSchedule = useCallback((): Schedule | null => {
+    if (currentRegistrations.size === 0) return null;
+
+    const courses: CourseSection[] = [];
+    for (const [subjectCourse, reg] of currentRegistrations) {
+      if (!includedCourses.has(subjectCourse)) continue;
+
+      const section = sectionOverrides.has(subjectCourse)
+        ? courseGroups.get(subjectCourse)?.find((s) => s.identifier === sectionOverrides.get(subjectCourse))
+        : reg.currentSection;
+
+      if (section) {
+        courses.push(section);
+      }
+    }
+
+    if (courses.length === 0) return null;
+
+    // TODO: Calculate warnings and quality score
+    // For now, return a basic Schedule object
+    return {
+      id: 0,
+      qualityScore: 0,
+      warnings: [],
+      courses,
+      daysUsed: [],
+      daysCount: 0,
+      onCampusDays: [],
+      onCampusDaysCount: 0,
+      onCampusPerDay: {},
+      earlyMorningPenalty: 0,
+      travelTimePenalty: 0,
+      isPartial: false,
+      omittedCourses: [],
+      blockoutFitScore: 0,
+    };
+  }, [currentRegistrations, includedCourses, sectionOverrides, courseGroups]);
+
   return {
     courseGroups,
     selectedCourses,
@@ -203,5 +328,13 @@ export function useScheduler() {
     generate,
     setRules,
     setActiveScheduleIndex,
+    // New: current registration support
+    currentRegistrations,
+    includedCourses,
+    sectionOverrides,
+    swapSection,
+    toggleCurrentCourse,
+    initializeCurrentRegistrations,
+    getCurrentSchedule,
   };
 }

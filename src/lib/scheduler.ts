@@ -5,33 +5,8 @@ import type {
   Schedule,
   ScheduleRules,
 } from "./types";
-import { DEFAULT_RULES } from "./types";
+import { DEFAULT_RULES, sectionsHaveConflict } from "./types";
 import { scoreSchedule } from "./scoring";
-
-/** Check if two time ranges overlap on the same day */
-function timesOverlap(
-  start1: number,
-  end1: number,
-  start2: number,
-  end2: number,
-): boolean {
-  return start1 < end2 && start2 < end1;
-}
-
-/** Check if two course sections have any time conflicts */
-function hasConflict(a: CourseSection, b: CourseSection): boolean {
-  for (const ma of a.meetings) {
-    for (const mb of b.meetings) {
-      // Check if they share any day
-      const sharedDays = ma.days.filter((d) => mb.days.includes(d));
-      if (sharedDays.length === 0) continue;
-      if (timesOverlap(ma.startTime, ma.endTime, mb.startTime, mb.endTime)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
 
 /** Check if a section violates hard rules (free days, time bounds) */
 function violatesRules(
@@ -124,7 +99,7 @@ export function generateSchedules(
     let valid = true;
     for (let a = 0; a < combo.length && valid; a++) {
       for (let b = a + 1; b < combo.length && valid; b++) {
-        if (hasConflict(combo[a], combo[b])) {
+        if (sectionsHaveConflict(combo[a], combo[b])) {
           valid = false;
         }
       }
@@ -154,7 +129,7 @@ export function generateSchedules(
         let valid = true;
         for (let a = 0; a < combo.length && valid; a++) {
           for (let b = a + 1; b < combo.length && valid; b++) {
-            if (hasConflict(combo[a], combo[b])) valid = false;
+            if (sectionsHaveConflict(combo[a], combo[b])) valid = false;
           }
         }
         if (!valid) continue;

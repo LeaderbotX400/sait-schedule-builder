@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useScheduler } from "./hooks/useScheduler";
 import HeaderInput from "./components/HeaderInput";
 import CourseSearch from "./components/CourseSearch";
@@ -6,8 +7,10 @@ import CourseSelector from "./components/CourseSelector";
 import RulesPanel from "./components/RulesPanel";
 import ScheduleBrowser from "./components/ScheduleBrowser";
 import ScheduleDetail from "./components/ScheduleDetail";
+import CurrentScheduleEditor from "./components/CurrentScheduleEditor";
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState<"current" | "browse">("current");
   const {
     courseGroups,
     selectedCourses,
@@ -26,6 +29,12 @@ export default function App() {
     generate,
     setRules,
     setActiveScheduleIndex,
+    // New: current registration support
+    currentRegistrations,
+    includedCourses,
+    sectionOverrides,
+    swapSection,
+    toggleCurrentCourse,
   } = useScheduler();
 
   const hasData = courseGroups.size > 0;
@@ -130,68 +139,44 @@ export default function App() {
 
           {/* Main content */}
           <main className="flex-1 min-w-0">
-            {generationStatus.kind === "generating" ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="text-center">
-                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
-                  <p className="mt-3 text-sm text-gray-400">
-                    Generating schedules...
-                  </p>
-                </div>
+            {/* Tabs */}
+            {currentRegistrations.size > 0 && (
+              <div className="flex gap-3 mb-4 border-b border-gray-800">
+                <button
+                  onClick={() => setActiveTab("current")}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    activeTab === "current"
+                      ? "text-white border-b-2 border-blue-500"
+                      : "text-gray-400 hover:text-gray-300"
+                  }`}
+                >
+                  Current Schedule
+                </button>
+                <button
+                  onClick={() => setActiveTab("browse")}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    activeTab === "browse"
+                      ? "text-white border-b-2 border-blue-500"
+                      : "text-gray-400 hover:text-gray-300"
+                  }`}
+                >
+                  Browse Generated Schedules
+                </button>
               </div>
-            ) : activeSchedule ? (
-              <ScheduleDetail schedule={activeSchedule} rules={rules} />
-            ) : generationStatus.kind === "empty" ? (
-              /* No valid schedules found */
-              <div className="flex items-center justify-center h-64">
-                <div className="max-w-md text-center space-y-3">
-                  <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-yellow-900/30 border border-yellow-800">
-                    <span className="text-xl">&#x26A0;</span>
-                  </div>
-                  <h2 className="text-lg font-semibold text-white">
-                    No valid schedules found
-                  </h2>
-                  <p className="text-sm text-gray-400">
-                    {generationStatus.reason}
-                  </p>
-                </div>
-              </div>
-            ) : generationStatus.kind === "error" ? (
-              /* Generation error */
-              <div className="flex items-center justify-center h-64">
-                <div className="max-w-md text-center space-y-3">
-                  <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-red-900/30 border border-red-800">
-                    <span className="text-xl">&#x2715;</span>
-                  </div>
-                  <h2 className="text-lg font-semibold text-white">
-                    Generation failed
-                  </h2>
-                  <p className="text-sm text-red-400">
-                    {generationStatus.message}
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    Try adjusting your rules or course selection, then generate again.
-                  </p>
-                </div>
-              </div>
-            ) : hasData ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="text-center space-y-2">
-                  <p className="text-gray-400">
-                    {selectedCourses.size} course{selectedCourses.size !== 1 ? "s" : ""} loaded.
-                    Configure your rules, then hit{" "}
-                    <span className="text-blue-400 font-medium">
-                      Generate Schedules
-                    </span>
-                  </p>
-                  {credentials && (
-                    <p className="text-xs text-gray-600">
-                      You can search for more courses in the sidebar
-                    </p>
-                  )}
-                </div>
-              </div>
-            ) : (
+            )}
+
+            {/* Current Schedule Tab */}
+            {activeTab === "current" && currentRegistrations.size > 0 ? (
+              <CurrentScheduleEditor
+                currentRegistrations={currentRegistrations}
+                courseGroups={courseGroups}
+                includedCourses={includedCourses}
+                sectionOverrides={sectionOverrides}
+                onSwapSection={swapSection}
+                onToggleCourse={toggleCurrentCourse}
+              />
+            ) : activeTab === "current" && currentRegistrations.size === 0 && !hasData ? (
+              /* Empty state - no data loaded */
               <div className="flex items-center justify-center h-64">
                 <div className="text-center space-y-2">
                   <p className="text-lg text-gray-400">
@@ -203,7 +188,71 @@ export default function App() {
                   </p>
                 </div>
               </div>
-            )}
+            ) : activeTab === "browse" || (activeTab === "current" && currentRegistrations.size === 0 && hasData) ? (
+              /* Browse Schedules Tab */
+              generationStatus.kind === "generating" ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
+                    <p className="mt-3 text-sm text-gray-400">
+                      Generating schedules...
+                    </p>
+                  </div>
+                </div>
+              ) : activeSchedule ? (
+                <ScheduleDetail schedule={activeSchedule} rules={rules} />
+              ) : generationStatus.kind === "empty" ? (
+                /* No valid schedules found */
+                <div className="flex items-center justify-center h-64">
+                  <div className="max-w-md text-center space-y-3">
+                    <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-yellow-900/30 border border-yellow-800">
+                      <span className="text-xl">&#x26A0;</span>
+                    </div>
+                    <h2 className="text-lg font-semibold text-white">
+                      No valid schedules found
+                    </h2>
+                    <p className="text-sm text-gray-400">
+                      {generationStatus.reason}
+                    </p>
+                  </div>
+                </div>
+              ) : generationStatus.kind === "error" ? (
+                /* Generation error */
+                <div className="flex items-center justify-center h-64">
+                  <div className="max-w-md text-center space-y-3">
+                    <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-red-900/30 border border-red-800">
+                      <span className="text-xl">&#x2715;</span>
+                    </div>
+                    <h2 className="text-lg font-semibold text-white">
+                      Generation failed
+                    </h2>
+                    <p className="text-sm text-red-400">
+                      {generationStatus.message}
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      Try adjusting your rules or course selection, then generate again.
+                    </p>
+                  </div>
+                </div>
+              ) : hasData ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center space-y-2">
+                    <p className="text-gray-400">
+                      {selectedCourses.size} course{selectedCourses.size !== 1 ? "s" : ""} loaded.
+                      Configure your rules, then hit{" "}
+                      <span className="text-blue-400 font-medium">
+                        Generate Schedules
+                      </span>
+                    </p>
+                    {credentials && (
+                      <p className="text-xs text-gray-600">
+                        You can search for more courses in the sidebar
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : null
+            ) : null}
           </main>
         </div>
       </div>

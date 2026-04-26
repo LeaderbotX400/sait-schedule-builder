@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { parseRequestHeaders, type BannerCredentials } from "../lib/api";
+import { parseRequestHeaders, validateCredentials, type BannerCredentials } from "../lib/api";
 import {
   detectExtension,
   getCredentialsFromExtension,
@@ -23,6 +23,7 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
   const [showManual, setShowManual] = useState(false);
   const [text, setText] = useState("");
   const [manualError, setManualError] = useState<string | null>(null);
+  const [manualLoading, setManualLoading] = useState(false);
 
   // Probe the extension whenever the ID changes
   useEffect(() => {
@@ -52,13 +53,27 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
     }
   }, [extId, onCredentials]);
 
-  const handleManualSubmit = useCallback(() => {
+  const handleManualSubmit = useCallback(async () => {
     setManualError(null);
+    setManualLoading(true);
+
     try {
       const creds = parseRequestHeaders(text);
+      
+      // Validate credentials before marking as connected
+      const validation = await validateCredentials(creds);
+      if (!validation.valid) {
+        setManualError(validation.error ?? "Credentials are not valid");
+        setManualLoading(false);
+        return;
+      }
+
+      // Credentials are valid, mark as connected
       onCredentials(creds);
     } catch (e) {
       setManualError(e instanceof Error ? e.message : "Failed to parse headers");
+    } finally {
+      setManualLoading(false);
     }
   }, [text, onCredentials]);
 
@@ -182,10 +197,17 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
           )}
           <button
             onClick={handleManualSubmit}
-            disabled={!text.trim()}
+            disabled={!text.trim() || manualLoading}
             className="w-full rounded-lg bg-gray-700 px-4 py-2 text-sm font-medium text-gray-200 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            Connect with Headers
+            {manualLoading ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-200 border-r-transparent" />
+                Validating...
+              </span>
+            ) : (
+              "Connect with Headers"
+            )}
           </button>
         </div>
       )}

@@ -123,6 +123,15 @@ export interface CourseSection {
   meetings: MeetingBlock[];
   creditHours: number | null;
   instructionalMethod: string;
+  /** Whether this section is part of the user's current registration from Banner */
+  isCurrentRegistration?: boolean;
+}
+
+/** Represents a course that the user is currently registered for with a specific section */
+export interface CurrentRegistration {
+  subjectCourse: string; // e.g. "CPRG306"
+  currentSection: CourseSection; // The section they're currently enrolled in
+  isIncluded: boolean; // Whether this course should be included in the current schedule view
 }
 
 // Structured warning — carries enough info to highlight the problem in the UI
@@ -221,3 +230,27 @@ export const DEFAULT_RULES: ScheduleRules = {
   blockout: createEmptyBlockout(),
   blockoutWeight: 50,
 };
+
+/** Utility: check if two time ranges overlap on the same day */
+export function timesOverlap(
+  start1: number,
+  end1: number,
+  start2: number,
+  end2: number,
+): boolean {
+  return start1 < end2 && start2 < end1;
+}
+
+/** Utility: check if two course sections have any time conflicts */
+export function sectionsHaveConflict(a: CourseSection, b: CourseSection): boolean {
+  for (const ma of a.meetings) {
+    for (const mb of b.meetings) {
+      const sharedDays = ma.days.filter((d) => mb.days.includes(d));
+      if (sharedDays.length === 0) continue;
+      if (timesOverlap(ma.startTime, ma.endTime, mb.startTime, mb.endTime)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}

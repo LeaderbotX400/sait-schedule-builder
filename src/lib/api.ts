@@ -95,6 +95,42 @@ function bannerHeaders(
   return headers;
 }
 
+// ---- Credential validation ----
+
+/**
+ * Validate credentials by making a test API request.
+ * Returns true if valid, false if invalid.
+ */
+export async function validateCredentials(
+  creds: BannerCredentials,
+): Promise<{ valid: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/ssb/userPreference/fetchUsageTracking`, {
+      headers: bannerHeaders(creds),
+      signal: AbortSignal.timeout(10000), // 10 second timeout
+    });
+
+    if (!res.ok) {
+      return {
+        valid: false,
+        error: `Banner returned ${res.status}. Check that your credentials are current and haven't expired.`,
+      };
+    }
+
+    return { valid: true };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Unknown error during validation";
+    return {
+      valid: false,
+      error:
+        message.includes("timeout") || message.includes("TimeoutError")
+          ? "Request timed out. Check your internet connection and try again."
+          : `Validation failed: ${message}`,
+    };
+  }
+}
+
 // ---- Session initialization ----
 
 /** Step 0 & 3: Fetch usage tracking (required to initialize/finalize session) */
