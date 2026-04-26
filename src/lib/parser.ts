@@ -1,4 +1,5 @@
 import type {
+  ActiveRegistration,
   BannerSection,
   BannerMeetingTime,
   BannerResponse,
@@ -82,6 +83,53 @@ export function parseBannerData(response: BannerResponse): Map<string, CourseSec
     } else {
       grouped.set(course.subjectCourse, [course]);
     }
+  }
+
+  return grouped;
+}
+
+/**
+ * Parse the renderActiveRegistrations response into grouped course sections.
+ * Each course will have exactly one section — the one the student is enrolled in.
+ */
+export function parseActiveRegistrations(
+  registrations: ActiveRegistration[],
+): Map<string, CourseSection[]> {
+  const grouped = new Map<string, CourseSection[]>();
+
+  for (const reg of registrations) {
+    const meetings: MeetingBlock[] = [];
+    for (const mt of reg.meetingTimes) {
+      const block = parseMeetingTime(mt);
+      if (block) meetings.push(block);
+    }
+
+    const primaryFaculty = reg.faculty.find((f) => f.primaryIndicator);
+    const instructor =
+      reg.instructorNames?.[0] ??
+      primaryFaculty?.displayName ??
+      reg.faculty[0]?.displayName ??
+      "TBA";
+
+    const subjectCourse = `${reg.subject}${reg.courseNumber}`;
+
+    const section: CourseSection = {
+      identifier: `${subjectCourse}-${reg.sequenceNumber}`,
+      subjectCourse,
+      title: reg.courseTitle,
+      crn: reg.courseReferenceNumber,
+      instructor,
+      sequenceNumber: reg.sequenceNumber,
+      seatsAvailable: 0,
+      maximumEnrollment: 0,
+      enrollment: 0,
+      meetings,
+      creditHours: reg.creditHour,
+      instructionalMethod: reg.instructionalMethodDescription,
+      isCurrentRegistration: true,
+    };
+
+    grouped.set(subjectCourse, [section]);
   }
 
   return grouped;

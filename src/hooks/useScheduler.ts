@@ -1,9 +1,10 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import type { CourseSection, Schedule, ScheduleRules, BannerResponse, CurrentRegistration } from "../lib/types";
 import { DEFAULT_RULES, sectionsHaveConflict } from "../lib/types";
-import { parseRawJson, parseBannerData } from "../lib/parser";
+import { parseRawJson, parseBannerData, parseActiveRegistrations } from "../lib/parser";
 import { generateSchedules } from "../lib/scheduler";
 import type { BannerCredentials } from "../lib/api";
+import { fetchRegistrations, getTerms } from "../lib/api";
 
 export type GenerationStatus =
   | { kind: "idle" }
@@ -25,6 +26,7 @@ export function useScheduler() {
   const [activeScheduleIndex, setActiveScheduleIndex] = useState(0);
   const [credentials, setCredentials] = useState<BannerCredentials | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [registrationsLoading, setRegistrationsLoading] = useState(false);
   
   // Current registrations tracking
   const [currentRegistrations, setCurrentRegistrations] = useState<Map<string, CurrentRegistration>>(
@@ -34,6 +36,37 @@ export function useScheduler() {
   const [sectionOverrides, setSectionOverrides] = useState<Map<string, string>>(new Map());
   // Track which courses are toggled on/off in current schedule
   const [includedCourses, setIncludedCourses] = useState<Set<string>>(new Set());
+
+  // Auto-fetch registered courses when credentials are first set.
+  // Fetch the term list first so we always use the student's current active term.
+  useEffect(() => {
+    if (!credentials) return;
+    setRegistrationsLoading(true);
+    getTerms(credentials)
+      .then((terms) => {
+        // Skip non-enrollable terms: view-only, non-credit, apprentice, etc.
+        const SKIP = ["(View Only)", "Non-Credit", "Apprentice", "(View only)"];
+        const activeTerm = terms.find(
+          (t) => !SKIP.some((s) => t.description.includes(s)),
+        );
+        const term = activeTerm?.code;
+        if (!term) return [];
+        return fetchRegistrations(credentials, term);
+      })
+      .then((registrations) => {
+        if (registrations.length > 0) {
+          const groups = parseActiveRegistrations(registrations);
+          setCourseGroups(groups);
+          setSelectedCourses(new Set(groups.keys()));
+          initializeCurrentRegistrations(groups);
+        }
+      })
+      .catch(() => {
+        // Silently fall back to blank calendar
+      })
+      .finally(() => setRegistrationsLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [credentials]);
 
   /** Initialize current registrations from loaded courses (simulates Banner enrollment data) */
   const initializeCurrentRegistrations = useCallback((fromCourseGroups: Map<string, CourseSection[]>) => {
@@ -330,6 +363,7 @@ export function useScheduler() {
     setActiveScheduleIndex,
     // New: current registration support
     currentRegistrations,
+    registrationsLoading,
     includedCourses,
     sectionOverrides,
     swapSection,

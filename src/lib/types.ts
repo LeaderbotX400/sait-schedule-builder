@@ -94,6 +94,22 @@ export interface BannerMeetingTime {
   wednesday: boolean;
 }
 
+/** A single registration entry from /ssb/registrationHistory/renderActiveRegistrations */
+export interface ActiveRegistration {
+  subject: string;
+  courseNumber: string;
+  courseTitle: string;
+  courseReferenceNumber: string;
+  sequenceNumber: string;
+  campusDescription: string;
+  creditHour: number | null;
+  instructionalMethodDescription: string;
+  meetingTimes: BannerMeetingTime[];
+  faculty: BannerFaculty[];
+  instructorNames: string[];
+  courseRegistrationStatusDescription: string;
+}
+
 // Processed/internal types
 
 export type DayOfWeek = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";

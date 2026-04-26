@@ -8,6 +8,7 @@ import RulesPanel from "./components/RulesPanel";
 import ScheduleBrowser from "./components/ScheduleBrowser";
 import ScheduleDetail from "./components/ScheduleDetail";
 import CurrentScheduleEditor from "./components/CurrentScheduleEditor";
+import CalendarGrid from "./components/CalendarGrid";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"current" | "browse">("current");
@@ -31,6 +32,7 @@ export default function App() {
     setActiveScheduleIndex,
     // New: current registration support
     currentRegistrations,
+    registrationsLoading,
     includedCourses,
     sectionOverrides,
     swapSection,
@@ -176,18 +178,46 @@ export default function App() {
                 onToggleCourse={toggleCurrentCourse}
               />
             ) : activeTab === "current" && currentRegistrations.size === 0 && !hasData ? (
-              /* Empty state - no data loaded */
-              <div className="flex items-center justify-center h-64">
-                <div className="text-center space-y-2">
-                  <p className="text-lg text-gray-400">
-                    Connect to Banner or import a data.json to get started
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Enter your course codes (e.g. CPRG307) and the app will fetch
-                    all sections automatically
-                  </p>
+              credentials ? (
+                registrationsLoading ? (
+                  /* Fetching registered courses from Banner */
+                  <div className="flex items-center justify-center h-64">
+                    <div className="text-center">
+                      <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
+                      <p className="mt-3 text-sm text-gray-400">Loading your registered courses...</p>
+                    </div>
+                  </div>
+                ) : (
+                  /* Connected but no registered courses found — show blank calendar */
+                  <div className="rounded-xl bg-gray-900 border border-gray-800 p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-lg font-semibold text-white">Your Schedule</h2>
+                      <p className="text-xs text-gray-500">No registered courses found — search above to add courses</p>
+                    </div>
+                    <CalendarGrid
+                      schedule={{
+                        id: 0, qualityScore: 0, warnings: [], courses: [],
+                        daysUsed: [], daysCount: 0, onCampusDays: [], onCampusDaysCount: 0,
+                        onCampusPerDay: {}, earlyMorningPenalty: 0, travelTimePenalty: 0,
+                        isPartial: false, omittedCourses: [], blockoutFitScore: 0,
+                      }}
+                    />
+                  </div>
+                )
+              ) : (
+                /* Not connected */
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center space-y-2">
+                    <p className="text-lg text-gray-400">
+                      Connect to Banner or import a data.json to get started
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Enter your course codes (e.g. CPRG307) and the app will fetch
+                      all sections automatically
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )
             ) : activeTab === "browse" || (activeTab === "current" && currentRegistrations.size === 0 && hasData) ? (
               /* Browse Schedules Tab */
               generationStatus.kind === "generating" ? (

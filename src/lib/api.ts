@@ -1,4 +1,4 @@
-import type { BannerResponse } from "./types";
+import type { BannerResponse, ActiveRegistration } from "./types";
 
 const API_BASE = "/api/banner";
 const BANNER_ORIGIN =
@@ -300,6 +300,21 @@ export async function getTerms(
   }
 
   return res.json();
+}
+
+/** Fetch the student's actively registered sections for a given term */
+export async function fetchRegistrations(
+  creds: BannerCredentials,
+  term: string,
+): Promise<ActiveRegistration[]> {
+  const params = new URLSearchParams({ term });
+  const res = await fetch(
+    `${API_BASE}/ssb/registrationHistory/renderActiveRegistrations?${params}`,
+    { headers: bannerHeaders(creds) },
+  );
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = await res.json();
+  return (json?.data?.registrations as ActiveRegistration[]) ?? [];
 }
 
 /** Look up subject codes via autocomplete */

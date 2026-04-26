@@ -65,15 +65,15 @@ function buildWarnedCourseIds(warnings: ScheduleWarning[]): Set<string> {
 export default function CalendarGrid({ schedule, blockout }: Props) {
   const expanded = getExpandedMeetings(schedule);
 
-  // Determine time range
+  // Determine time range; fall back to a sensible default when no courses are loaded
   let minTime = 2400;
   let maxTime = 0;
   for (const { meeting } of expanded) {
     if (meeting.startTime < minTime) minTime = meeting.startTime;
     if (meeting.endTime > maxTime) maxTime = meeting.endTime;
   }
-  const startHour = Math.floor(minTime / 100);
-  const endHour = Math.ceil(maxTime / 100);
+  const startHour = expanded.length > 0 ? Math.floor(minTime / 100) : 8;
+  const endHour = expanded.length > 0 ? Math.ceil(maxTime / 100) : 21;
   const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
   const gridStartMinutes = startHour * 60;
   const totalHeight = hours.length * HOUR_HEIGHT;
