@@ -13,7 +13,7 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.82.0",
+    "@crxjs/vite-plugin": "^2.4.0",
     "@tailwindcss/vite": "^4.1.3",
     "@types/chrome": "^0.1.38",
     "@types/react": "^19.1.0",

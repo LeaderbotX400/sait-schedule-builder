@@ -19,5 +19,5 @@
     "noUncheckedSideEffectImports": true,
     "erasableSyntaxOnly": true
   },
-  "include": ["src"]
+  "include": ["src", "extension", "manifest.config.ts", "vite.config.ts"]
 }
