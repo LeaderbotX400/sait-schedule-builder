@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const PREFIX = "sait-sb:";
 
@@ -60,7 +60,7 @@ export function usePersistedStringSet(
   defaultValue: Set<string> = new Set(),
 ): [Set<string>, (next: Set<string> | ((prev: Set<string>) => Set<string>)) => void] {
   const [arr, setArr] = usePersistedState<string[]>(key, [...defaultValue]);
-  const set = new Set(arr);
+  const set = useMemo(() => new Set(arr), [arr]);
   const update = useCallback(
     (next: Set<string> | ((prev: Set<string>) => Set<string>)) => {
       setArr((prev) => {
