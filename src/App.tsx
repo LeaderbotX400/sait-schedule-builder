@@ -3,6 +3,11 @@ import CourseSearch from "./components/CourseSearch";
 import CourseSelector from "./components/CourseSelector";
 import CurrentScheduleEditor from "./components/CurrentScheduleEditor";
 import HeaderInput from "./components/HeaderInput";
+import ConnectionStatus from "./components/ConnectionStatus";
+import ScheduleStrip from "./components/ScheduleStrip";
+import Popover from "./components/Popover";
+import { describeTerm } from "./lib/terms";
+import { downloadICal } from "./lib/ical";
 import RulesPanel from "./components/RulesPanel";
 import ScheduleDetail from "./components/ScheduleDetail";
 import ShapeCalendar from "./components/ShapeCalendar";
@@ -10,13 +15,6 @@ import { useScheduler } from "./hooks/useScheduler";
 import type { BlockoutGrid } from "./lib/types";
 
 type PanelId = "courses";
-
-function scoreBadgeColor(score: number): string {
-  if (score >= 80) return "bg-emerald-600";
-  if (score >= 60) return "bg-yellow-600";
-  if (score >= 40) return "bg-orange-600";
-  return "bg-red-600";
-}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"current" | "browse">("current");
@@ -32,6 +30,7 @@ export default function App() {
     activeSchedule,
     credentials,
     term,
+    setTerm,
     loadBannerResponse,
     clearCourses,
     toggleCourse,
@@ -48,7 +47,6 @@ export default function App() {
   } = useScheduler();
 
   const hasData = courseGroups.size > 0;
-  const hasSchedules = schedules.length > 0;
 
   const togglePanel = (panel: PanelId) =>
     setActivePanel((p) => (p === panel ? null : panel));
@@ -62,55 +60,74 @@ export default function App() {
     <div className="min-h-screen bg-gray-950 text-gray-100">
       {/* ── Header ── */}
       <header className="border-b border-gray-800/80 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-20">
-        <div className="max-w-screen-2xl mx-auto px-4 py-3 flex items-center gap-4">
-          {/* Title */}
-          <div className="shrink-0">
-            <h1 className="text-lg font-bold bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent">
-              SAIT Schedule Builder
-            </h1>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Build your ideal class schedule in minutes
-            </p>
-          </div>
+        <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 min-h-12 flex flex-wrap items-center gap-x-3 gap-y-1.5 py-1.5">
+          <h1 className="text-sm font-semibold text-gray-100 shrink-0 tracking-tight">
+            SAIT <span className="hidden sm:inline">Schedule </span>Builder
+          </h1>
 
-          {/* Nav tabs */}
-          <div className="flex-1 flex justify-center">
-            <nav className="flex items-center gap-0.5 bg-gray-800/60 rounded-lg p-1 border border-gray-700/40">
-              <button
-                onClick={() => togglePanel("courses")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  activePanel === "courses"
-                    ? "bg-gray-700 text-white shadow-sm"
-                    : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
-                }`}
-              >
-                <span
-                  className={`h-1.5 w-1.5 rounded-full shrink-0 ${credentials ? "bg-emerald-400" : "bg-gray-500"}`}
-                />
-                Courses
-                {courseGroups.size > 0 && (
-                  <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                      activePanel === "courses"
-                        ? "bg-blue-500 text-white"
-                        : "bg-gray-700 text-gray-300"
-                    }`}
-                  >
-                    {courseGroups.size}
-                  </span>
-                )}
-              </button>
-            </nav>
-          </div>
+          <button
+            onClick={() => togglePanel("courses")}
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+              activePanel === "courses"
+                ? "bg-gray-800 text-white"
+                : "text-gray-400 hover:text-gray-200 hover:bg-gray-800/60"
+            }`}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full shrink-0 ${credentials ? "bg-emerald-400" : "bg-gray-500"}`}
+            />
+            Courses
+            {courseGroups.size > 0 && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-300">
+                {courseGroups.size}
+              </span>
+            )}
+          </button>
 
-          {/* Actions */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex-1 min-w-0" />
+
+          <div className="flex flex-wrap items-center gap-2 ml-auto">
+            {hasData && (
+              <div className="lg:hidden">
+                <Popover
+                  align="right"
+                  widthClass="w-72"
+                  trigger={({ onClick, "aria-expanded": expanded }) => (
+                    <button
+                      onClick={onClick}
+                      aria-expanded={expanded}
+                      className="rounded-md border border-gray-700/80 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+                    >
+                      Rules
+                    </button>
+                  )}
+                >
+                  <RulesPanel rules={rules} onChange={setRules} />
+                </Popover>
+              </div>
+            )}
+            {credentials && (
+              <ConnectionStatus
+                onCredentials={setCredentials}
+                termLabel={describeTerm(term)}
+                loading={registrationsLoading}
+              />
+            )}
             {hasData && (
               <button
                 onClick={clearCourses}
-                className="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+                className="rounded-md border border-gray-700/80 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
               >
-                Clear All
+                Clear
+              </button>
+            )}
+            {activeSchedule && (
+              <button
+                onClick={() => downloadICal(activeSchedule)}
+                title="Export this schedule as .ics"
+                className="rounded-md border border-gray-700/80 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+              >
+                <span className="hidden sm:inline">Export </span>.ics
               </button>
             )}
             {hasData && (
@@ -120,66 +137,41 @@ export default function App() {
                   generationStatus.kind === "generating" ||
                   selectedCourses.size === 0
                 }
-                className={`rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all ${
-                  selectedCourses.size > 0 &&
-                  generationStatus.kind !== "generating"
-                    ? "ring-1 ring-blue-400/40 shadow-lg shadow-blue-600/20"
-                    : ""
-                }`}
+                className="rounded-md bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {generationStatus.kind === "generating"
-                  ? "Generating..."
-                  : "Generate Schedules"}
+                  ? "Generating…"
+                  : "Generate"}
               </button>
             )}
           </div>
         </div>
       </header>
 
-      {/* ── Expandable panel ── */}
-      {activePanel && (
-        <div className="border-b border-gray-800/80 bg-gray-900/50">
-          <div className="max-w-screen-2xl mx-auto px-4 py-5">
-            {/* Courses panel */}
+      {/* ── Expandable panel — only shown once connected ── */}
+      {activePanel && credentials && (
+        <div className="sticky top-12 z-10 border-b border-gray-800/80 bg-gray-900/95 backdrop-blur-sm">
+          <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 py-3">
             {activePanel === "courses" && (
-              <div className="flex gap-8">
-                {/* Banner connection — always visible */}
-                <div className="w-64 shrink-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-3">
-                    Banner Connection
-                  </p>
-                  <HeaderInput
-                    onCredentials={setCredentials}
-                    isConnected={!!credentials}
+              <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+                <div className="sm:w-72 sm:shrink-0">
+                  <CourseSearch
+                    credentials={credentials}
+                    onResults={loadBannerResponse}
+                    term={term}
+                    onTermChange={setTerm}
                   />
                 </div>
 
-                {/* Course search — when connected */}
-                {credentials && (
-                  <div className="w-80 shrink-0 border-l border-gray-800/60 pl-8">
-                    <CourseSearch
-                      credentials={credentials}
-                      onResults={loadBannerResponse}
-                    />
-                  </div>
-                )}
-
-                {/* Course selector — right side */}
-                <div className="flex-1 min-w-0 border-l border-gray-800/60 pl-8">
-                  {hasData ? (
+                {hasData && (
+                  <div className="flex-1 min-w-0 sm:border-l border-gray-800/60 sm:pl-6">
                     <CourseSelector
                       courseGroups={courseGroups}
                       selectedCourses={selectedCourses}
                       onToggle={toggleCourse}
                     />
-                  ) : (
-                    <p className="text-sm text-gray-600 mt-1">
-                      {credentials
-                        ? "Search for courses using the form to get started."
-                        : "Connect to Banner to search for courses."}
-                    </p>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -187,68 +179,31 @@ export default function App() {
       )}
 
       {/* ── Main content ── */}
-      <div className="max-w-screen-2xl mx-auto px-4 py-5">
+      <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 py-4">
         {/* Schedule navigation strip */}
-        {hasSchedules && (
-          <div className="flex items-center gap-3 mb-5 bg-gray-900/60 rounded-xl border border-gray-800/80 px-4 py-2.5">
-            <button
-              onClick={() =>
-                setActiveScheduleIndex(Math.max(0, activeScheduleIndex - 1))
-              }
-              disabled={activeScheduleIndex === 0}
-              className="rounded-md bg-gray-800 border border-gray-700/60 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 disabled:opacity-30 transition-colors shrink-0"
-            >
-              ← Prev
-            </button>
-            <div className="flex-1 overflow-x-auto flex gap-1.5 py-0.5">
-              {schedules.map((s, i) => (
-                <button
-                  key={s.id}
-                  onClick={() => setActiveScheduleIndex(i)}
-                  title={`Schedule #${s.id} · Score ${s.qualityScore}${s.warnings.length > 0 ? ` · ${s.warnings.length} warning${s.warnings.length !== 1 ? "s" : ""}` : ""}`}
-                  className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-bold transition-all ${
-                    i === activeScheduleIndex
-                      ? `${scoreBadgeColor(s.qualityScore)} text-white ring-2 ring-white/20 scale-110`
-                      : `${scoreBadgeColor(s.qualityScore)} text-white/50 hover:text-white hover:scale-105`
-                  }`}
-                >
-                  {s.qualityScore}
-                </button>
-              ))}
-            </div>
-            <span className="text-xs text-gray-500 shrink-0 tabular-nums">
-              {activeScheduleIndex + 1} / {schedules.length}
-            </span>
-            <button
-              onClick={() =>
-                setActiveScheduleIndex(
-                  Math.min(schedules.length - 1, activeScheduleIndex + 1),
-                )
-              }
-              disabled={activeScheduleIndex === schedules.length - 1}
-              className="rounded-md bg-gray-800 border border-gray-700/60 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 disabled:opacity-30 transition-colors shrink-0"
-            >
-              Next →
-            </button>
-          </div>
-        )}
+        <ScheduleStrip
+          schedules={schedules}
+          activeIndex={activeScheduleIndex}
+          onSelect={setActiveScheduleIndex}
+        />
 
         {/* Current / Browse tabs */}
         {currentRegistrations.size > 0 && (
-          <div className="flex gap-3 mb-4 border-b border-gray-800">
+          <div className="flex gap-2 sm:gap-3 mb-4 border-b border-gray-800 overflow-x-auto">
             <button
               onClick={() => setActiveTab("current")}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
+              className={`px-3 sm:px-4 py-2 text-sm font-medium transition-colors shrink-0 ${
                 activeTab === "current"
                   ? "text-white border-b-2 border-blue-500"
                   : "text-gray-400 hover:text-gray-300"
               }`}
             >
-              Current Schedule
+              <span className="hidden sm:inline">Current Schedule</span>
+              <span className="sm:hidden">Current</span>
             </button>
             <button
               onClick={() => setActiveTab("browse")}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
+              className={`px-3 sm:px-4 py-2 text-sm font-medium transition-colors shrink-0 ${
                 activeTab === "browse"
                   ? "text-white border-b-2 border-blue-500"
                   : "text-gray-400 hover:text-gray-300"
@@ -263,8 +218,8 @@ export default function App() {
         {hasData ? (
           <div className="flex gap-6 items-start">
             {/* ── Rules sidebar ── */}
-            <div className="w-56 shrink-0">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-3">
+            <div className="hidden lg:block w-52 shrink-0">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2">
                 Rules
               </p>
               <RulesPanel rules={rules} onChange={setRules} />
@@ -351,15 +306,19 @@ export default function App() {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center py-6">
-                      <p className="text-sm text-gray-500">
-                        {selectedCourses.size} course
-                        {selectedCourses.size !== 1 ? "s" : ""} selected — hit{" "}
-                        <span className="text-blue-400 font-medium">
-                          Generate Schedules
-                        </span>{" "}
-                        when ready.
+                    <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+                      <p className="text-sm text-gray-400">
+                        {selectedCourses.size === 0
+                          ? "Select at least one course to generate."
+                          : `${selectedCourses.size} course${selectedCourses.size !== 1 ? "s" : ""} ready.`}
                       </p>
+                      <button
+                        onClick={generate}
+                        disabled={selectedCourses.size === 0}
+                        className="rounded-md bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Generate Schedules
+                      </button>
                     </div>
                   )}
                 </div>
@@ -384,24 +343,12 @@ export default function App() {
             </div>
           )
         ) : (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center space-y-3">
-              <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-gray-800 border border-gray-700/80 mb-1">
-                <span className="text-2xl">🎓</span>
-              </div>
-              <p className="text-base font-semibold text-gray-300">
-                Get started
-              </p>
-              <p className="text-sm text-gray-500 max-w-xs">
-                Open the{" "}
-                <button
-                  onClick={() => setActivePanel("courses")}
-                  className="text-blue-400 hover:text-blue-300"
-                >
-                  Courses
-                </button>{" "}
-                tab above to connect to Banner and search for courses.
-              </p>
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="w-full max-w-sm rounded-xl border border-gray-800 bg-gray-900/60 p-4 sm:p-6 shadow-lg">
+              <HeaderInput
+                onCredentials={setCredentials}
+                isConnected={!!credentials}
+              />
             </div>
           </div>
         )}

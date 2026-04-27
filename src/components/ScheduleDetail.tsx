@@ -89,11 +89,7 @@ export default function ScheduleDetail({ schedule, credentials, term, registered
     setRegisterState({ kind: "done", result });
   }, [credentials, term, newCrns]);
 
-  const handleExportICal = () => {
-    const start = new Date(2026, 4, 4);
-    const end = new Date(2026, 7, 14);
-    downloadICal(schedule, start, end);
-  };
+  const handleExportICal = () => downloadICal(schedule);
 
   const dedupedWarnings = useMemo(
     () => dedupeBlockoutWarnings(schedule.warnings),

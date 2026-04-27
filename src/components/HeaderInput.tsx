@@ -1,6 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { validateCredentials, type BannerCredentials } from "../lib/api";
-import { triggerLogin, forceReauth, getCredentialsFromExtension } from "../lib/extension";
+import {
+  triggerLogin,
+  forceReauth,
+  getCredentialsFromExtension,
+  waitForExtension,
+} from "../lib/extension";
 
 interface Props {
   onCredentials: (creds: BannerCredentials | null) => void;
@@ -10,15 +15,19 @@ interface Props {
 export default function HeaderInput({ onCredentials, isConnected }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [extensionDetected, setExtensionDetected] = useState<boolean | null>(null);
   const [sessionAge, setSessionAge] = useState(0);
   const connectedAtRef = useRef<number | null>(null);
 
-  // Auto-attempt connection on mount: if the user already has a Banner session
-  // open, we can pick up credentials silently.
+  // Detect the extension and silently pick up an existing session.
   useEffect(() => {
     if (isConnected) return;
     let cancelled = false;
     (async () => {
+      const ok = await waitForExtension(2000);
+      if (cancelled) return;
+      setExtensionDetected(ok);
+      if (!ok) return;
       const result = await getCredentialsFromExtension();
       if (cancelled || !result.ok || !result.credentials) return;
       const validation = await validateCredentials(result.credentials);
@@ -134,13 +143,20 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-medium text-gray-300">Connect to Banner</h3>
-      <p className="text-xs text-gray-500">
-        A SAIT login window will open. Complete login there and it will close automatically.
-      </p>
+      {extensionDetected === false ? (
+        <p className="text-xs text-yellow-400">
+          Schedule Builder extension not detected. Install/load it from{" "}
+          <code className="text-yellow-300">chrome://extensions</code>, then reload this page.
+        </p>
+      ) : (
+        <p className="text-xs text-gray-500">
+          A SAIT login window will open. Complete login there and it will close automatically.
+        </p>
+      )}
 
       <button
         onClick={() => handleLogin("login")}
-        disabled={loading}
+        disabled={loading || extensionDetected === false}
         className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       >
         {loading ? (

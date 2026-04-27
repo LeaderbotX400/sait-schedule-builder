@@ -88,10 +88,15 @@ export function generateICal(
   return lines.join("\r\n");
 }
 
+// Hardcoded Spring 2026 semester window. Used by both the header and detail
+// export buttons; refactor when we add multi-term iCal export.
+export const SEMESTER_START = new Date(2026, 4, 4);
+export const SEMESTER_END = new Date(2026, 7, 14);
+
 export function downloadICal(
   schedule: Schedule,
-  semesterStart: Date,
-  semesterEnd: Date,
+  semesterStart: Date = SEMESTER_START,
+  semesterEnd: Date = SEMESTER_END,
 ): void {
   const content = generateICal(schedule, semesterStart, semesterEnd);
   const blob = new Blob([content], { type: "text/calendar;charset=utf-8" });
