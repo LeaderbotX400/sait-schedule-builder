@@ -97,7 +97,15 @@ export function parseActiveRegistrations(
 ): Map<string, CourseSection[]> {
   const grouped = new Map<string, CourseSection[]>();
 
-  for (const reg of registrations) {
+  // Only include actively enrolled registrations. "Registered-Sponsored" entries
+  // are admin/sponsor placements that the student did not self-enroll in.
+  const ACTIVE_STATUSES = ["Web Registered", "Registered", "Web Add"];
+  const activeRegistrations = registrations.filter((r) =>
+    ACTIVE_STATUSES.some((s) => r.courseRegistrationStatusDescription.includes(s)) &&
+    !r.courseRegistrationStatusDescription.includes("Sponsored"),
+  );
+
+  for (const reg of activeRegistrations) {
     const meetings: MeetingBlock[] = [];
     for (const mt of reg.meetingTimes) {
       const block = parseMeetingTime(mt);

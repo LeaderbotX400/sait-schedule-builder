@@ -86,121 +86,112 @@ export default function CurrentScheduleEditor({
       {conflicts.size > 0 && (
         <div className="rounded-lg bg-red-900/20 border border-red-800/50 px-3 py-2">
           <p className="text-xs text-red-400">
-            ⚠️ {conflicts.size} course{conflicts.size !== 1 ? "s" : ""} has scheduling conflict{conflicts.size !== 1 ? "s" : ""}
+            &#x26A0;&#xFE0F; {conflicts.size} course{conflicts.size !== 1 ? "s" : ""} has scheduling conflict{conflicts.size !== 1 ? "s" : ""}
           </p>
         </div>
       )}
 
-      {/* Course list */}
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium text-gray-300">Enrolled Courses</h3>
-        {currentRegistrations.size === 0 ? (
-          <div className="text-xs text-gray-500 py-4 text-center">
-            No courses loaded yet
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {Array.from(currentRegistrations.entries()).map(([subjectCourse, reg]) => {
-              const currentSection = sectionOverrides.has(subjectCourse)
-                ? courseGroups.get(subjectCourse)?.find((s) => s.identifier === sectionOverrides.get(subjectCourse))
-                : reg.currentSection;
-
-              const isIncluded = includedCourses.has(subjectCourse);
-              const courseConflicts = conflicts.get(subjectCourse);
-              const hasConflict = !!courseConflicts && courseConflicts.length > 0;
-
-              if (!currentSection) return null;
-
-              return (
-                <div
-                  key={subjectCourse}
-                  className={`rounded-lg border p-3 transition-colors ${
-                    hasConflict
-                      ? "bg-red-900/20 border-red-800/50"
-                      : isIncluded
-                        ? "bg-gray-800 border-gray-700 hover:border-gray-600"
-                        : "bg-gray-900/50 border-gray-700 opacity-60"
-                  }`}
-                >
-                  {/* Course header */}
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-semibold text-white">
-                          {subjectCourse}
-                        </h4>
-                        <span className="text-xs bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded">
-                          {currentSection.sequenceNumber}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-0.5">{currentSection.title}</p>
-                    </div>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isIncluded}
-                        onChange={() => onToggleCourse(subjectCourse)}
-                        className="w-4 h-4 cursor-pointer"
-                      />
-                      <span className="text-xs text-gray-400">Include</span>
-                    </label>
-                  </div>
-
-                  {/* Meeting info */}
-                  <div className="text-xs text-gray-400 mb-2">
-                    {formatMeetingTime(currentSection)}
-                  </div>
-
-                  {/* Conflict warning */}
-                  {hasConflict && (
-                    <div className="mb-2 text-xs text-red-400 bg-red-900/20 rounded px-2 py-1">
-                      ❌ Conflicts with: {courseConflicts.map((c) => c.subjectCourse).join(", ")}
-                    </div>
-                  )}
-
-                  {/* Section selector */}
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={sectionOverrides.get(subjectCourse) || currentSection.identifier}
-                      onChange={(e) => handleSwapSection(subjectCourse, e.target.value)}
-                      className="flex-1 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300 hover:border-gray-600 focus:border-blue-500 focus:outline-none"
-                    >
-                      {courseGroups.get(subjectCourse)?.map((section) => (
-                        <option key={section.identifier} value={section.identifier}>
-                          Section {section.sequenceNumber} - {formatMeetingTime(section)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+      {/* Calendar */}
+      <div className="rounded-lg bg-gray-800/50 border border-gray-700 p-3">
+        <CalendarGrid
+          schedule={{
+            id: 0,
+            qualityScore: 0,
+            warnings: [],
+            courses: currentScheduleCourses,
+            daysUsed: [],
+            daysCount: 0,
+            onCampusDays: [],
+            onCampusDaysCount: 0,
+            onCampusPerDay: {},
+            earlyMorningPenalty: 0,
+            travelTimePenalty: 0,
+            isPartial: false,
+            omittedCourses: [],
+            blockoutFitScore: 0,
+          }}
+        />
       </div>
 
-      {/* Calendar preview */}
-      {currentScheduleCourses.length > 0 && (
-        <div className="rounded-lg bg-gray-800/50 border border-gray-700 p-3">
-          <h3 className="text-sm font-medium text-gray-300 mb-3">Calendar Preview</h3>
-          <CalendarGrid
-            schedule={{
-              id: 0,
-              qualityScore: 0,
-              warnings: [],
-              courses: currentScheduleCourses,
-              daysUsed: [],
-              daysCount: 0,
-              onCampusDays: [],
-              onCampusDaysCount: 0,
-              onCampusPerDay: {},
-              earlyMorningPenalty: 0,
-              travelTimePenalty: 0,
-              isPartial: false,
-              omittedCourses: [],
-              blockoutFitScore: 0,
-            }}
-          />
+      {/* Course grid */}
+      {currentRegistrations.size === 0 ? (
+        <div className="text-xs text-gray-500 py-4 text-center">
+          No courses loaded yet
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+          {Array.from(currentRegistrations.entries()).map(([subjectCourse, reg]) => {
+            const currentSection = sectionOverrides.has(subjectCourse)
+              ? courseGroups.get(subjectCourse)?.find((s) => s.identifier === sectionOverrides.get(subjectCourse))
+              : reg.currentSection;
+
+            const isIncluded = includedCourses.has(subjectCourse);
+            const courseConflicts = conflicts.get(subjectCourse);
+            const hasConflict = !!courseConflicts && courseConflicts.length > 0;
+
+            if (!currentSection) return null;
+
+            return (
+              <div
+                key={subjectCourse}
+                className={`rounded-lg border p-3 transition-colors ${
+                  hasConflict
+                    ? "bg-red-900/20 border-red-800/50"
+                    : isIncluded
+                      ? "bg-gray-800 border-gray-700 hover:border-gray-600"
+                      : "bg-gray-900/50 border-gray-700 opacity-60"
+                }`}
+              >
+                {/* Course header */}
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h4 className="text-sm font-semibold text-white">
+                        {subjectCourse}
+                      </h4>
+                      <span className="text-xs bg-blue-900/50 text-blue-300 px-1.5 py-0.5 rounded">
+                        {currentSection.sequenceNumber}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5 truncate">{currentSection.title}</p>
+                  </div>
+                  <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={isIncluded}
+                      onChange={() => onToggleCourse(subjectCourse)}
+                      className="w-4 h-4 cursor-pointer"
+                    />
+                  </label>
+                </div>
+
+                {/* Meeting info */}
+                <div className="text-xs text-gray-400 mb-2">
+                  {formatMeetingTime(currentSection)}
+                </div>
+
+                {/* Conflict warning */}
+                {hasConflict && (
+                  <div className="mb-2 text-xs text-red-400 bg-red-900/20 rounded px-2 py-1">
+                    &#x274C; Conflicts with: {courseConflicts.map((c) => c.subjectCourse).join(", ")}
+                  </div>
+                )}
+
+                {/* Section selector */}
+                <select
+                  value={sectionOverrides.get(subjectCourse) || currentSection.identifier}
+                  onChange={(e) => handleSwapSection(subjectCourse, e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300 hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                >
+                  {courseGroups.get(subjectCourse)?.map((section) => (
+                    <option key={section.identifier} value={section.identifier}>
+                      Section {section.sequenceNumber} - {formatMeetingTime(section)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

@@ -143,11 +143,9 @@ export function useScheduler() {
     setSchedules([]);
     setActiveScheduleIndex(0);
     setGenerationStatus({ kind: "idle" });
-    // Initialize current registrations from loaded data
-    initializeCurrentRegistrations(newGroups);
 
     return response.data.length;
-  }, [initializeCurrentRegistrations]);
+  }, []);
 
   const clearCourses = useCallback(() => {
     setCourseGroups(new Map());
