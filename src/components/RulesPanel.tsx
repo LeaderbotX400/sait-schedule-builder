@@ -97,23 +97,23 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
   // ── Shared control renderers (used in both layouts) ──
 
   const timeWindowControls = (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-2 gap-2">
       <div>
-        <label className="block text-xs text-gray-400 mb-1">Earliest start</label>
+        <label className="block text-[11px] text-gray-500 mb-0.5">Start</label>
         <select
           value={rules.earliestStart}
           onChange={(e) => update("earliestStart", e.target.value)}
-          className="w-full rounded-lg bg-gray-800 border border-gray-700 px-2 py-2 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full rounded-md bg-gray-800 border border-gray-700 px-1.5 py-1 text-xs text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {TIME_OPTIONS.map((t) => <option key={t} value={t}>{formatTime(t)}</option>)}
         </select>
       </div>
       <div>
-        <label className="block text-xs text-gray-400 mb-1">Latest end</label>
+        <label className="block text-[11px] text-gray-500 mb-0.5">End</label>
         <select
           value={rules.latestEnd}
           onChange={(e) => update("latestEnd", e.target.value)}
-          className="w-full rounded-lg bg-gray-800 border border-gray-700 px-2 py-2 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full rounded-md bg-gray-800 border border-gray-700 px-1.5 py-1 text-xs text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {TIME_OPTIONS.map((t) => <option key={t} value={t}>{formatTime(t)}</option>)}
         </select>
@@ -142,7 +142,7 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
   const campusControls = (
     <div className="space-y-3">
       <SliderRow
-        label="Max days on campus per week"
+        label="Max campus days/wk"
         value={String(rules.maxOnCampusDays)}
       >
         <input
@@ -153,8 +153,8 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
         />
       </SliderRow>
       <SliderRow
-        label="Min gap when switching campus ↔ online"
-        value={rules.minTravelGapMinutes === 0 ? "Off" : `${rules.minTravelGapMinutes}min`}
+        label="Travel gap (campus ↔ online)"
+        value={rules.minTravelGapMinutes === 0 ? "Off" : `${rules.minTravelGapMinutes}m`}
       >
         <input
           type="range" min={0} max={120} step={15}
@@ -170,7 +170,7 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
           onChange={(e) => update("preferClusteredCampusDays", e.target.checked)}
           className="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
         />
-        Prefer clustered on-campus days
+        Cluster campus days
       </label>
     </div>
   );
@@ -178,8 +178,8 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
   const preferencesControls = (
     <div className="space-y-3">
       <SliderRow
-        label="Max gap between classes"
-        value={rules.maxGapBetweenClasses === 0 ? "No limit" : `${rules.maxGapBetweenClasses}min`}
+        label="Max gap between"
+        value={rules.maxGapBetweenClasses === 0 ? "off" : `${rules.maxGapBetweenClasses}m`}
       >
         <input
           type="range" min={0} max={240} step={30}
@@ -195,7 +195,7 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
           onChange={(e) => update("allowPartialSchedules", e.target.checked)}
           className="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
         />
-        Allow partial schedules
+        Allow partial
       </label>
       <label className="flex items-center gap-2.5 text-sm text-gray-300 cursor-pointer rounded-md py-1 hover:text-white transition-colors">
         <input
@@ -204,7 +204,7 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
           onChange={(e) => update("requireOpenSeats", e.target.checked)}
           className="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
         />
-        Only show sections with open seats
+        Open seats only
       </label>
     </div>
   );

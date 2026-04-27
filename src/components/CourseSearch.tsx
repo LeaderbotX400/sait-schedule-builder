@@ -169,12 +169,11 @@ export default function CourseSearch({ credentials, onResults }: Props) {
   };
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-sm font-medium text-gray-300">Search Courses</h3>
-
-      {/* Term selector */}
-      <div>
-        <label className="block text-xs text-gray-400 mb-1">Term</label>
+    <div className="space-y-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+          Search
+        </h3>
         <select
           value={term}
           onChange={(e) => {
@@ -183,7 +182,7 @@ export default function CourseSearch({ credentials, onResults }: Props) {
             setSuggestions([]);
             setShowSuggestions(false);
           }}
-          className="w-full rounded-lg bg-gray-800 border border-gray-700 px-2 py-1.5 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="rounded-md bg-gray-800 border border-gray-700 px-2 py-0.5 text-xs text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="202540">Spring 2026</option>
           <option value="202530">Winter 2026</option>
@@ -192,9 +191,7 @@ export default function CourseSearch({ credentials, onResults }: Props) {
         </select>
       </div>
 
-      {/* Tag input with autocomplete */}
       <div>
-        <label className="block text-xs text-gray-400 mb-1">Course codes</label>
         <div className="relative">
           {/* Tag chips + text input */}
           <div
@@ -269,9 +266,6 @@ export default function CourseSearch({ credentials, onResults }: Props) {
             </ul>
           )}
         </div>
-        <p className="mt-1 text-xs text-gray-600">
-          Type to search, press Space/Enter/comma to add, Backspace to remove
-        </p>
       </div>
 
       {error && (

@@ -18,7 +18,28 @@ export default defineManifest({
       js: ["extension/content.ts"],
       run_at: "document_idle",
     },
+    {
+      matches: [
+        "http://localhost/*",
+        "http://localhost:*/*",
+        "http://127.0.0.1/*",
+        "http://127.0.0.1:*/*",
+        "https://*.sait-scheduler.pages.dev/*",
+      ],
+      js: ["extension/inject.ts"],
+      run_at: "document_start",
+      all_frames: false,
+    },
   ],
+  externally_connectable: {
+    matches: [
+      "http://localhost/*",
+      "http://localhost:*/*",
+      "http://127.0.0.1/*",
+      "http://127.0.0.1:*/*",
+      "https://*.sait-scheduler.pages.dev/*",
+    ],
+  },
   action: {
     default_title: "Open SAIT Schedule Builder",
   },

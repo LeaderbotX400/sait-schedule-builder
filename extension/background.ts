@@ -31,16 +31,27 @@ chrome.action.onClicked.addListener(async () => {
   await chrome.tabs.create({ url });
 });
 
-// Messages from the extension's own pages and content scripts.
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!message || typeof message !== "object") return false;
+type SendResponse = (response?: unknown) => void;
 
-  switch (message.type) {
-    case "SYNC_TOKEN_FOUND":
-      cachedSyncToken = String(message.token ?? "");
-      cachedUniqueSessionId = String(message.uniqueSessionId ?? "");
+function routeMessage(
+  message: unknown,
+  sendResponse: SendResponse,
+): boolean {
+  if (!message || typeof message !== "object") return false;
+  const m = message as { type?: string };
+
+  switch (m.type) {
+    case "PING":
+      sendResponse({ ok: true, version: chrome.runtime.getManifest().version });
+      return false;
+
+    case "SYNC_TOKEN_FOUND": {
+      const msg = m as { token?: unknown; uniqueSessionId?: unknown };
+      cachedSyncToken = String(msg.token ?? "");
+      cachedUniqueSessionId = String(msg.uniqueSessionId ?? "");
       sendResponse({ ok: true });
       return false;
+    }
 
     case "GET_CREDENTIALS":
       handleGetCredentials().then(sendResponse);
@@ -50,10 +61,67 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     case "FORCE_REAUTH":
       handleTriggerLogin().then(sendResponse);
       return true;
-  }
 
+    case "BANNER_FETCH":
+      handleBannerFetch(message as BannerFetchRequest).then(sendResponse);
+      return true;
+  }
   return false;
-});
+}
+
+// In-extension (same origin) messages.
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) =>
+  routeMessage(message, sendResponse),
+);
+
+// External messages from the web app (localhost / prod host).
+chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) =>
+  routeMessage(message, sendResponse),
+);
+
+interface BannerFetchRequest {
+  type: "BANNER_FETCH";
+  url: string;
+  init?: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+  };
+}
+
+interface BannerFetchResponse {
+  ok: boolean;
+  status: number;
+  contentType: string;
+  body: string;
+  error?: string;
+}
+
+async function handleBannerFetch(req: BannerFetchRequest): Promise<BannerFetchResponse> {
+  try {
+    const res = await fetch(req.url, {
+      method: req.init?.method ?? "GET",
+      headers: req.init?.headers,
+      body: req.init?.body,
+      credentials: "include",
+    });
+    const body = await res.text();
+    return {
+      ok: res.ok,
+      status: res.status,
+      contentType: res.headers.get("content-type") ?? "",
+      body,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      status: 0,
+      contentType: "",
+      body: "",
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
 
 async function handleGetCredentials(): Promise<CredentialResult> {
   try {
