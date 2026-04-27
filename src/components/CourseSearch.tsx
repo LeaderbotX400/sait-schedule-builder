@@ -172,7 +172,7 @@ export default function CourseSearch({ credentials, onResults, term, onTermChang
 
   return (
     <div className="space-y-2">
-      <div className="flex items-baseline justify-between gap-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
           Search
         </h3>

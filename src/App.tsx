@@ -60,9 +60,9 @@ export default function App() {
     <div className="min-h-screen bg-gray-950 text-gray-100">
       {/* ── Header ── */}
       <header className="border-b border-gray-800/80 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-20">
-        <div className="max-w-screen-2xl mx-auto px-4 h-12 flex items-center gap-4">
+        <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 min-h-12 flex flex-wrap items-center gap-x-3 gap-y-1.5 py-1.5">
           <h1 className="text-sm font-semibold text-gray-100 shrink-0 tracking-tight">
-            SAIT Schedule Builder
+            SAIT <span className="hidden sm:inline">Schedule </span>Builder
           </h1>
 
           <button
@@ -84,9 +84,9 @@ export default function App() {
             )}
           </button>
 
-          <div className="flex-1" />
+          <div className="flex-1 min-w-0" />
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 ml-auto">
             {hasData && (
               <div className="lg:hidden">
                 <Popover
@@ -151,10 +151,10 @@ export default function App() {
       {/* ── Expandable panel — only shown once connected ── */}
       {activePanel && credentials && (
         <div className="sticky top-12 z-10 border-b border-gray-800/80 bg-gray-900/95 backdrop-blur-sm">
-          <div className="max-w-screen-2xl mx-auto px-4 py-3">
+          <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 py-3">
             {activePanel === "courses" && (
-              <div className="flex gap-6">
-                <div className="w-72 shrink-0">
+              <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+                <div className="sm:w-72 sm:shrink-0">
                   <CourseSearch
                     credentials={credentials}
                     onResults={loadBannerResponse}
@@ -164,7 +164,7 @@ export default function App() {
                 </div>
 
                 {hasData && (
-                  <div className="flex-1 min-w-0 border-l border-gray-800/60 pl-6">
+                  <div className="flex-1 min-w-0 sm:border-l border-gray-800/60 sm:pl-6">
                     <CourseSelector
                       courseGroups={courseGroups}
                       selectedCourses={selectedCourses}
@@ -179,7 +179,7 @@ export default function App() {
       )}
 
       {/* ── Main content ── */}
-      <div className="max-w-screen-2xl mx-auto px-4 py-4">
+      <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 py-4">
         {/* Schedule navigation strip */}
         <ScheduleStrip
           schedules={schedules}
@@ -189,20 +189,21 @@ export default function App() {
 
         {/* Current / Browse tabs */}
         {currentRegistrations.size > 0 && (
-          <div className="flex gap-3 mb-4 border-b border-gray-800">
+          <div className="flex gap-2 sm:gap-3 mb-4 border-b border-gray-800 overflow-x-auto">
             <button
               onClick={() => setActiveTab("current")}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
+              className={`px-3 sm:px-4 py-2 text-sm font-medium transition-colors shrink-0 ${
                 activeTab === "current"
                   ? "text-white border-b-2 border-blue-500"
                   : "text-gray-400 hover:text-gray-300"
               }`}
             >
-              Current Schedule
+              <span className="hidden sm:inline">Current Schedule</span>
+              <span className="sm:hidden">Current</span>
             </button>
             <button
               onClick={() => setActiveTab("browse")}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
+              className={`px-3 sm:px-4 py-2 text-sm font-medium transition-colors shrink-0 ${
                 activeTab === "browse"
                   ? "text-white border-b-2 border-blue-500"
                   : "text-gray-400 hover:text-gray-300"
@@ -343,7 +344,7 @@ export default function App() {
           )
         ) : (
           <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="w-full max-w-sm rounded-xl border border-gray-800 bg-gray-900/60 p-6 shadow-lg">
+            <div className="w-full max-w-sm rounded-xl border border-gray-800 bg-gray-900/60 p-4 sm:p-6 shadow-lg">
               <HeaderInput
                 onCredentials={setCredentials}
                 isConnected={!!credentials}

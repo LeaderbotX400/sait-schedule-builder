@@ -86,11 +86,11 @@ export default function CourseSelector({
                   onClick={() => onToggle(name)}
                   className="flex-1 min-w-0 text-left"
                 >
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="font-mono font-semibold text-white">{name}</span>
-                    <span className="text-gray-400 truncate">{title}</span>
+                  <div className="flex items-baseline gap-1.5 min-w-0">
+                    <span className="font-mono font-semibold text-white shrink-0">{name}</span>
+                    <span className="text-gray-400 truncate flex-1 min-w-0">{title}</span>
                   </div>
-                  <div className="text-[11px] text-gray-500">
+                  <div className="text-[11px] text-gray-500 truncate">
                     {sectionCount} sec · {totalSeats} seats
                   </div>
                 </button>

@@ -47,7 +47,7 @@ export default function Popover({
       {trigger({ onClick: () => setOpen((v) => !v), "aria-expanded": open })}
       {open && (
         <div
-          className={`absolute mt-1.5 ${widthClass} rounded-lg border border-gray-700 bg-gray-900 shadow-xl p-3 z-30 ${
+          className={`absolute mt-1.5 ${widthClass} max-w-[calc(100vw-1rem)] rounded-lg border border-gray-700 bg-gray-900 shadow-xl p-3 z-30 ${
             align === "right" ? "right-0" : "left-0"
           }`}
           role="dialog"
