@@ -1,4 +1,4 @@
-import type { BannerResponse, ActiveRegistration } from "./types";
+import type { BannerResponse, ActiveRegistration, RegistrationModel, RegistrationBatchResult, RegistrationItemResult } from "./types";
 
 const API_BASE = "/api/banner";
 const BANNER_ORIGIN =
@@ -315,6 +315,135 @@ export async function fetchRegistrations(
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
   return (json?.data?.registrations as ActiveRegistration[]) ?? [];
+}
+
+// ---- Course registration ----
+
+/**
+ * Stage a single course section for registration.
+ * Banner adds it to the pending cart and returns its full model.
+ * The model must be echoed back in submitRegistrationBatch to commit.
+ */
+export async function stageAddRegistrationItem(
+  creds: BannerCredentials,
+  term: string,
+  crn: string,
+): Promise<RegistrationModel> {
+  const params = new URLSearchParams({ term, courseReferenceNumber: crn, olr: "false" });
+  const res = await fetch(
+    `${API_BASE}/ssb/classRegistration/addRegistrationItem?${params}`,
+    { headers: bannerHeaders(creds, REFERER_REGISTRATION) },
+  );
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message ?? `Banner rejected CRN ${crn}`);
+  return json.model as RegistrationModel;
+}
+
+/**
+ * Commit a batch of pending registration changes to Banner.
+ * Pass the models from stageAddRegistrationItem; set selectedAction="DW" on
+ * any model you want to drop instead of register.
+ *
+ * Returns per-CRN results filtered to only the CRNs present in updateModels.
+ */
+export async function submitRegistrationBatch(
+  creds: BannerCredentials,
+  updateModels: RegistrationModel[],
+): Promise<RegistrationBatchResult> {
+  const submittedCrns = new Set(updateModels.map((m) => m.courseReferenceNumber));
+
+  const headers = bannerHeaders(creds, REFERER_REGISTRATION);
+  headers["Content-Type"] = "application/json";
+  headers["X-Banner-Origin"] = BANNER_ORIGIN;
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/ssb/classRegistration/submitRegistration/batch`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ create: [], update: updateModels, destroy: [] }),
+    });
+  } catch (e) {
+    return { success: false, items: [], error: e instanceof Error ? e.message : "Network error" };
+  }
+
+  if (!res.ok) {
+    return { success: false, items: [], error: `HTTP ${res.status}` };
+  }
+
+  const json = await res.json();
+  if (!json.success) {
+    return { success: false, items: [], error: "Banner rejected the batch submission" };
+  }
+
+  const allUpdated: RegistrationModel[] = json.data?.update ?? [];
+
+  const items: RegistrationItemResult[] = allUpdated
+    .filter((item) => submittedCrns.has(item.courseReferenceNumber))
+    .map((item) => {
+      const crn = item.courseReferenceNumber;
+      const finalStatus = item.courseRegistrationStatus;
+      const errorFlag = (item.errorFlag as string | null) ?? null;
+      const rawErrors = (item.crnErrors as Array<Record<string, unknown>> | undefined) ?? [];
+      const errors = rawErrors.map((e) => ({
+        message: typeof e.message === "string" ? e.message : JSON.stringify(e),
+        messageType: typeof e.messageType === "string" ? e.messageType : "",
+      }));
+      // errorFlag "F" = fatal registration failure; "D" = duplicate-drop (not an error we submitted)
+      const success = finalStatus === "RW" && errorFlag !== "F" && errors.length === 0;
+
+      return {
+        crn,
+        courseTitle: (item.courseTitle as string | undefined) ?? crn,
+        finalStatus,
+        errorFlag,
+        errors,
+        success,
+      };
+    });
+
+  return { success: true, items };
+}
+
+/**
+ * Register a full schedule: stage each CRN then submit the batch.
+ * Already-registered CRNs (isCurrentRegistration=true) are skipped.
+ */
+export async function registerSchedule(
+  creds: BannerCredentials,
+  term: string,
+  crns: string[],
+): Promise<RegistrationBatchResult> {
+  const models: RegistrationModel[] = [];
+  const stageErrors: string[] = [];
+
+  for (const crn of crns) {
+    try {
+      const model = await stageAddRegistrationItem(creds, term, crn);
+      models.push(model);
+    } catch (e) {
+      stageErrors.push(`CRN ${crn}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  if (models.length === 0) {
+    return {
+      success: false,
+      items: [],
+      error: `Could not stage any courses: ${stageErrors.join("; ")}`,
+    };
+  }
+
+  const result = await submitRegistrationBatch(creds, models);
+
+  if (stageErrors.length > 0) {
+    result.error = [result.error, `Could not stage: ${stageErrors.join("; ")}`]
+      .filter(Boolean)
+      .join(" | ");
+  }
+
+  return result;
 }
 
 /** Look up subject codes via autocomplete */

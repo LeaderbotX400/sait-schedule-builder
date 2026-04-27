@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "description": "Connects the SAIT Schedule Builder to your Banner session automatically.",
   "permissions": [
-    "cookies"
+    "cookies",
+    "tabs",
+    "windows"
   ],
   "host_permissions": [
     "https://*.sait.ca/*"

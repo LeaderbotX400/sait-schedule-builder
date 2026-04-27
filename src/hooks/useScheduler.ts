@@ -25,6 +25,7 @@ export function useScheduler() {
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus>({ kind: "idle" });
   const [activeScheduleIndex, setActiveScheduleIndex] = useState(0);
   const [credentials, setCredentials] = useState<BannerCredentials | null>(null);
+  const [term, setTerm] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [registrationsLoading, setRegistrationsLoading] = useState(false);
   
@@ -49,9 +50,10 @@ export function useScheduler() {
         const activeTerm = terms.find(
           (t) => !SKIP.some((s) => t.description.includes(s)),
         );
-        const term = activeTerm?.code;
-        if (!term) return [];
-        return fetchRegistrations(credentials, term);
+        const termCode = activeTerm?.code;
+        if (!termCode) return [];
+        setTerm(termCode);
+        return fetchRegistrations(credentials, termCode);
       })
       .then((registrations) => {
         if (registrations.length > 0) {
@@ -349,6 +351,7 @@ export function useScheduler() {
     activeScheduleIndex,
     activeSchedule,
     credentials,
+    term,
     loadError,
     loadData,
     loadBannerResponse,

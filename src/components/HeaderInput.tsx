@@ -1,8 +1,9 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { parseRequestHeaders, validateCredentials, type BannerCredentials } from "../lib/api";
 import {
   detectExtension,
-  getCredentialsFromExtension,
+  triggerLogin,
+  forceReauth,
 } from "../lib/extension";
 
 interface Props {
@@ -10,8 +11,6 @@ interface Props {
   isConnected: boolean;
 }
 
-const BANNER_LOGIN_URL =
-  "https://sait-sust-prd-prd1-ban-ss-ssag6.sait.ca/StudentRegistrationSsb/ssb/registration";
 
 export default function HeaderInput({ onCredentials, isConnected }: Props) {
   const [extId, setExtId] = useState(() =>
@@ -20,10 +19,27 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
   const [extDetected, setExtDetected] = useState(false);
   const [extLoading, setExtLoading] = useState(false);
   const [extError, setExtError] = useState<string | null>(null);
+  const [sessionAge, setSessionAge] = useState(0); // seconds since connected
+  const connectedAtRef = useRef<number | null>(null);
   const [showManual, setShowManual] = useState(false);
   const [text, setText] = useState("");
   const [manualError, setManualError] = useState<string | null>(null);
   const [manualLoading, setManualLoading] = useState(false);
+
+  // Track session age
+  useEffect(() => {
+    if (isConnected) {
+      connectedAtRef.current = Date.now();
+      setSessionAge(0);
+      const id = setInterval(() => {
+        setSessionAge(Math.floor((Date.now() - connectedAtRef.current!) / 1000));
+      }, 10000); // update every 10s
+      return () => clearInterval(id);
+    } else {
+      connectedAtRef.current = null;
+      setSessionAge(0);
+    }
+  }, [isConnected]);
 
   // Probe the extension whenever the ID changes
   useEffect(() => {
@@ -35,21 +51,18 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
     detectExtension(extId).then(setExtDetected);
   }, [extId]);
 
-  const handleAutoConnect = useCallback(async () => {
+  const handleLogin = useCallback(async () => {
     if (!extId) return;
-    setExtLoading(true);
     setExtError(null);
 
-    const result = await getCredentialsFromExtension(extId);
+    setExtLoading(true);
+    const result = await triggerLogin(extId);
     setExtLoading(false);
 
     if (result.ok && result.credentials) {
       onCredentials(result.credentials);
     } else {
-      setExtError(result.message ?? "Failed to get credentials");
-      if (result.loginUrl) {
-        window.open(result.loginUrl, "_blank");
-      }
+      setExtError(result.message ?? "Login failed");
     }
   }, [extId, onCredentials]);
 
@@ -82,16 +95,68 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
   }, [onCredentials]);
 
   if (isConnected) {
+    const ageMin = Math.floor(sessionAge / 60);
+    const stale = sessionAge >= 55 * 60; // warn at 55 min
+    const ageLabel = ageMin < 1 ? "just now" : `${ageMin}m ago`;
+
     return (
-      <div className="flex items-center gap-2 rounded-lg bg-emerald-900/30 border border-emerald-800 px-3 py-2">
-        <div className="h-2 w-2 rounded-full bg-emerald-400" />
-        <span className="text-sm text-emerald-300">Connected to Banner</span>
-        <button
-          onClick={handleDisconnect}
-          className="ml-auto text-xs text-gray-500 hover:text-gray-300"
-        >
-          Disconnect
-        </button>
+      <div className="space-y-2">
+        <div className={`flex items-center gap-2 rounded-lg px-3 py-2 ${stale ? "bg-yellow-900/30 border border-yellow-700" : "bg-emerald-900/30 border border-emerald-800"}`}>
+          <div className={`h-2 w-2 rounded-full ${stale ? "bg-yellow-400" : "bg-emerald-400"}`} />
+          <div className="flex-1 min-w-0">
+            <span className={`text-sm ${stale ? "text-yellow-300" : "text-emerald-300"}`}>
+              Connected to Banner
+            </span>
+            <span className={`ml-2 text-xs ${stale ? "text-yellow-500" : "text-gray-600"}`}>
+              {ageLabel}
+            </span>
+          </div>
+          <button
+            onClick={handleDisconnect}
+            className="text-xs text-gray-600 hover:text-gray-400"
+          >
+            Disconnect
+          </button>
+        </div>
+
+        {stale && (
+          <div className="rounded-lg bg-yellow-900/20 border border-yellow-800 px-3 py-2 text-xs text-yellow-400">
+            Session may have expired — reconnect to refresh your credentials.
+          </div>
+        )}
+
+        {extId && (
+          <button
+            onClick={async () => {
+              setExtError(null);
+              setExtLoading(true);
+              const result = await forceReauth(extId);
+              setExtLoading(false);
+              if (result.ok && result.credentials) {
+                onCredentials(result.credentials);
+              } else {
+                setExtError(result.message ?? "Reauth failed");
+              }
+            }}
+            disabled={!extDetected || extLoading}
+            className="w-full rounded-lg border border-gray-700 px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:border-gray-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {extLoading ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-gray-400 border-r-transparent" />
+                Waiting for SAIT login…
+              </span>
+            ) : (
+              "Force Reauth"
+            )}
+          </button>
+        )}
+
+        {extError && (
+          <div className="rounded-lg bg-red-900/30 border border-red-800 px-3 py-2 text-xs text-red-400">
+            {extError}
+          </div>
+        )}
       </div>
     );
   }
@@ -127,38 +192,31 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
         )}
 
         <button
-          onClick={handleAutoConnect}
+          onClick={handleLogin}
           disabled={!extDetected || extLoading}
           className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           {extLoading ? (
             <span className="flex items-center justify-center gap-2">
               <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-r-transparent" />
-              Connecting...
+              Waiting for SAIT login…
             </span>
           ) : (
-            "Auto-Connect"
+            "Login with SAIT"
           )}
         </button>
+
+        {extLoading && (
+          <p className="text-xs text-gray-500 text-center">
+            A SAIT login tab will open — complete login there and it will close automatically.
+          </p>
+        )}
 
         {extError && (
           <div className="rounded-lg bg-red-900/30 border border-red-800 px-3 py-2 text-xs text-red-400">
             {extError}
           </div>
         )}
-
-        <p className="text-xs text-gray-600">
-          Log into{" "}
-          <a
-            href={BANNER_LOGIN_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-500 hover:underline"
-          >
-            SAIT Banner
-          </a>{" "}
-          first, then click Auto-Connect
-        </p>
       </div>
 
       {/* Divider */}

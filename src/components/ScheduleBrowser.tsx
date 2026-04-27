@@ -23,14 +23,14 @@ export default function ScheduleBrowser({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-300">
+        <h3 className="text-sm font-semibold text-gray-200">
           Schedules ({schedules.length})
         </h3>
         <div className="flex items-center gap-1">
           <button
             onClick={() => onSelect(Math.max(0, activeIndex - 1))}
             disabled={activeIndex === 0}
-            className="rounded-md bg-gray-800 px-2 py-1 text-xs text-gray-400 hover:text-white disabled:opacity-30 transition-colors"
+            className="rounded-md bg-gray-800 border border-gray-700/60 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 disabled:opacity-30 transition-colors"
           >
             Prev
           </button>
@@ -42,7 +42,7 @@ export default function ScheduleBrowser({
               onSelect(Math.min(schedules.length - 1, activeIndex + 1))
             }
             disabled={activeIndex === schedules.length - 1}
-            className="rounded-md bg-gray-800 px-2 py-1 text-xs text-gray-400 hover:text-white disabled:opacity-30 transition-colors"
+            className="rounded-md bg-gray-800 border border-gray-700/60 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 disabled:opacity-30 transition-colors"
           >
             Next
           </button>

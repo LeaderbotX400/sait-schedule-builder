@@ -1,3 +1,30 @@
+// The opaque 127-field model Banner returns from addRegistrationItem and expects
+// back in submitRegistration/batch. We only type the fields we interact with.
+export type RegistrationModel = Record<string, unknown> & {
+  courseReferenceNumber: string;
+  courseRegistrationStatus: string;
+  courseTitle?: string;
+  selectedAction?: string | null;
+};
+
+export interface RegistrationItemResult {
+  crn: string;
+  courseTitle: string;
+  /** Final courseRegistrationStatus from Banner (RW = registered, DW = dropped) */
+  finalStatus: string;
+  errorFlag: string | null;
+  /** Structured errors from Banner's crnErrors array */
+  errors: { message: string; messageType: string }[];
+  success: boolean;
+}
+
+export interface RegistrationBatchResult {
+  success: boolean;
+  items: RegistrationItemResult[];
+  /** Top-level error (before or instead of per-item results) */
+  error?: string;
+}
+
 // Banner API response types — these match data.json structure exactly
 
 export interface BannerResponse {

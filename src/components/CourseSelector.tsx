@@ -15,7 +15,7 @@ export default function CourseSelector({
 
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-medium text-gray-300">
+      <h3 className="text-sm font-semibold text-gray-200">
         Courses ({courseGroups.size})
       </h3>
       <div className="space-y-1">

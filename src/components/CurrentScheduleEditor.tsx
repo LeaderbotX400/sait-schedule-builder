@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { CourseSection, CurrentRegistration } from "../lib/types";
 import CalendarGrid from "./CalendarGrid";
 
@@ -119,7 +119,7 @@ export default function CurrentScheduleEditor({
           No courses loaded yet
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(13rem,1fr))] gap-3 xl:grid-cols-3">
           {Array.from(currentRegistrations.entries()).map(([subjectCourse, reg]) => {
             const currentSection = sectionOverrides.has(subjectCourse)
               ? courseGroups.get(subjectCourse)?.find((s) => s.identifier === sectionOverrides.get(subjectCourse))

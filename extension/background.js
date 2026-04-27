@@ -12,12 +12,40 @@ chrome.runtime.onMessageExternal.addListener(
       return true; // keep channel open for async response
     }
 
+    if (message.type === "TRIGGER_LOGIN") {
+      handleTriggerLogin().then(sendResponse);
+      return true;
+    }
+
+    if (message.type === "FORCE_REAUTH") {
+      handleForceReauth().then(sendResponse);
+      return true;
+    }
+
     if (message.type === "PING") {
       sendResponse({ ok: true, version: chrome.runtime.getManifest().version });
       return false;
     }
   },
 );
+
+// Long-lived ports for login flows — keeps the service worker alive while the
+// user completes the SAIT login in the opened tab.
+chrome.runtime.onConnectExternal.addListener((port) => {
+  if (port.name === "TRIGGER_LOGIN") {
+    handleTriggerLogin().then((result) => {
+      port.postMessage(result);
+      port.disconnect();
+    });
+  }
+
+  if (port.name === "FORCE_REAUTH") {
+    handleForceReauth().then((result) => {
+      port.postMessage(result);
+      port.disconnect();
+    });
+  }
+});
 
 // Also listen from content scripts
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -99,6 +127,85 @@ async function handleGetCredentials() {
       message: err.message ?? "Unknown error reading credentials",
     };
   }
+}
+
+/**
+ * Clear all Banner domain cookies and the cached sync token, then run the
+ * full login flow. Use this when the session has expired and you need fresh
+ * credentials rather than reusing an existing (possibly stale) session.
+ */
+async function handleForceReauth() {
+  const cookies = await chrome.cookies.getAll({ domain: BANNER_DOMAIN });
+  await Promise.all(
+    cookies.map((c) => {
+      const url = `${c.secure ? "https" : "http"}://${c.domain.replace(/^\./, "")}${c.path}`;
+      return chrome.cookies.remove({ url, name: c.name });
+    }),
+  );
+  cachedSyncToken = "";
+  cachedUniqueSessionId = "";
+  return handleTriggerLogin();
+}
+
+/**
+ * Open a SAIT login tab, wait for auth to complete, then return credentials.
+ * The message channel is kept open (caller returns true) so this can take as
+ * long as the user needs to log in — Chrome keeps the service worker alive
+ * while a message port is open.
+ */
+async function handleTriggerLogin() {
+  // Already authenticated? Return credentials immediately.
+  const existing = await handleGetCredentials();
+  if (existing.ok) return existing;
+
+  return new Promise((resolve) => {
+    chrome.windows.create(
+      { url: BANNER_BASE + "/ssb/registration", type: "popup", width: 520, height: 680 },
+      (win) => {
+      const winId = win.id;
+      const tab = win.tabs[0];
+      const tabId = tab.id;
+      let settled = false;
+
+      function cleanup() {
+        chrome.tabs.onUpdated.removeListener(onUpdated);
+        chrome.tabs.onRemoved.removeListener(onRemoved);
+      }
+
+      function settle(result) {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(result);
+      }
+
+      async function onUpdated(id, changeInfo, updatedTab) {
+        if (id !== tabId || changeInfo.status !== "complete") return;
+        const url = updatedTab.url ?? "";
+        // Auth is done when we land on the actual registration app (not the CAS/login redirect)
+        if (!url.includes("StudentRegistrationSsb/ssb/")) return;
+
+        // Give the content script time to extract the sync token
+        setTimeout(async () => {
+          const creds = await handleGetCredentials();
+          if (creds.ok) chrome.windows.remove(winId).catch(() => {});
+          settle(creds);
+        }, 2000);
+      }
+
+      function onRemoved(id) {
+        if (id !== tabId) return;
+        settle({
+          ok: false,
+          error: "TAB_CLOSED",
+          message: "Login tab was closed before completing. Please try again.",
+        });
+      }
+
+      chrome.tabs.onUpdated.addListener(onUpdated);
+      chrome.tabs.onRemoved.addListener(onRemoved);
+    });
+  });
 }
 
 /**
