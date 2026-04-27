@@ -9,6 +9,8 @@ import { bannerFetch } from "./extension";
 
 const BANNER_ORIGIN = "https://sait-sust-prd-prd1-ban-ss-ssag6.sait.ca";
 const API_BASE = `${BANNER_ORIGIN}/StudentRegistrationSsb`;
+const GENERAL_SSB_BASE =
+  "https://sait-sust-prd-prd1-ban-ss-ssag2.sait.ca/BannerGeneralSsb";
 
 export interface BannerCredentials {
   synchronizerToken: string;
@@ -108,6 +110,26 @@ export async function validateCredentials(
     return {
       valid: false,
       error: "Unexpected response from Banner. Try refreshing your credentials.",
+    };
+  }
+
+  const idRes = await bannerCall<{ bannerId?: string }>(
+    `${GENERAL_SSB_BASE}/ssb/PersonalInformationDetails/getBannerId`,
+    { headers: bannerHeaders(creds) },
+  );
+
+  if (idRes.error) {
+    return { valid: false, error: `Could not reach Banner: ${idRes.error}` };
+  }
+
+  if (
+    !idRes.ok ||
+    !idRes.contentType.includes("application/json") ||
+    !idRes.json?.bannerId
+  ) {
+    return {
+      valid: false,
+      error: "You're not signed in to SAIT Banner. Sign in and refresh your credentials.",
     };
   }
 

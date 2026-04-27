@@ -7,7 +7,10 @@ export default defineManifest({
   version: pkg.version,
   description: "Build your ideal class schedule from SAIT's Banner registration system.",
   permissions: ["cookies", "tabs", "storage"],
-  host_permissions: ["https://sait-sust-prd-prd1-ban-ss-ssag6.sait.ca/*"],
+  host_permissions: [
+    "https://sait-sust-prd-prd1-ban-ss-ssag6.sait.ca/*",
+    "https://sait-sust-prd-prd1-ban-ss-ssag2.sait.ca/*",
+  ],
   background: {
     service_worker: "extension/background.ts",
     type: "module",
