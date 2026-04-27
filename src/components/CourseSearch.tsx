@@ -1,10 +1,13 @@
 import { useState, useCallback, useEffect, useRef, useId } from "react";
 import { searchCourses, searchSubjects, type BannerCredentials } from "../lib/api";
 import type { BannerResponse } from "../lib/types";
+import { TERM_OPTIONS } from "../lib/terms";
 
 interface Props {
   credentials: BannerCredentials;
   onResults: (data: BannerResponse) => number;
+  term: string;
+  onTermChange: (term: string) => void;
 }
 
 interface Suggestion {
@@ -12,8 +15,7 @@ interface Suggestion {
   description: string;
 }
 
-export default function CourseSearch({ credentials, onResults }: Props) {
-  const [term, setTerm] = useState("202540");
+export default function CourseSearch({ credentials, onResults, term, onTermChange }: Props) {
   const [tags, setTags] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -177,17 +179,18 @@ export default function CourseSearch({ credentials, onResults }: Props) {
         <select
           value={term}
           onChange={(e) => {
-            setTerm(e.target.value);
+            onTermChange(e.target.value);
             setResults(null);
             setSuggestions([]);
             setShowSuggestions(false);
           }}
           className="rounded-md bg-gray-800 border border-gray-700 px-2 py-0.5 text-xs text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="202540">Spring 2026</option>
-          <option value="202530">Winter 2026</option>
-          <option value="202520">Fall 2025</option>
-          <option value="202510">Spring 2025</option>
+          {TERM_OPTIONS.map((t) => (
+            <option key={t.code} value={t.code}>
+              {t.description}
+            </option>
+          ))}
         </select>
       </div>
 

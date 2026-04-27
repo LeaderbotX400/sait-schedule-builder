@@ -5,6 +5,8 @@ import { parseRawJson, parseBannerData, parseActiveRegistrations } from "../lib/
 import { generateSchedules } from "../lib/scheduler";
 import type { BannerCredentials } from "../lib/api";
 import { fetchRegistrations, getTerms } from "../lib/api";
+import { DEFAULT_TERM } from "../lib/terms";
+import { usePersistedState, usePersistedStringSet } from "../lib/usePersistedState";
 
 export type GenerationStatus =
   | { kind: "idle" }
@@ -17,15 +19,13 @@ export function useScheduler() {
   const [courseGroups, setCourseGroups] = useState<Map<string, CourseSection[]>>(
     new Map(),
   );
-  const [selectedCourses, setSelectedCourses] = useState<Set<string>>(
-    new Set(),
-  );
+  const [selectedCourses, setSelectedCourses] = usePersistedStringSet("selected-courses");
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [rules, setRules] = useState<ScheduleRules>(DEFAULT_RULES);
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus>({ kind: "idle" });
   const [activeScheduleIndex, setActiveScheduleIndex] = useState(0);
   const [credentials, setCredentials] = useState<BannerCredentials | null>(null);
-  const [term, setTerm] = useState<string | null>(null);
+  const [term, setTerm] = usePersistedState<string>("term", DEFAULT_TERM);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [registrationsLoading, setRegistrationsLoading] = useState(false);
   
@@ -63,7 +63,12 @@ export function useScheduler() {
         if (registrations.length > 0) {
           const groups = parseActiveRegistrations(registrations);
           setCourseGroups(groups);
-          setSelectedCourses(new Set(groups.keys()));
+          setSelectedCourses((prev) => {
+            // Restore persisted selection intersected with what Banner returned;
+            // if nothing persists, default to all loaded courses.
+            const restored = new Set([...prev].filter((name) => groups.has(name)));
+            return restored.size > 0 ? restored : new Set(groups.keys());
+          });
           initializeCurrentRegistrations(groups);
         }
       })
@@ -357,6 +362,7 @@ export function useScheduler() {
     activeSchedule,
     credentials,
     term,
+    setTerm,
     loadError,
     loadData,
     loadBannerResponse,

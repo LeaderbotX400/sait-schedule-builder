@@ -4,6 +4,10 @@ import CourseSelector from "./components/CourseSelector";
 import CurrentScheduleEditor from "./components/CurrentScheduleEditor";
 import HeaderInput from "./components/HeaderInput";
 import ConnectionStatus from "./components/ConnectionStatus";
+import ScheduleStrip from "./components/ScheduleStrip";
+import Popover from "./components/Popover";
+import { describeTerm } from "./lib/terms";
+import { downloadICal } from "./lib/ical";
 import RulesPanel from "./components/RulesPanel";
 import ScheduleDetail from "./components/ScheduleDetail";
 import ShapeCalendar from "./components/ShapeCalendar";
@@ -11,13 +15,6 @@ import { useScheduler } from "./hooks/useScheduler";
 import type { BlockoutGrid } from "./lib/types";
 
 type PanelId = "courses";
-
-function scoreBadgeColor(score: number): string {
-  if (score >= 80) return "bg-emerald-600";
-  if (score >= 60) return "bg-yellow-600";
-  if (score >= 40) return "bg-orange-600";
-  return "bg-red-600";
-}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"current" | "browse">("current");
@@ -33,6 +30,7 @@ export default function App() {
     activeSchedule,
     credentials,
     term,
+    setTerm,
     loadBannerResponse,
     clearCourses,
     toggleCourse,
@@ -49,7 +47,6 @@ export default function App() {
   } = useScheduler();
 
   const hasData = courseGroups.size > 0;
-  const hasSchedules = schedules.length > 0;
 
   const togglePanel = (panel: PanelId) =>
     setActivePanel((p) => (p === panel ? null : panel));
@@ -90,8 +87,31 @@ export default function App() {
           <div className="flex-1" />
 
           <div className="flex items-center gap-2 shrink-0">
+            {hasData && (
+              <div className="lg:hidden">
+                <Popover
+                  align="right"
+                  widthClass="w-72"
+                  trigger={({ onClick, "aria-expanded": expanded }) => (
+                    <button
+                      onClick={onClick}
+                      aria-expanded={expanded}
+                      className="rounded-md border border-gray-700/80 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+                    >
+                      Rules
+                    </button>
+                  )}
+                >
+                  <RulesPanel rules={rules} onChange={setRules} />
+                </Popover>
+              </div>
+            )}
             {credentials && (
-              <ConnectionStatus onCredentials={setCredentials} />
+              <ConnectionStatus
+                onCredentials={setCredentials}
+                termLabel={describeTerm(term)}
+                loading={registrationsLoading}
+              />
             )}
             {hasData && (
               <button
@@ -99,6 +119,15 @@ export default function App() {
                 className="rounded-md border border-gray-700/80 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
               >
                 Clear
+              </button>
+            )}
+            {activeSchedule && (
+              <button
+                onClick={() => downloadICal(activeSchedule)}
+                title="Export this schedule as .ics"
+                className="rounded-md border border-gray-700/80 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+              >
+                <span className="hidden sm:inline">Export </span>.ics
               </button>
             )}
             {hasData && (
@@ -121,7 +150,7 @@ export default function App() {
 
       {/* ── Expandable panel — only shown once connected ── */}
       {activePanel && credentials && (
-        <div className="border-b border-gray-800/80 bg-gray-900/50">
+        <div className="sticky top-12 z-10 border-b border-gray-800/80 bg-gray-900/95 backdrop-blur-sm">
           <div className="max-w-screen-2xl mx-auto px-4 py-3">
             {activePanel === "courses" && (
               <div className="flex gap-6">
@@ -129,6 +158,8 @@ export default function App() {
                   <CourseSearch
                     credentials={credentials}
                     onResults={loadBannerResponse}
+                    term={term}
+                    onTermChange={setTerm}
                   />
                 </div>
 
@@ -150,49 +181,11 @@ export default function App() {
       {/* ── Main content ── */}
       <div className="max-w-screen-2xl mx-auto px-4 py-4">
         {/* Schedule navigation strip */}
-        {hasSchedules && (
-          <div className="flex items-center gap-3 mb-5 bg-gray-900/60 rounded-xl border border-gray-800/80 px-4 py-2.5">
-            <button
-              onClick={() =>
-                setActiveScheduleIndex(Math.max(0, activeScheduleIndex - 1))
-              }
-              disabled={activeScheduleIndex === 0}
-              className="rounded-md bg-gray-800 border border-gray-700/60 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 disabled:opacity-30 transition-colors shrink-0"
-            >
-              ← Prev
-            </button>
-            <div className="flex-1 overflow-x-auto flex gap-1.5 py-0.5">
-              {schedules.map((s, i) => (
-                <button
-                  key={s.id}
-                  onClick={() => setActiveScheduleIndex(i)}
-                  title={`Schedule #${s.id} · Score ${s.qualityScore}${s.warnings.length > 0 ? ` · ${s.warnings.length} warning${s.warnings.length !== 1 ? "s" : ""}` : ""}`}
-                  className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-bold transition-all ${
-                    i === activeScheduleIndex
-                      ? `${scoreBadgeColor(s.qualityScore)} text-white ring-2 ring-white/20 scale-110`
-                      : `${scoreBadgeColor(s.qualityScore)} text-white/50 hover:text-white hover:scale-105`
-                  }`}
-                >
-                  {s.qualityScore}
-                </button>
-              ))}
-            </div>
-            <span className="text-xs text-gray-500 shrink-0 tabular-nums">
-              {activeScheduleIndex + 1} / {schedules.length}
-            </span>
-            <button
-              onClick={() =>
-                setActiveScheduleIndex(
-                  Math.min(schedules.length - 1, activeScheduleIndex + 1),
-                )
-              }
-              disabled={activeScheduleIndex === schedules.length - 1}
-              className="rounded-md bg-gray-800 border border-gray-700/60 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 disabled:opacity-30 transition-colors shrink-0"
-            >
-              Next →
-            </button>
-          </div>
-        )}
+        <ScheduleStrip
+          schedules={schedules}
+          activeIndex={activeScheduleIndex}
+          onSelect={setActiveScheduleIndex}
+        />
 
         {/* Current / Browse tabs */}
         {currentRegistrations.size > 0 && (
@@ -224,7 +217,7 @@ export default function App() {
         {hasData ? (
           <div className="flex gap-6 items-start">
             {/* ── Rules sidebar ── */}
-            <div className="w-52 shrink-0">
+            <div className="hidden lg:block w-52 shrink-0">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2">
                 Rules
               </p>
@@ -312,15 +305,19 @@ export default function App() {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center py-6">
-                      <p className="text-sm text-gray-500">
-                        {selectedCourses.size} course
-                        {selectedCourses.size !== 1 ? "s" : ""} selected — hit{" "}
-                        <span className="text-blue-400 font-medium">
-                          Generate Schedules
-                        </span>{" "}
-                        when ready.
+                    <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+                      <p className="text-sm text-gray-400">
+                        {selectedCourses.size === 0
+                          ? "Select at least one course to generate."
+                          : `${selectedCourses.size} course${selectedCourses.size !== 1 ? "s" : ""} ready.`}
                       </p>
+                      <button
+                        onClick={generate}
+                        disabled={selectedCourses.size === 0}
+                        className="rounded-md bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Generate Schedules
+                      </button>
                     </div>
                   )}
                 </div>
