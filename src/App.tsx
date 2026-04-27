@@ -60,17 +60,17 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
-
       {/* ── Header ── */}
       <header className="border-b border-gray-800/80 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-20">
         <div className="max-w-screen-2xl mx-auto px-4 py-3 flex items-center gap-4">
-
           {/* Title */}
           <div className="shrink-0">
-            <h1 className="text-lg font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+            <h1 className="text-lg font-bold bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent">
               SAIT Schedule Builder
             </h1>
-            <p className="text-xs text-gray-400 mt-0.5">Build your ideal class schedule in minutes</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Build your ideal class schedule in minutes
+            </p>
           </div>
 
           {/* Nav tabs */}
@@ -84,12 +84,18 @@ export default function App() {
                     : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
                 }`}
               >
-                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${credentials ? "bg-emerald-400" : "bg-gray-500"}`} />
+                <span
+                  className={`h-1.5 w-1.5 rounded-full shrink-0 ${credentials ? "bg-emerald-400" : "bg-gray-500"}`}
+                />
                 Courses
                 {courseGroups.size > 0 && (
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                    activePanel === "courses" ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-300"
-                  }`}>
+                  <span
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                      activePanel === "courses"
+                        ? "bg-blue-500 text-white"
+                        : "bg-gray-700 text-gray-300"
+                    }`}
+                  >
                     {courseGroups.size}
                   </span>
                 )}
@@ -110,14 +116,20 @@ export default function App() {
             {hasData && (
               <button
                 onClick={generate}
-                disabled={generationStatus.kind === "generating" || selectedCourses.size === 0}
+                disabled={
+                  generationStatus.kind === "generating" ||
+                  selectedCourses.size === 0
+                }
                 className={`rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all ${
-                  selectedCourses.size > 0 && generationStatus.kind !== "generating"
+                  selectedCourses.size > 0 &&
+                  generationStatus.kind !== "generating"
                     ? "ring-1 ring-blue-400/40 shadow-lg shadow-blue-600/20"
                     : ""
                 }`}
               >
-                {generationStatus.kind === "generating" ? "Generating..." : "Generate Schedules"}
+                {generationStatus.kind === "generating"
+                  ? "Generating..."
+                  : "Generate Schedules"}
               </button>
             )}
           </div>
@@ -128,7 +140,6 @@ export default function App() {
       {activePanel && (
         <div className="border-b border-gray-800/80 bg-gray-900/50">
           <div className="max-w-screen-2xl mx-auto px-4 py-5">
-
             {/* Courses panel */}
             {activePanel === "courses" && (
               <div className="flex gap-8">
@@ -137,13 +148,19 @@ export default function App() {
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-3">
                     Banner Connection
                   </p>
-                  <HeaderInput onCredentials={setCredentials} isConnected={!!credentials} />
+                  <HeaderInput
+                    onCredentials={setCredentials}
+                    isConnected={!!credentials}
+                  />
                 </div>
 
                 {/* Course search — when connected */}
                 {credentials && (
                   <div className="w-80 shrink-0 border-l border-gray-800/60 pl-8">
-                    <CourseSearch credentials={credentials} onResults={loadBannerResponse} />
+                    <CourseSearch
+                      credentials={credentials}
+                      onResults={loadBannerResponse}
+                    />
                   </div>
                 )}
 
@@ -157,25 +174,27 @@ export default function App() {
                     />
                   ) : (
                     <p className="text-sm text-gray-600 mt-1">
-                      {credentials ? "Search for courses using the form to get started." : "Connect to Banner to search for courses."}
+                      {credentials
+                        ? "Search for courses using the form to get started."
+                        : "Connect to Banner to search for courses."}
                     </p>
                   )}
                 </div>
               </div>
             )}
-
           </div>
         </div>
       )}
 
       {/* ── Main content ── */}
       <div className="max-w-screen-2xl mx-auto px-4 py-5">
-
         {/* Schedule navigation strip */}
         {hasSchedules && (
           <div className="flex items-center gap-3 mb-5 bg-gray-900/60 rounded-xl border border-gray-800/80 px-4 py-2.5">
             <button
-              onClick={() => setActiveScheduleIndex(Math.max(0, activeScheduleIndex - 1))}
+              onClick={() =>
+                setActiveScheduleIndex(Math.max(0, activeScheduleIndex - 1))
+              }
               disabled={activeScheduleIndex === 0}
               className="rounded-md bg-gray-800 border border-gray-700/60 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 disabled:opacity-30 transition-colors shrink-0"
             >
@@ -201,7 +220,11 @@ export default function App() {
               {activeScheduleIndex + 1} / {schedules.length}
             </span>
             <button
-              onClick={() => setActiveScheduleIndex(Math.min(schedules.length - 1, activeScheduleIndex + 1))}
+              onClick={() =>
+                setActiveScheduleIndex(
+                  Math.min(schedules.length - 1, activeScheduleIndex + 1),
+                )
+              }
               disabled={activeScheduleIndex === schedules.length - 1}
               className="rounded-md bg-gray-800 border border-gray-700/60 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 disabled:opacity-30 transition-colors shrink-0"
             >
@@ -216,7 +239,9 @@ export default function App() {
             <button
               onClick={() => setActiveTab("current")}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === "current" ? "text-white border-b-2 border-blue-500" : "text-gray-400 hover:text-gray-300"
+                activeTab === "current"
+                  ? "text-white border-b-2 border-blue-500"
+                  : "text-gray-400 hover:text-gray-300"
               }`}
             >
               Current Schedule
@@ -224,7 +249,9 @@ export default function App() {
             <button
               onClick={() => setActiveTab("browse")}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === "browse" ? "text-white border-b-2 border-blue-500" : "text-gray-400 hover:text-gray-300"
+                activeTab === "browse"
+                  ? "text-white border-b-2 border-blue-500"
+                  : "text-gray-400 hover:text-gray-300"
               }`}
             >
               Planner
@@ -235,10 +262,11 @@ export default function App() {
         {/* Two-column layout when data is loaded: rules sidebar + main content */}
         {hasData ? (
           <div className="flex gap-6 items-start">
-
             {/* ── Rules sidebar ── */}
             <div className="w-56 shrink-0">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-3">Rules</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-3">
+                Rules
+              </p>
               <RulesPanel rules={rules} onChange={setRules} />
             </div>
 
@@ -257,7 +285,9 @@ export default function App() {
                 <div className="flex items-center justify-center h-64">
                   <div className="text-center">
                     <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
-                    <p className="mt-3 text-sm text-gray-400">Generating schedules...</p>
+                    <p className="mt-3 text-sm text-gray-400">
+                      Generating schedules...
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -269,6 +299,8 @@ export default function App() {
                     blockoutWeight={rules.blockoutWeight}
                     onBlockoutWeightChange={handleBlockoutWeightChange}
                     schedule={activeSchedule ?? null}
+                    courseGroups={courseGroups}
+                    selectedCourses={selectedCourses}
                   />
                   {activeSchedule ? (
                     <ScheduleDetail
@@ -278,7 +310,11 @@ export default function App() {
                       term={term}
                       registeredCrns={
                         currentRegistrations.size > 0
-                          ? new Set([...currentRegistrations.values()].map((r) => r.currentSection.crn))
+                          ? new Set(
+                              [...currentRegistrations.values()].map(
+                                (r) => r.currentSection.crn,
+                              ),
+                            )
                           : undefined
                       }
                     />
@@ -288,8 +324,12 @@ export default function App() {
                         <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-yellow-900/30 border border-yellow-800">
                           <span className="text-lg">⚠</span>
                         </div>
-                        <h2 className="text-base font-semibold text-white">No valid schedules found</h2>
-                        <p className="text-sm text-gray-400">{generationStatus.reason}</p>
+                        <h2 className="text-base font-semibold text-white">
+                          No valid schedules found
+                        </h2>
+                        <p className="text-sm text-gray-400">
+                          {generationStatus.reason}
+                        </p>
                       </div>
                     </div>
                   ) : generationStatus.kind === "error" ? (
@@ -298,16 +338,27 @@ export default function App() {
                         <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-red-900/30 border border-red-800">
                           <span className="text-lg">✕</span>
                         </div>
-                        <h2 className="text-base font-semibold text-white">Generation failed</h2>
-                        <p className="text-sm text-red-400">{generationStatus.message}</p>
-                        <p className="text-xs text-gray-600">Try adjusting your rules or course selection, then generate again.</p>
+                        <h2 className="text-base font-semibold text-white">
+                          Generation failed
+                        </h2>
+                        <p className="text-sm text-red-400">
+                          {generationStatus.message}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          Try adjusting your rules or course selection, then
+                          generate again.
+                        </p>
                       </div>
                     </div>
                   ) : (
                     <div className="flex items-center justify-center py-6">
                       <p className="text-sm text-gray-500">
-                        {selectedCourses.size} course{selectedCourses.size !== 1 ? "s" : ""} selected — hit{" "}
-                        <span className="text-blue-400 font-medium">Generate Schedules</span> when ready.
+                        {selectedCourses.size} course
+                        {selectedCourses.size !== 1 ? "s" : ""} selected — hit{" "}
+                        <span className="text-blue-400 font-medium">
+                          Generate Schedules
+                        </span>{" "}
+                        when ready.
                       </p>
                     </div>
                   )}
@@ -320,12 +371,16 @@ export default function App() {
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
                 <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
-                <p className="mt-3 text-sm text-gray-400">Loading your registered courses...</p>
+                <p className="mt-3 text-sm text-gray-400">
+                  Loading your registered courses...
+                </p>
               </div>
             </div>
           ) : (
             <div className="flex items-center justify-center h-64">
-              <p className="text-sm text-gray-500">No registered courses found — search above to add courses.</p>
+              <p className="text-sm text-gray-500">
+                No registered courses found — search above to add courses.
+              </p>
             </div>
           )
         ) : (
@@ -334,7 +389,9 @@ export default function App() {
               <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-gray-800 border border-gray-700/80 mb-1">
                 <span className="text-2xl">🎓</span>
               </div>
-              <p className="text-base font-semibold text-gray-300">Get started</p>
+              <p className="text-base font-semibold text-gray-300">
+                Get started
+              </p>
               <p className="text-sm text-gray-500 max-w-xs">
                 Open the{" "}
                 <button

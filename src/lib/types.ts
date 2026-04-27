@@ -197,6 +197,11 @@ export interface ScheduleWarning {
   times: [number, number][];
 }
 
+export interface OmittedCourse {
+  subjectCourse: string;
+  reason: string;
+}
+
 export interface Schedule {
   id: number;
   qualityScore: number;
@@ -210,7 +215,8 @@ export interface Schedule {
   earlyMorningPenalty: number;
   travelTimePenalty: number;
   isPartial: boolean;
-  omittedCourses: string[];
+  /** Selected courses that are NOT in this schedule, with a human-readable reason */
+  omittedCourses: OmittedCourse[];
   /** How well this schedule matches the user's blockout preferences (0-100, higher=better) */
   blockoutFitScore: number;
 }

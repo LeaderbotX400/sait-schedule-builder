@@ -43,8 +43,12 @@ export function useScheduler() {
   useEffect(() => {
     if (!credentials) return;
     setRegistrationsLoading(true);
+    setLoadError(null);
     getTerms(credentials)
       .then((terms) => {
+        if (!Array.isArray(terms) || terms.length === 0) {
+          throw new Error("Banner returned no terms — session may be invalid");
+        }
         // Skip non-enrollable terms: view-only, non-credit, apprentice, etc.
         const SKIP = ["(View Only)", "Non-Credit", "Apprentice", "(View only)"];
         const activeTerm = terms.find(
@@ -63,8 +67,9 @@ export function useScheduler() {
           initializeCurrentRegistrations(groups);
         }
       })
-      .catch(() => {
-        // Silently fall back to blank calendar
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        setLoadError(`Could not load your registrations: ${msg}. Try reconnecting to Banner.`);
       })
       .finally(() => setRegistrationsLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps

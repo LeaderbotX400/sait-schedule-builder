@@ -57,13 +57,23 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
 
     setExtLoading(true);
     const result = await triggerLogin(extId);
-    setExtLoading(false);
 
-    if (result.ok && result.credentials) {
-      onCredentials(result.credentials);
-    } else {
+    if (!result.ok || !result.credentials) {
+      setExtLoading(false);
       setExtError(result.message ?? "Login failed");
+      return;
     }
+
+    // Verify the captured cookies/sync-token actually authenticate against
+    // Banner — the extension may have returned a cached but stale session.
+    const validation = await validateCredentials(result.credentials);
+    setExtLoading(false);
+    if (!validation.valid) {
+      setExtError(validation.error ?? "Captured credentials are not valid — try Force Reauth");
+      return;
+    }
+
+    onCredentials(result.credentials);
   }, [extId, onCredentials]);
 
   const handleManualSubmit = useCallback(async () => {
@@ -131,12 +141,18 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
               setExtError(null);
               setExtLoading(true);
               const result = await forceReauth(extId);
-              setExtLoading(false);
-              if (result.ok && result.credentials) {
-                onCredentials(result.credentials);
-              } else {
+              if (!result.ok || !result.credentials) {
+                setExtLoading(false);
                 setExtError(result.message ?? "Reauth failed");
+                return;
               }
+              const validation = await validateCredentials(result.credentials);
+              setExtLoading(false);
+              if (!validation.valid) {
+                setExtError(validation.error ?? "Captured credentials are not valid");
+                return;
+              }
+              onCredentials(result.credentials);
             }}
             disabled={!extDetected || extLoading}
             className="w-full rounded-lg border border-gray-700 px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:border-gray-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"

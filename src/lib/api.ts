@@ -68,6 +68,17 @@ function cookieString(cookies: Record<string, string>): string {
 }
 
 /**
+ * Ensure credentials have a non-empty uniqueSessionId. The extension often
+ * returns an empty string (the registration landing page URL doesn't carry
+ * one), and Banner's term/session bookkeeping relies on a stable identifier
+ * across the saveTerm → search sequence — without it, searches return null.
+ */
+function withSessionId(creds: BannerCredentials): BannerCredentials {
+  if (creds.uniqueSessionId) return creds;
+  return { ...creds, uniqueSessionId: `sched${Date.now()}` };
+}
+
+/**
  * Build headers for Banner API requests.
  *
  * Browser Fetch silently strips "Cookie" (forbidden header), so we send
@@ -98,22 +109,39 @@ function bannerHeaders(
 // ---- Credential validation ----
 
 /**
- * Validate credentials by making a test API request.
- * Returns true if valid, false if invalid.
+ * Validate credentials by fetching the term list — an endpoint that requires
+ * a real authenticated session. Returns valid only if we get actual JSON back.
  */
 export async function validateCredentials(
   creds: BannerCredentials,
 ): Promise<{ valid: boolean; error?: string }> {
   try {
-    const res = await fetch(`${API_BASE}/ssb/userPreference/fetchUsageTracking`, {
-      headers: bannerHeaders(creds),
-      signal: AbortSignal.timeout(10000), // 10 second timeout
-    });
+    const params = new URLSearchParams({ searchTerm: "", offset: "1", max: "5" });
+    const res = await fetch(
+      `${API_BASE}/ssb/classSearch/getTerms?${params}`,
+      { headers: bannerHeaders(creds), signal: AbortSignal.timeout(10000) },
+    );
 
     if (!res.ok) {
       return {
         valid: false,
         error: `Banner returned ${res.status}. Check that your credentials are current and haven't expired.`,
+      };
+    }
+
+    const contentType = res.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json") && !contentType.includes("text/javascript")) {
+      return {
+        valid: false,
+        error: "Session has expired — Banner redirected to login. Please refresh your credentials.",
+      };
+    }
+
+    const data = await res.json();
+    if (!Array.isArray(data)) {
+      return {
+        valid: false,
+        error: "Unexpected response from Banner. Try refreshing your credentials.",
       };
     }
 
@@ -126,7 +154,7 @@ export async function validateCredentials(
       error:
         message.includes("timeout") || message.includes("TimeoutError")
           ? "Request timed out. Check your internet connection and try again."
-          : `Validation failed: ${message}`,
+          : `Session appears expired or credentials are invalid. Try reconnecting.`,
     };
   }
 }
@@ -199,10 +227,11 @@ export async function initializeTermSession(
   creds: BannerCredentials,
   term: string,
 ): Promise<void> {
-  await fetchUsageTracking(creds);
-  await saveTermStep(creds, term);
-  await confirmTermStep(creds, term);
-  await fetchUsageTracking(creds);
+  const c = withSessionId(creds);
+  await fetchUsageTracking(c);
+  await saveTermStep(c, term);
+  await confirmTermStep(c, term);
+  await fetchUsageTracking(c);
 }
 
 // ---- Course search ----
@@ -228,17 +257,18 @@ export async function searchCourses(
   const allData: BannerResponse["data"] = [];
   const perCode: SearchResult["perCode"] = [];
 
+  const c = withSessionId(creds);
   for (const code of courseCodes) {
     try {
       // Re-initialize term session for each search
-      await initializeTermSession(creds, term);
+      await initializeTermSession(c, term);
 
       const params = new URLSearchParams({
         txt_subjectcoursecombo: code,
         txt_term: term,
         startDatepicker: "",
         endDatepicker: "",
-        uniqueSessionId: creds.uniqueSessionId,
+        uniqueSessionId: c.uniqueSessionId,
         pageOffset: "0",
         pageMaxSize: "500",
         sortColumn: "subjectDescription",
@@ -247,7 +277,7 @@ export async function searchCourses(
 
       const res = await fetch(
         `${API_BASE}/ssb/searchResults/searchResults?${params}`,
-        { headers: bannerHeaders(creds) },
+        { headers: bannerHeaders(c) },
       );
 
       if (!res.ok) {

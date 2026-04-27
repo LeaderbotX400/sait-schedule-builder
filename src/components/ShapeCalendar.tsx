@@ -2,7 +2,9 @@ import { useState, useCallback, useRef, useMemo } from "react";
 import type {
   BlockoutGrid as BlockoutGridType,
   BlockoutCell,
+  CourseSection,
   DayOfWeek,
+  MeetingBlock,
   Schedule,
   ScheduleRules,
   ScheduleWarning,
@@ -17,6 +19,15 @@ interface Props {
   blockoutWeight: number;
   onBlockoutWeightChange: (weight: number) => void;
   schedule?: Schedule | null;
+  /** All sections for the selected courses — alternative sections are rendered as grey ghosts */
+  courseGroups?: Map<string, CourseSection[]>;
+  selectedCourses?: Set<string>;
+}
+
+interface ExpandedMeeting {
+  course: CourseSection;
+  meeting: MeetingBlock;
+  day: DayOfWeek;
 }
 
 const HOUR_HEIGHT = 60;
@@ -95,6 +106,8 @@ export default function ShapeCalendar({
   blockoutWeight,
   onBlockoutWeightChange,
   schedule,
+  courseGroups,
+  selectedCourses,
 }: Props) {
   const [paintMode, setPaintMode] = useState<BlockoutCell>("preferred");
   const [isPainting, setIsPainting] = useState(false);
@@ -120,39 +133,60 @@ export default function ShapeCalendar({
     [hardBlockedDays, winStartHour, winEndHour],
   );
 
-  // Time range: always show all GRID_HOURS, expand if schedule has events outside
+  // Schedule event helpers
+  const expanded = useMemo(() => (schedule ? getExpandedMeetings(schedule) : []), [schedule]);
+
+  // Ghost (alternative) meetings: any section of a selected course that isn't
+  // chosen for the active schedule. Lets the user see the options that were
+  // available but not picked.
+  const ghosts = useMemo((): ExpandedMeeting[] => {
+    if (!courseGroups || !selectedCourses) return [];
+    const activeCrns = new Set(schedule?.courses.map((c) => c.crn) ?? []);
+    const out: ExpandedMeeting[] = [];
+    for (const subjectCourse of selectedCourses) {
+      const sections = courseGroups.get(subjectCourse) ?? [];
+      for (const section of sections) {
+        if (activeCrns.has(section.crn)) continue;
+        for (const meeting of section.meetings) {
+          for (const day of meeting.days) {
+            out.push({ course: section, meeting, day });
+          }
+        }
+      }
+    }
+    return out;
+  }, [courseGroups, selectedCourses, schedule]);
+
+  // Time range: GRID_HOURS, expanded by both active and ghost events
   const hours = useMemo(() => {
     let minHour = GRID_HOURS[0];
     let maxHour = GRID_HOURS[GRID_HOURS.length - 1] + 1;
-    if (schedule) {
-      for (const { meeting } of getExpandedMeetings(schedule)) {
-        const sh = Math.floor(meeting.startTime / 100);
-        const eh = Math.ceil(meeting.endTime / 100);
-        if (sh < minHour) minHour = sh;
-        if (eh > maxHour) maxHour = eh;
-      }
-    }
+    const consider = (m: MeetingBlock) => {
+      const sh = Math.floor(m.startTime / 100);
+      const eh = Math.ceil(m.endTime / 100);
+      if (sh < minHour) minHour = sh;
+      if (eh > maxHour) maxHour = eh;
+    };
+    for (const { meeting } of expanded) consider(meeting);
+    for (const { meeting } of ghosts) consider(meeting);
     return Array.from({ length: maxHour - minHour }, (_, i) => minHour + i);
-  }, [schedule]);
+  }, [expanded, ghosts]);
 
   const gridStartMinutes = hours[0] * 60;
   const totalHeight = hours.length * HOUR_HEIGHT;
 
-  // Weekend columns only when schedule needs them
+  // Weekend columns when active or ghost meetings need them
   const displayDays = useMemo((): DayOfWeek[] => {
-    if (!schedule) return WEEKDAYS;
-    const expanded = getExpandedMeetings(schedule);
-    const hasSat = expanded.some((e) => e.day === "Sat");
-    const hasSun = expanded.some((e) => e.day === "Sun");
+    const hasSat =
+      expanded.some((e) => e.day === "Sat") || ghosts.some((g) => g.day === "Sat");
+    const hasSun =
+      expanded.some((e) => e.day === "Sun") || ghosts.some((g) => g.day === "Sun");
     return [
       ...WEEKDAYS,
       ...(hasSat ? (["Sat"] as DayOfWeek[]) : []),
       ...(hasSun ? (["Sun"] as DayOfWeek[]) : []),
     ];
-  }, [schedule]);
-
-  // Schedule event helpers
-  const expanded = useMemo(() => (schedule ? getExpandedMeetings(schedule) : []), [schedule]);
+  }, [expanded, ghosts]);
   const courseIds = useMemo(
     () => [...new Set(schedule?.courses.map((c) => c.identifier) ?? [])],
     [schedule],
@@ -172,7 +206,7 @@ export default function ShapeCalendar({
   );
 
   const dayEvents = useMemo(() => {
-    const m = new Map<DayOfWeek, typeof expanded>();
+    const m = new Map<DayOfWeek, ExpandedMeeting[]>();
     for (const entry of expanded) {
       if (!displayDays.includes(entry.day)) continue;
       const existing = m.get(entry.day) ?? [];
@@ -181,6 +215,17 @@ export default function ShapeCalendar({
     }
     return m;
   }, [expanded, displayDays]);
+
+  const dayGhosts = useMemo(() => {
+    const m = new Map<DayOfWeek, ExpandedMeeting[]>();
+    for (const entry of ghosts) {
+      if (!displayDays.includes(entry.day)) continue;
+      const existing = m.get(entry.day) ?? [];
+      existing.push(entry);
+      m.set(entry.day, existing);
+    }
+    return m;
+  }, [ghosts, displayDays]);
 
   // Paint interaction
   const paint = useCallback(
@@ -352,6 +397,31 @@ export default function ShapeCalendar({
                     );
                   })}
 
+                  {/* Ghost (alternative) sections — possible options not chosen */}
+                  {(dayGhosts.get(day) ?? []).map(({ course, meeting }, idx) => {
+                    const startMin = timeToMinutes(meeting.startTime) - gridStartMinutes;
+                    const endMin = timeToMinutes(meeting.endTime) - gridStartMinutes;
+                    const top = (startMin / 60) * HOUR_HEIGHT;
+                    const height = ((endMin - startMin) / 60) * HOUR_HEIGHT;
+                    return (
+                      <div
+                        key={`ghost-${course.crn}-${day}-${meeting.startTime}-${idx}`}
+                        className="absolute left-0.5 right-0.5 bg-gray-700/25 border border-dashed border-gray-500/50 rounded-r-md overflow-hidden flex flex-col justify-center px-1.5"
+                        style={{ top, height, zIndex: 1, pointerEvents: "none" }}
+                        title={`Alternative: ${course.identifier} - ${course.title}\n${course.instructor}\n${meeting.building} ${meeting.room}\n${formatTime(meeting.startTime)} - ${formatTime(meeting.endTime)}`}
+                      >
+                        <span className="text-[10px] font-medium text-gray-400 truncate leading-tight italic">
+                          {course.identifier}
+                        </span>
+                        {height > 35 && (
+                          <div className="text-[9px] text-gray-500 truncate leading-tight">
+                            {formatTime(meeting.startTime)}–{formatTime(meeting.endTime)}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
                   {/* Schedule events */}
                   {schedule &&
                     (dayEvents.get(day) ?? []).map(({ course, meeting }) => {
@@ -369,7 +439,7 @@ export default function ShapeCalendar({
                         <div
                           key={`${course.crn}-${day}-${meeting.startTime}`}
                           className={`absolute left-0.5 right-0.5 ${isWarned ? color.bgWarn : color.bg} ${isWarned ? color.borderWarn : color.border} border-l-[3px] rounded-r-md overflow-hidden flex flex-col justify-center px-1.5`}
-                          style={{ top, height, zIndex: 1, pointerEvents: "none" }}
+                          style={{ top, height, zIndex: 2, pointerEvents: "none" }}
                           title={`${course.identifier} - ${course.title}\n${course.instructor}\n${meeting.building} ${meeting.room}\n${formatTime(meeting.startTime)} - ${formatTime(meeting.endTime)}`}
                         >
                           <div className="flex items-center gap-1">
@@ -420,6 +490,12 @@ export default function ShapeCalendar({
           />
           Outside time window / day off
         </span>
+        {ghosts.length > 0 && (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm bg-gray-700/40 border border-dashed border-gray-500/60" />
+            Alternative section
+          </span>
+        )}
       </div>
     </div>
   );

@@ -2,11 +2,90 @@ import type {
   CourseSection,
   DayOfWeek,
   MeetingBlock,
+  OmittedCourse,
   Schedule,
   ScheduleRules,
 } from "./types";
 import { DEFAULT_RULES, sectionsHaveConflict } from "./types";
 import { scoreSchedule } from "./scoring";
+
+function formatTime12(t: number): string {
+  const h = Math.floor(t / 100);
+  const m = (t % 100).toString().padStart(2, "0");
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${h12}:${m} ${period}`;
+}
+
+/**
+ * Explain why every section of a course was filtered out by the rules.
+ * Returns the most specific reason(s) we can determine.
+ */
+function explainFilteredOut(
+  sections: CourseSection[],
+  rules: ScheduleRules,
+): string {
+  if (sections.length === 0) return "No sections were loaded for this course.";
+
+  const earliest = parseInt(rules.earliestStart, 10);
+  const latest = parseInt(rules.latestEnd, 10);
+
+  let allTooEarly = true;
+  let allTooLate = true;
+  let allOnFreeDays = true;
+  let allFull = true;
+
+  for (const section of sections) {
+    let tooEarly = false;
+    let tooLate = false;
+    let onFreeDay = false;
+    for (const m of section.meetings) {
+      if (m.startTime < earliest) tooEarly = true;
+      if (m.endTime > latest) tooLate = true;
+      for (const d of m.days) {
+        if (rules.freeDays.includes(d)) onFreeDay = true;
+      }
+    }
+    if (!tooEarly) allTooEarly = false;
+    if (!tooLate) allTooLate = false;
+    if (!onFreeDay) allOnFreeDays = false;
+    if (section.seatsAvailable > 0) allFull = false;
+  }
+
+  const reasons: string[] = [];
+  if (allTooEarly) reasons.push(`every section starts before ${formatTime12(earliest)}`);
+  if (allTooLate) reasons.push(`every section ends after ${formatTime12(latest)}`);
+  if (allOnFreeDays && rules.freeDays.length > 0) {
+    reasons.push(`every section meets on a free day (${rules.freeDays.join(", ")})`);
+  }
+  if (rules.requireOpenSeats && allFull) reasons.push("every section is full");
+
+  if (reasons.length > 0) return `Filtered: ${reasons.join("; ")}.`;
+  return "No sections satisfy your scheduling rules.";
+}
+
+/** Explain why a course had to be dropped from a partial schedule. */
+function explainConflict(
+  omittedSections: CourseSection[],
+  chosen: CourseSection[],
+): string {
+  const conflictingCourses = new Set<string>();
+  let allConflict = true;
+  for (const section of omittedSections) {
+    let conflicts = false;
+    for (const other of chosen) {
+      if (sectionsHaveConflict(section, other)) {
+        conflictingCourses.add(other.identifier);
+        conflicts = true;
+      }
+    }
+    if (!conflicts) allConflict = false;
+  }
+  if (allConflict && conflictingCourses.size > 0) {
+    return `Time conflict with ${[...conflictingCourses].join(", ")}.`;
+  }
+  return "No section fits without violating your on-campus day or conflict rules.";
+}
 
 /** Check if a section violates hard rules (free days, time bounds) */
 function violatesRules(
@@ -76,12 +155,19 @@ export function generateSchedules(
   // Filter sections that violate hard rules
   const filteredGroups: CourseSection[][] = [];
   const courseNames: string[] = [];
+  /** Globally-excluded courses — applies to every generated schedule */
+  const baselineOmitted: OmittedCourse[] = [];
 
   for (const [name, sections] of courseGroups) {
     const valid = sections.filter((s) => !violatesRules(s, rules));
     if (valid.length > 0) {
       filteredGroups.push(valid);
       courseNames.push(name);
+    } else {
+      baselineOmitted.push({
+        subjectCourse: name,
+        reason: explainFilteredOut(sections, rules),
+      });
     }
   }
 
@@ -110,7 +196,7 @@ export function generateSchedules(
     const onCampusDays = getOnCampusDays(combo);
     if (onCampusDays.length > rules.maxOnCampusDays) continue;
 
-    const schedule = scoreSchedule(combo, scheduleId++, rules, false, []);
+    const schedule = scoreSchedule(combo, scheduleId++, rules, false, baselineOmitted);
     schedules.push(schedule);
 
     if (options.onProgress && i % 500 === 0) {
@@ -123,6 +209,7 @@ export function generateSchedules(
     for (let omitIdx = 0; omitIdx < filteredGroups.length; omitIdx++) {
       const partialGroups = filteredGroups.filter((_, i) => i !== omitIdx);
       const omittedName = courseNames[omitIdx];
+      const omittedSections = filteredGroups[omitIdx];
       const partialCombos = cartesianProduct(partialGroups);
 
       for (const combo of partialCombos) {
@@ -137,7 +224,14 @@ export function generateSchedules(
         const onCampusDays = getOnCampusDays(combo);
         if (onCampusDays.length > rules.maxOnCampusDays) continue;
 
-        const schedule = scoreSchedule(combo, scheduleId++, rules, true, [omittedName]);
+        const omittedForThisSchedule: OmittedCourse[] = [
+          ...baselineOmitted,
+          {
+            subjectCourse: omittedName,
+            reason: explainConflict(omittedSections, combo),
+          },
+        ];
+        const schedule = scoreSchedule(combo, scheduleId++, rules, true, omittedForThisSchedule);
         schedules.push(schedule);
       }
     }

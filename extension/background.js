@@ -129,12 +129,8 @@ async function handleGetCredentials() {
   }
 }
 
-/**
- * Clear all Banner domain cookies and the cached sync token, then run the
- * full login flow. Use this when the session has expired and you need fresh
- * credentials rather than reusing an existing (possibly stale) session.
- */
-async function handleForceReauth() {
+/** Wipe all Banner cookies and any cached session state. */
+async function clearBannerSession() {
   const cookies = await chrome.cookies.getAll({ domain: BANNER_DOMAIN });
   await Promise.all(
     cookies.map((c) => {
@@ -144,19 +140,31 @@ async function handleForceReauth() {
   );
   cachedSyncToken = "";
   cachedUniqueSessionId = "";
+}
+
+/**
+ * Force a re-auth. Identical to handleTriggerLogin now that triggerLogin
+ * always clears the session up front — kept as a separate entry point for
+ * the UI's explicit "Force Reauth" button.
+ */
+async function handleForceReauth() {
   return handleTriggerLogin();
 }
 
 /**
  * Open a SAIT login tab, wait for auth to complete, then return credentials.
+ *
+ * ALWAYS clears existing Banner cookies and the cached sync token first —
+ * Banner sessions can be invalidated server-side without the cookie expiring
+ * client-side, so a cached session is never trustworthy. Forcing a fresh CAS
+ * login is the only way to be sure the credentials we capture actually work.
+ *
  * The message channel is kept open (caller returns true) so this can take as
  * long as the user needs to log in — Chrome keeps the service worker alive
  * while a message port is open.
  */
 async function handleTriggerLogin() {
-  // Already authenticated? Return credentials immediately.
-  const existing = await handleGetCredentials();
-  if (existing.ok) return existing;
+  await clearBannerSession();
 
   return new Promise((resolve) => {
     chrome.windows.create(

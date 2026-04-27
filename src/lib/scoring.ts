@@ -85,7 +85,7 @@ export function scoreSchedule(
   id: number,
   rules: ScheduleRules,
   isPartial: boolean,
-  omittedCourses: string[],
+  omittedCourses: import("./types").OmittedCourse[],
 ): Schedule {
   const warnings: ScheduleWarning[] = [];
   let score = 100;
@@ -226,9 +226,10 @@ export function scoreSchedule(
   // --- Penalty: partial schedule ---
   if (isPartial) {
     score -= 20;
+    const names = omittedCourses.map((o) => o.subjectCourse).join(", ");
     warnings.push({
       kind: "partial",
-      message: `Partial schedule \u2014 missing ${omittedCourses.join(", ")}`,
+      message: `Partial schedule \u2014 missing ${names}`,
       courseIds: [],
       days: [],
       times: [],
