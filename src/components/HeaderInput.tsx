@@ -1,24 +1,28 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { validateLogin, type BannerCredentials } from "../lib/api";
 import {
-  triggerLogin,
   forceReauth,
   getCredentialsFromExtension,
-  openAuthUrl,
-  waitForExtension,
+  triggerLogin,
+  waitForExtension
 } from "../lib/extension";
 
 const DEV = import.meta.env.DEV;
 
 interface Props {
-  onCredentials: (creds: BannerCredentials | null, studentId?: string | null) => void;
+  onCredentials: (
+    creds: BannerCredentials | null,
+    studentId?: string | null,
+  ) => void;
   isConnected: boolean;
 }
 
 export default function HeaderInput({ onCredentials, isConnected }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [extensionDetected, setExtensionDetected] = useState<boolean | null>(null);
+  const [extensionDetected, setExtensionDetected] = useState<boolean | null>(
+    null,
+  );
   const [sessionAge, setSessionAge] = useState(0);
   const connectedAtRef = useRef<number | null>(null);
 
@@ -47,7 +51,9 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
       connectedAtRef.current = Date.now();
       setSessionAge(0);
       const id = setInterval(() => {
-        setSessionAge(Math.floor((Date.now() - connectedAtRef.current!) / 1000));
+        setSessionAge(
+          Math.floor((Date.now() - connectedAtRef.current!) / 1000),
+        );
       }, 10000);
       return () => clearInterval(id);
     }
@@ -60,7 +66,8 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
       setError(null);
       setLoading(true);
 
-      const result = mode === "force" ? await forceReauth() : await triggerLogin();
+      const result =
+        mode === "force" ? await forceReauth() : await triggerLogin();
 
       if (!result.ok || !result.credentials) {
         setLoading(false);
@@ -80,23 +87,10 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
     [onCredentials],
   );
 
-  const handleDisconnect = useCallback(() => onCredentials(null), [onCredentials]);
-
-  const handleOpenAuth = useCallback(async () => {
-    setError(null);
-    const result = await openAuthUrl();
-    if (!result.ok) setError(result.message ?? "Could not open auth URL");
-  }, []);
-
-  const devButton = DEV ? (
-    <button
-      onClick={handleOpenAuth}
-      className="w-full rounded-lg border border-dashed border-purple-700 px-3 py-1.5 text-xs text-purple-400 hover:text-purple-200 hover:border-purple-500 transition-colors"
-      title="Open the SAIT auth URL in a popup to inspect login state"
-    >
-      dev: open auth URL
-    </button>
-  ) : null;
+  const handleDisconnect = useCallback(
+    () => onCredentials(null),
+    [onCredentials],
+  );
 
   if (isConnected) {
     const ageMin = Math.floor(sessionAge / 60);
@@ -112,12 +106,18 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
               : "bg-emerald-900/30 border border-emerald-800"
           }`}
         >
-          <div className={`h-2 w-2 rounded-full ${stale ? "bg-yellow-400" : "bg-emerald-400"}`} />
+          <div
+            className={`h-2 w-2 rounded-full ${stale ? "bg-yellow-400" : "bg-emerald-400"}`}
+          />
           <div className="flex-1 min-w-0">
-            <span className={`text-sm ${stale ? "text-yellow-300" : "text-emerald-300"}`}>
+            <span
+              className={`text-sm ${stale ? "text-yellow-300" : "text-emerald-300"}`}
+            >
               Connected to Banner
             </span>
-            <span className={`ml-2 text-xs ${stale ? "text-yellow-500" : "text-gray-600"}`}>
+            <span
+              className={`ml-2 text-xs ${stale ? "text-yellow-500" : "text-gray-600"}`}
+            >
               {ageLabel}
             </span>
           </div>
@@ -150,8 +150,6 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
           )}
         </button>
 
-        {devButton}
-
         {error && (
           <div className="rounded-lg bg-red-900/30 border border-red-800 px-3 py-2 text-xs text-red-400">
             {error}
@@ -167,11 +165,13 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
       {extensionDetected === false ? (
         <p className="text-xs text-yellow-400">
           Schedule Builder extension not detected. Install/load it from{" "}
-          <code className="text-yellow-300">chrome://extensions</code>, then reload this page.
+          <code className="text-yellow-300">chrome://extensions</code>, then
+          reload this page.
         </p>
       ) : (
         <p className="text-xs text-gray-500">
-          A SAIT login window will open. Complete login there and it will close automatically.
+          A SAIT login window will open. Complete login there and it will close
+          automatically.
         </p>
       )}
 
@@ -189,8 +189,6 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
           "Sign in with SAIT"
         )}
       </button>
-
-      {devButton}
 
       {error && (
         <div className="rounded-lg bg-red-900/30 border border-red-800 px-3 py-2 text-xs text-red-400">

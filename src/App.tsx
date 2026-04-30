@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
+import ConnectionStatus from "./components/ConnectionStatus";
 import CourseSearch from "./components/CourseSearch";
 import CourseSelector from "./components/CourseSelector";
 import CurrentScheduleEditor from "./components/CurrentScheduleEditor";
 import HeaderInput from "./components/HeaderInput";
-import ConnectionStatus from "./components/ConnectionStatus";
-import ScheduleStrip from "./components/ScheduleStrip";
 import Popover from "./components/Popover";
-import { describeTerm } from "./lib/terms";
-import { downloadICal } from "./lib/ical";
 import RulesPanel from "./components/RulesPanel";
 import ScheduleDetail from "./components/ScheduleDetail";
+import ScheduleStrip from "./components/ScheduleStrip";
 import ShapeCalendar from "./components/ShapeCalendar";
 import { useScheduler } from "./hooks/useScheduler";
-import { forceReauth } from "./lib/extension";
 import { validateLogin } from "./lib/api";
+import { forceReauth } from "./lib/extension";
+import { downloadICal } from "./lib/ical";
+import { describeTerm } from "./lib/terms";
 import type { BlockoutGrid, RegistrationNoticesResponse } from "./lib/types";
 
 function RegistrationStatusInline({
@@ -23,7 +23,7 @@ function RegistrationStatusInline({
 }) {
   const blocked =
     !notices.regStudentStatus?.allowsRegistration ||
-    notices.timeTickets.length > 0 ||
+    (notices.timeTickets?.length ?? 0) > 0 ||
     notices.academicStanding?.preventsRegistration != null;
 
   if (blocked) {
@@ -32,8 +32,8 @@ function RegistrationStatusInline({
         ⚠ Registration blocked
         {notices.academicStanding?.description &&
           ` · ${notices.academicStanding.description}`}
-        {notices.timeTickets.length > 0 &&
-          ` · ${notices.timeTickets.length} time ticket${notices.timeTickets.length === 1 ? "" : "s"}`}
+        {(notices.timeTickets?.length ?? 0) > 0 &&
+          ` · ${notices.timeTickets!.length} time ticket${notices.timeTickets!.length === 1 ? "" : "s"}`}
       </span>
     );
   }
@@ -419,7 +419,9 @@ export default function App() {
             <div className="flex items-center justify-center h-64">
               <div className="max-w-sm text-center space-y-2">
                 <p className="text-sm text-red-400">{loadError}</p>
-                <p className="text-xs text-gray-500">Try disconnecting and signing in again.</p>
+                <p className="text-xs text-gray-500">
+                  Try disconnecting and signing in again.
+                </p>
               </div>
             </div>
           ) : (

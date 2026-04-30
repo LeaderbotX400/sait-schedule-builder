@@ -3,9 +3,10 @@
 
 const BANNER_DOMAIN = "sait-sust-prd-prd1-ban-ss-ssag6.sait.ca";
 const BANNER_BASE = `https://${BANNER_DOMAIN}/StudentRegistrationSsb`;
-const REGISTRATION_URL = `${BANNER_BASE}/ssb/registration`;
-const PERSONAL_INFO_URL =
-  "https://sait-sust-prd-prd1-ban-ss-ssag2.sait.ca/BannerGeneralSsb/ssb/personalInformation#/personalInformationMain";
+// const REGISTRATION_URL = `${BANNER_BASE}/ssb/registration`;
+const REGISTRATION_URL = `${BANNER_BASE}/StudentRegistrationSsb/ssb/registrationHistory/registrationHistory`;
+// const PERSONAL_INFO_URL =
+//   "https://sait-sust-prd-prd1-ban-ss-ssag2.sait.ca/BannerGeneralSsb/ssb/personalInformation#/personalInformationMain";
 
 // All Banner hosts that may hold an authenticated session — clear cookies on
 // every reauth so the user can't be left half-logged-in across subdomains.
@@ -275,7 +276,7 @@ async function handleTriggerLogin(): Promise<CredentialResult> {
 
   return new Promise((resolve) => {
     chrome.windows.create(
-      { url: PERSONAL_INFO_URL, type: "popup", width: 520, height: 680 },
+      { url: REGISTRATION_URL, type: "popup", width: 520, height: 680 },
       (win) => {
         if (!win || !win.tabs || win.tabs.length === 0) {
           resolve({
@@ -307,7 +308,7 @@ async function handleTriggerLogin(): Promise<CredentialResult> {
           // Clear stale cached tokens so the next attempt fetches fresh ones.
           cachedSyncToken = "";
           cachedUniqueSessionId = "";
-          chrome.tabs.update(tabId, { url: PERSONAL_INFO_URL }).catch(() => {});
+          chrome.tabs.update(tabId, { url: REGISTRATION_URL }).catch(() => {});
         };
 
         const onUpdated = (
@@ -320,7 +321,7 @@ async function handleTriggerLogin(): Promise<CredentialResult> {
           // Only act once we're back on a real Banner page — not on the SSO
           // login form or any intermediate redirect.
           if (
-            !url.includes("sait.ca") ||
+            url.includes("sait.ca") ||
             (!url.includes("personalInformation") &&
               !url.includes("StudentRegistrationSsb/ssb/"))
           ) {
@@ -399,7 +400,7 @@ async function handleOpenAuthUrl(): Promise<
 > {
   return new Promise((resolve) => {
     chrome.windows.create(
-      { url: PERSONAL_INFO_URL, type: "popup", width: 520, height: 680 },
+      { url: REGISTRATION_URL, type: "popup", width: 520, height: 680 },
       (win) => {
         if (!win) {
           resolve({

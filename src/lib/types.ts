@@ -328,7 +328,7 @@ export interface RegistrationNoticesResponse {
     description: string;
     preventsRegistration: unknown | null;
   };
-  timeTickets: Array<unknown>;
+  timeTickets?: Array<unknown>;
   enrollmentStatus: Record<string, unknown>;
   regStudentStatus: {
     allowsRegistration: boolean;
