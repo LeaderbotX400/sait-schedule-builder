@@ -22,7 +22,7 @@ function RegistrationStatusInline({
   notices: RegistrationNoticesResponse;
 }) {
   const blocked =
-    !notices.regStudentStatus?.allowsRegistration ||
+    notices.regStudentStatus?.allowsRegistration === false ||
     (notices.timeTickets?.length ?? 0) > 0 ||
     notices.academicStanding?.preventsRegistration != null;
 
@@ -212,15 +212,23 @@ export default function App() {
       {credentials && (gpa || registrationNotices) && (
         <div className="border-b border-gray-800/60 bg-gray-900/40">
           <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 py-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
-            {gpa && (
-              <span className="text-gray-400">
-                GPA{" "}
-                <span className="font-semibold text-gray-200">
-                  {gpa.overallGpa}
+            {gpa && (() => {
+              const overallEntry = gpa.gpas?.find(
+                (g) => g.typeDesc === "Overall" || g.gpaTypeIndicatorDesc?.toLowerCase().includes("overall"),
+              );
+              const displayGpa = gpa.overallGpa ?? overallEntry?.gpa;
+              const displayHours = gpa.overallHours ?? overallEntry?.hours;
+              if (!displayGpa) return null;
+              return (
+                <span className="text-gray-400">
+                  GPA{" "}
+                  <span className="font-semibold text-gray-200">{displayGpa}</span>
+                  {displayHours != null && (
+                    <span className="text-gray-600"> · {displayHours} cr</span>
+                  )}
                 </span>
-                <span className="text-gray-600"> · {gpa.overallHours} cr</span>
-              </span>
-            )}
+              );
+            })()}
             {registrationNotices && (
               <RegistrationStatusInline notices={registrationNotices} />
             )}

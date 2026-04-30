@@ -305,9 +305,9 @@ export function sectionsHaveConflict(a: CourseSection, b: CourseSection): boolea
 }
 
 export interface GpaResponse {
-  overallGpa: string;
-  overallHours: number;
-  gpas: Array<{
+  overallGpa?: string;
+  overallHours?: number;
+  gpas?: Array<{
     gpa: string;
     hours: number;
     hoursAttempted: number;
@@ -318,22 +318,22 @@ export interface GpaResponse {
 }
 
 export interface RegistrationNoticesResponse {
-  standingAsOf: {
+  standingAsOf?: {
     termDescription: string;
     standingDescription: string;
     fullDescription: string;
   };
-  academicStanding: {
+  academicStanding?: {
     termDescription: string;
     description: string;
     preventsRegistration: unknown | null;
   };
   timeTickets?: Array<unknown>;
-  enrollmentStatus: Record<string, unknown>;
-  regStudentStatus: {
+  enrollmentStatus?: Record<string, unknown>;
+  regStudentStatus?: {
     allowsRegistration: boolean;
     description: string;
   };
-  timeTicketRequired: boolean;
-  count: number;
+  timeTicketRequired?: boolean;
+  count?: number;
 }
