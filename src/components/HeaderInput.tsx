@@ -1,14 +1,17 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { validateCredentials, type BannerCredentials } from "../lib/api";
+import { validateLogin, type BannerCredentials } from "../lib/api";
 import {
   triggerLogin,
   forceReauth,
   getCredentialsFromExtension,
+  openAuthUrl,
   waitForExtension,
 } from "../lib/extension";
 
+const DEV = import.meta.env.DEV;
+
 interface Props {
-  onCredentials: (creds: BannerCredentials | null) => void;
+  onCredentials: (creds: BannerCredentials | null, studentId?: string | null) => void;
   isConnected: boolean;
 }
 
@@ -30,9 +33,9 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
       if (!ok) return;
       const result = await getCredentialsFromExtension();
       if (cancelled || !result.ok || !result.credentials) return;
-      const validation = await validateCredentials(result.credentials);
+      const validation = await validateLogin(result.credentials);
       if (cancelled || !validation.valid) return;
-      onCredentials(result.credentials);
+      onCredentials(result.credentials, validation.studentId);
     })();
     return () => {
       cancelled = true;
@@ -65,19 +68,35 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
         return;
       }
 
-      const validation = await validateCredentials(result.credentials);
+      const validation = await validateLogin(result.credentials);
       setLoading(false);
       if (!validation.valid) {
-        setError(validation.error ?? "Captured credentials are not valid");
+        setError(validation.error);
         return;
       }
 
-      onCredentials(result.credentials);
+      onCredentials(result.credentials, validation.studentId);
     },
     [onCredentials],
   );
 
   const handleDisconnect = useCallback(() => onCredentials(null), [onCredentials]);
+
+  const handleOpenAuth = useCallback(async () => {
+    setError(null);
+    const result = await openAuthUrl();
+    if (!result.ok) setError(result.message ?? "Could not open auth URL");
+  }, []);
+
+  const devButton = DEV ? (
+    <button
+      onClick={handleOpenAuth}
+      className="w-full rounded-lg border border-dashed border-purple-700 px-3 py-1.5 text-xs text-purple-400 hover:text-purple-200 hover:border-purple-500 transition-colors"
+      title="Open the SAIT auth URL in a popup to inspect login state"
+    >
+      dev: open auth URL
+    </button>
+  ) : null;
 
   if (isConnected) {
     const ageMin = Math.floor(sessionAge / 60);
@@ -131,6 +150,8 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
           )}
         </button>
 
+        {devButton}
+
         {error && (
           <div className="rounded-lg bg-red-900/30 border border-red-800 px-3 py-2 text-xs text-red-400">
             {error}
@@ -168,6 +189,8 @@ export default function HeaderInput({ onCredentials, isConnected }: Props) {
           "Sign in with SAIT"
         )}
       </button>
+
+      {devButton}
 
       {error && (
         <div className="rounded-lg bg-red-900/30 border border-red-800 px-3 py-2 text-xs text-red-400">

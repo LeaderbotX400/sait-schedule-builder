@@ -10,6 +10,7 @@ export default defineManifest({
   host_permissions: [
     "https://sait-sust-prd-prd1-ban-ss-ssag6.sait.ca/*",
     "https://sait-sust-prd-prd1-ban-ss-ssag2.sait.ca/*",
+    "https://sait-sust-prd-prd1-ban-ss-ssag1.sait.ca/*",
   ],
   background: {
     service_worker: "extension/background.ts",

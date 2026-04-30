@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { validateCredentials, type BannerCredentials } from "../lib/api";
+import { validateLogin, type BannerCredentials } from "../lib/api";
 import { forceReauth } from "../lib/extension";
 import Popover from "./Popover";
 
 interface Props {
-  onCredentials: (creds: BannerCredentials | null) => void;
+  onCredentials: (creds: BannerCredentials | null, studentId?: string | null) => void;
   termLabel?: string | null;
   loading?: boolean;
 }
@@ -37,15 +37,15 @@ export default function ConnectionStatus({ onCredentials, termLabel, loading }: 
       setError(result.message ?? "Reauth failed");
       return;
     }
-    const validation = await validateCredentials(result.credentials);
+    const validation = await validateLogin(result.credentials);
     setBusy(false);
     if (!validation.valid) {
-      setError(validation.error ?? "Captured credentials are not valid");
+      setError(validation.error);
       return;
     }
     connectedAtRef.current = Date.now();
     setSessionAge(0);
-    onCredentials(result.credentials);
+    onCredentials(result.credentials, validation.studentId);
     close();
   };
 

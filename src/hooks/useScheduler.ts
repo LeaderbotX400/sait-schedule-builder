@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BannerCredentials } from "../lib/api";
-import { fetchRegistrations, getTerms } from "../lib/api";
+import {
+  fetchGpa,
+  fetchRegistrationNotices,
+  fetchRegistrations,
+  getTerms,
+  validateLogin,
+} from "../lib/api";
 import {
   parseActiveRegistrations,
   parseBannerData,
@@ -12,6 +18,8 @@ import type {
   BannerResponse,
   CourseSection,
   CurrentRegistration,
+  GpaResponse,
+  RegistrationNoticesResponse,
   Schedule,
   ScheduleRules,
 } from "../lib/types";
@@ -20,6 +28,8 @@ import {
   usePersistedState,
   usePersistedStringSet,
 } from "../lib/usePersistedState";
+
+const REVALIDATION_INTERVAL_MS = 5 * 60 * 1000;
 
 export type GenerationStatus =
   | { kind: "idle" }
@@ -40,9 +50,14 @@ export function useScheduler() {
     kind: "idle",
   });
   const [activeScheduleIndex, setActiveScheduleIndex] = useState(0);
-  const [credentials, setCredentials] = useState<BannerCredentials | null>(
+  const [credentials, setCredentialsState] = useState<BannerCredentials | null>(
     null,
   );
+  const [studentId, setStudentId] = useState<string | null>(null);
+  const [gpa, setGpa] = useState<GpaResponse | null>(null);
+  const [registrationNotices, setRegistrationNotices] =
+    useState<RegistrationNoticesResponse | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [term, setTerm] = usePersistedState<string>("term", DEFAULT_TERM);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [registrationsLoading, setRegistrationsLoading] = useState(false);
@@ -59,6 +74,72 @@ export function useScheduler() {
   const [includedCourses, setIncludedCourses] = useState<Set<string>>(
     new Set(),
   );
+
+  const setCredentials = useCallback(
+    (creds: BannerCredentials | null, sid?: string | null) => {
+      setCredentialsState(creds);
+      if (creds) {
+        setSessionExpired(false);
+        setStudentId(sid ?? null);
+      } else {
+        setStudentId(null);
+        setGpa(null);
+        setRegistrationNotices(null);
+      }
+    },
+    [],
+  );
+
+  // Fetch GPA + registration notices once we have a studentId.
+  useEffect(() => {
+    if (!credentials || !studentId) return;
+    let cancelled = false;
+    fetchGpa(credentials, studentId).then((g) => {
+      if (!cancelled) setGpa(g);
+    });
+    fetchRegistrationNotices(credentials, studentId).then((n) => {
+      if (!cancelled) setRegistrationNotices(n);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [credentials, studentId]);
+
+  // Background re-validation: poll getBannerId every 5 minutes while
+  // connected. On an authoritative logged-out result, clear state and
+  // signal HeaderInput/ConnectionStatus to trigger reauth. Network
+  // errors do NOT clear state — transient blips shouldn't log the user
+  // out. Pause polling while the tab is hidden.
+  const credsRef = useRef(credentials);
+  credsRef.current = credentials;
+  useEffect(() => {
+    if (!credentials) return;
+
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled) return;
+      if (typeof document !== "undefined" && document.hidden) return;
+      const creds = credsRef.current;
+      if (!creds) return;
+      const result = await validateLogin(creds);
+      if (cancelled) return;
+      if (!result.valid && result.reason !== "NETWORK") {
+        setCredentialsState(null);
+        setStudentId(null);
+        setGpa(null);
+        setRegistrationNotices(null);
+        setSessionExpired(true);
+      } else if (result.valid && result.studentId !== studentId) {
+        setStudentId(result.studentId);
+      }
+    };
+
+    const id = window.setInterval(tick, REVALIDATION_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [credentials, studentId]);
 
   // Auto-fetch registered courses when credentials are first set.
   // Fetch the term list first so we always use the student's current active term.
@@ -435,6 +516,11 @@ export function useScheduler() {
     activeScheduleIndex,
     activeSchedule,
     credentials,
+    studentId,
+    gpa,
+    registrationNotices,
+    sessionExpired,
+    clearSessionExpired: () => setSessionExpired(false),
     term,
     setTerm,
     loadError,

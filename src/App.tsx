@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CourseSearch from "./components/CourseSearch";
 import CourseSelector from "./components/CourseSelector";
 import CurrentScheduleEditor from "./components/CurrentScheduleEditor";
@@ -12,7 +12,41 @@ import RulesPanel from "./components/RulesPanel";
 import ScheduleDetail from "./components/ScheduleDetail";
 import ShapeCalendar from "./components/ShapeCalendar";
 import { useScheduler } from "./hooks/useScheduler";
-import type { BlockoutGrid } from "./lib/types";
+import { forceReauth } from "./lib/extension";
+import { validateLogin } from "./lib/api";
+import type { BlockoutGrid, RegistrationNoticesResponse } from "./lib/types";
+
+function RegistrationStatusInline({
+  notices,
+}: {
+  notices: RegistrationNoticesResponse;
+}) {
+  const blocked =
+    !notices.regStudentStatus?.allowsRegistration ||
+    notices.timeTickets.length > 0 ||
+    notices.academicStanding?.preventsRegistration != null;
+
+  if (blocked) {
+    return (
+      <span className="text-yellow-400">
+        ⚠ Registration blocked
+        {notices.academicStanding?.description &&
+          ` · ${notices.academicStanding.description}`}
+        {notices.timeTickets.length > 0 &&
+          ` · ${notices.timeTickets.length} time ticket${notices.timeTickets.length === 1 ? "" : "s"}`}
+      </span>
+    );
+  }
+
+  return (
+    <span className="text-gray-400">
+      <span className="text-emerald-400">●</span>{" "}
+      {notices.standingAsOf?.fullDescription ??
+        notices.regStudentStatus?.description ??
+        "Registration open"}
+    </span>
+  );
+}
 
 type PanelId = "courses";
 
@@ -29,6 +63,11 @@ export default function App() {
     activeScheduleIndex,
     activeSchedule,
     credentials,
+    studentId: _studentId,
+    gpa,
+    registrationNotices,
+    sessionExpired,
+    clearSessionExpired,
     term,
     setTerm,
     loadBannerResponse,
@@ -40,11 +79,32 @@ export default function App() {
     setActiveScheduleIndex,
     currentRegistrations,
     registrationsLoading,
+    loadError,
     includedCourses,
     sectionOverrides,
     swapSection,
     toggleCurrentCourse,
   } = useScheduler();
+  void _studentId;
+
+  // Background re-validation flagged the session as logged-out.
+  // Auto-trigger a reauth popup so the user doesn't have to click.
+  useEffect(() => {
+    if (!sessionExpired) return;
+    let cancelled = false;
+    (async () => {
+      const result = await forceReauth();
+      if (cancelled) return;
+      clearSessionExpired();
+      if (!result.ok || !result.credentials) return;
+      const validation = await validateLogin(result.credentials);
+      if (cancelled || !validation.valid) return;
+      setCredentials(result.credentials, validation.studentId);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionExpired, clearSessionExpired, setCredentials]);
 
   const hasData = courseGroups.size > 0;
 
@@ -147,6 +207,26 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {/* ── Student status row (GPA + registration block warning) ── */}
+      {credentials && (gpa || registrationNotices) && (
+        <div className="border-b border-gray-800/60 bg-gray-900/40">
+          <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 py-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
+            {gpa && (
+              <span className="text-gray-400">
+                GPA{" "}
+                <span className="font-semibold text-gray-200">
+                  {gpa.overallGpa}
+                </span>
+                <span className="text-gray-600"> · {gpa.overallHours} cr</span>
+              </span>
+            )}
+            {registrationNotices && (
+              <RegistrationStatusInline notices={registrationNotices} />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Expandable panel — only shown once connected ── */}
       {activePanel && credentials && (
@@ -333,6 +413,13 @@ export default function App() {
                 <p className="mt-3 text-sm text-gray-400">
                   Loading your registered courses...
                 </p>
+              </div>
+            </div>
+          ) : loadError ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="max-w-sm text-center space-y-2">
+                <p className="text-sm text-red-400">{loadError}</p>
+                <p className="text-xs text-gray-500">Try disconnecting and signing in again.</p>
               </div>
             </div>
           ) : (

@@ -4,6 +4,8 @@ import type {
   RegistrationModel,
   RegistrationBatchResult,
   RegistrationItemResult,
+  GpaResponse,
+  RegistrationNoticesResponse,
 } from "./types";
 import { bannerFetch } from "./extension";
 
@@ -11,6 +13,8 @@ const BANNER_ORIGIN = "https://sait-sust-prd-prd1-ban-ss-ssag6.sait.ca";
 const API_BASE = `${BANNER_ORIGIN}/StudentRegistrationSsb`;
 const GENERAL_SSB_BASE =
   "https://sait-sust-prd-prd1-ban-ss-ssag2.sait.ca/BannerGeneralSsb";
+const STUDENT_SELF_SERVICE_BASE =
+  "https://sait-sust-prd-prd1-ban-ss-ssag1.sait.ca/StudentSelfService";
 
 export interface BannerCredentials {
   synchronizerToken: string;
@@ -71,69 +75,99 @@ async function bannerCall<T = unknown>(
   };
 }
 
-// ---- Credential validation ----
+// ---- Login validation ----
 
-export async function validateCredentials(
+export type LoginValidation =
+  | { valid: true; studentId: string }
+  | { valid: false; reason: "NETWORK" | "NOT_LOGGED_IN" | "MALFORMED"; error: string };
+
+/**
+ * Single source of truth for "is the user logged in?".
+ *
+ * Hits getBannerId on ssag2. Any of: network failure, non-2xx, redirect to
+ * login (non-JSON response), empty body, missing/falsy bannerId — counts as
+ * logged out per the user-facing reauth flow.
+ */
+export async function validateLogin(
   creds: BannerCredentials,
-): Promise<{ valid: boolean; error?: string }> {
-  const params = new URLSearchParams({ searchTerm: "", offset: "1", max: "5" });
-  const res = await bannerCall<unknown[]>(
-    `${API_BASE}/ssb/classSearch/getTerms?${params}`,
-    { headers: bannerHeaders(creds) },
-  );
-
-  if (res.error) {
-    return {
-      valid: false,
-      error: `Could not reach Banner: ${res.error}`,
-    };
-  }
-
-  if (!res.ok) {
-    return {
-      valid: false,
-      error: `Banner returned ${res.status}. Check that your credentials are current and haven't expired.`,
-    };
-  }
-
-  if (
-    !res.contentType.includes("application/json") &&
-    !res.contentType.includes("text/javascript")
-  ) {
-    return {
-      valid: false,
-      error: "Session has expired — Banner redirected to login. Please refresh your credentials.",
-    };
-  }
-
-  if (!Array.isArray(res.json)) {
-    return {
-      valid: false,
-      error: "Unexpected response from Banner. Try refreshing your credentials.",
-    };
-  }
-
-  const idRes = await bannerCall<{ bannerId?: string }>(
+): Promise<LoginValidation> {
+  const idRes = await bannerCall<{ bannerId?: string } | null>(
     `${GENERAL_SSB_BASE}/ssb/PersonalInformationDetails/getBannerId`,
     { headers: bannerHeaders(creds) },
   );
 
   if (idRes.error) {
-    return { valid: false, error: `Could not reach Banner: ${idRes.error}` };
+    return {
+      valid: false,
+      reason: "NETWORK",
+      error: `Could not reach Banner: ${idRes.error}`,
+    };
+  }
+
+  if (!idRes.ok) {
+    return {
+      valid: false,
+      reason: "NOT_LOGGED_IN",
+      error: `Banner returned ${idRes.status}. Sign in and refresh your credentials.`,
+    };
   }
 
   if (
-    !idRes.ok ||
-    !idRes.contentType.includes("application/json") ||
-    !idRes.json?.bannerId
+    !idRes.contentType.includes("application/json") &&
+    !idRes.contentType.includes("text/javascript")
   ) {
     return {
       valid: false,
+      reason: "NOT_LOGGED_IN",
+      error: "Session has expired — Banner redirected to login. Please refresh your credentials.",
+    };
+  }
+
+  const bannerId = idRes.json?.bannerId;
+  if (!bannerId) {
+    return {
+      valid: false,
+      reason: "NOT_LOGGED_IN",
       error: "You're not signed in to SAIT Banner. Sign in and refresh your credentials.",
     };
   }
 
-  return { valid: true };
+  return { valid: true, studentId: String(bannerId) };
+}
+
+/** Back-compat shim — prefer validateLogin for new code. */
+export async function validateCredentials(
+  creds: BannerCredentials,
+): Promise<{ valid: boolean; error?: string; studentId?: string }> {
+  const result = await validateLogin(creds);
+  if (result.valid) return { valid: true, studentId: result.studentId };
+  return { valid: false, error: result.error };
+}
+
+// ---- Student profile fetchers ----
+
+export async function fetchGpa(
+  creds: BannerCredentials,
+  studentId: string,
+): Promise<GpaResponse | null> {
+  const res = await bannerCall<GpaResponse>(
+    `${STUDENT_SELF_SERVICE_BASE}/studentProfile/viewGPAHoursList?studentId=${encodeURIComponent(studentId)}`,
+    { headers: bannerHeaders(creds) },
+  );
+  if (!res.ok || !res.json) return null;
+  return res.json;
+}
+
+export async function fetchRegistrationNotices(
+  creds: BannerCredentials,
+  studentId: string,
+): Promise<RegistrationNoticesResponse | null> {
+  const res = await bannerCall<RegistrationNoticesResponse>(
+    `${STUDENT_SELF_SERVICE_BASE}/studentProfile/viewRegistrationNotices?studentId=${encodeURIComponent(studentId)}`,
+    { headers: bannerHeaders(creds) },
+  );
+  if (!res.ok || !res.json) return null;
+  return res.json;
 }
 
 // ---- Session initialization ----

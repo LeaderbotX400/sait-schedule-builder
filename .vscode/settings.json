@@ -1,4 +1,4 @@
 {
     "nixEnvSelector.nixFile": "${workspaceFolder}/flake.nix",
-    "deno.enable": true
+    "deno.enable": false
 }

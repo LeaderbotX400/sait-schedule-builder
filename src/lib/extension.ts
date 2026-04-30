@@ -131,6 +131,10 @@ export function getCredentialsFromExtension(): Promise<ExtensionResult> {
   return send({ type: "GET_CREDENTIALS" });
 }
 
+export function openAuthUrl(): Promise<ExtensionResult> {
+  return send({ type: "OPEN_AUTH_URL" });
+}
+
 export interface BannerFetchResponse {
   ok: boolean;
   status: number;

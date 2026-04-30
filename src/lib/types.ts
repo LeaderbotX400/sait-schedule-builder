@@ -303,3 +303,37 @@ export function sectionsHaveConflict(a: CourseSection, b: CourseSection): boolea
   }
   return false;
 }
+
+export interface GpaResponse {
+  overallGpa: string;
+  overallHours: number;
+  gpas: Array<{
+    gpa: string;
+    hours: number;
+    hoursAttempted: number;
+    levelDesc: string;
+    typeDesc: string;
+    gpaTypeIndicatorDesc: string;
+  }>;
+}
+
+export interface RegistrationNoticesResponse {
+  standingAsOf: {
+    termDescription: string;
+    standingDescription: string;
+    fullDescription: string;
+  };
+  academicStanding: {
+    termDescription: string;
+    description: string;
+    preventsRegistration: unknown | null;
+  };
+  timeTickets: Array<unknown>;
+  enrollmentStatus: Record<string, unknown>;
+  regStudentStatus: {
+    allowsRegistration: boolean;
+    description: string;
+  };
+  timeTicketRequired: boolean;
+  count: number;
+}
