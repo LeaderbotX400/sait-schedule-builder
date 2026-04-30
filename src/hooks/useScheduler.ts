@@ -453,6 +453,53 @@ export function useScheduler() {
     [courseGroups, currentRegistrations, includedCourses, sectionOverrides],
   );
 
+  const SKIP_TERMS = ["(View Only)", "Non-Credit", "Apprentice", "(View only)"];
+
+  /** Re-fetch all Banner data (GPA, notices, registrations) with the current session. */
+  const refresh = useCallback(async () => {
+    if (!credentials || !studentId) return;
+    setRegistrationsLoading(true);
+    setLoadError(null);
+
+    const [gpaResult, noticesResult] = await Promise.all([
+      fetchGpa(credentials, studentId),
+      fetchRegistrationNotices(credentials, studentId),
+    ]);
+    setGpa(gpaResult);
+    setRegistrationNotices(noticesResult);
+
+    try {
+      const terms = await getTerms(credentials);
+      if (!Array.isArray(terms) || terms.length === 0) {
+        throw new Error("Banner returned no terms — session may be invalid");
+      }
+      const activeTerm = terms.find(
+        (t) => !SKIP_TERMS.some((s) => t.description.includes(s)),
+      );
+      const termCode = activeTerm?.code;
+      if (termCode) {
+        setTerm(termCode);
+        const registrations = await fetchRegistrations(credentials, termCode);
+        if (registrations.length > 0) {
+          const groups = parseActiveRegistrations(registrations);
+          setCourseGroups(groups);
+          setSelectedCourses((prev) => {
+            const restored = new Set([...prev].filter((name) => groups.has(name)));
+            return restored.size > 0 ? restored : new Set(groups.keys());
+          });
+          initializeCurrentRegistrations(groups);
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setLoadError(
+        `Could not refresh your registrations: ${msg}. Try reconnecting to Banner.`,
+      );
+    } finally {
+      setRegistrationsLoading(false);
+    }
+  }, [credentials, studentId, initializeCurrentRegistrations]);
+
   /** Toggle a course on/off in the current schedule */
   const toggleCurrentCourse = useCallback((subjectCourse: string) => {
     setIncludedCourses((prev) => {
@@ -542,5 +589,6 @@ export function useScheduler() {
     toggleCurrentCourse,
     initializeCurrentRegistrations,
     getCurrentSchedule,
+    refresh,
   };
 }

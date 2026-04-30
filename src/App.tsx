@@ -84,6 +84,7 @@ export default function App() {
     sectionOverrides,
     swapSection,
     toggleCurrentCourse,
+    refresh,
   } = useScheduler();
   void _studentId;
 
@@ -165,6 +166,18 @@ export default function App() {
                   <RulesPanel rules={rules} onChange={setRules} />
                 </Popover>
               </div>
+            )}
+            {credentials && (
+              <button
+                onClick={() => void refresh()}
+                disabled={registrationsLoading}
+                title="Reload data from Banner"
+                className="rounded-md border border-gray-700/80 px-2 py-1 text-gray-400 hover:text-white hover:border-gray-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <span className={`inline-block text-sm leading-none ${registrationsLoading ? "animate-spin" : ""}`}>
+                  ↻
+                </span>
+              </button>
             )}
             {credentials && (
               <ConnectionStatus
