@@ -2,11 +2,12 @@
 // Owns Banner credential capture and the login popup flow.
 
 const BANNER_DOMAIN = "sait-sust-prd-prd1-ban-ss-ssag6.sait.ca";
-const BANNER_BASE = `https://${BANNER_DOMAIN}/StudentRegistrationSsb`;
+// const BANNER_BASE = `https://${BANNER_DOMAIN}/StudentRegistrationSsb`;
 // const REGISTRATION_URL = `${BANNER_BASE}/ssb/registration`;
-const REGISTRATION_URL = `${BANNER_BASE}/StudentRegistrationSsb/ssb/registrationHistory/registrationHistory`;
+// const REGISTRATION_URL = `${BANNER_BASE}/StudentRegistrationSsb/ssb/registrationHistory/registrationHistory`;
 // const PERSONAL_INFO_URL =
 //   "https://sait-sust-prd-prd1-ban-ss-ssag2.sait.ca/BannerGeneralSsb/ssb/personalInformation#/personalInformationMain";
+const LOGIN_URL = `https://sait-sust-prd-prd1-eid-idm-wso2.sait.ca/cas-web/login?TARGET=https%3A%2F%2Fsait-sust-prd-prd1-ban-ss-ssag6.sait.ca%2FStudentRegistrationSsb%2Flogin%2Fcas`;
 
 // All Banner hosts that may hold an authenticated session — clear cookies on
 // every reauth so the user can't be left half-logged-in across subdomains.
@@ -160,7 +161,7 @@ async function handleGetCredentials(): Promise<CredentialResult> {
         ok: false,
         error: "NOT_LOGGED_IN",
         message: "No Banner cookies found. Sign in to SAIT Banner first.",
-        loginUrl: REGISTRATION_URL,
+        loginUrl: LOGIN_URL,
       };
     }
 
@@ -173,7 +174,7 @@ async function handleGetCredentials(): Promise<CredentialResult> {
         error: "MISSING_SESSION",
         message:
           "JSESSIONID cookie not found. Your Banner session may have expired.",
-        loginUrl: REGISTRATION_URL,
+        loginUrl: LOGIN_URL,
       };
     }
 
@@ -192,7 +193,7 @@ async function handleGetCredentials(): Promise<CredentialResult> {
         error: "NO_SYNC_TOKEN",
         message:
           "Couldn't get the Banner synchronizer token. Open the registration page once, then retry.",
-        loginUrl: REGISTRATION_URL,
+        loginUrl: LOGIN_URL,
       };
     }
 
@@ -276,7 +277,7 @@ async function handleTriggerLogin(): Promise<CredentialResult> {
 
   return new Promise((resolve) => {
     chrome.windows.create(
-      { url: REGISTRATION_URL, type: "popup", width: 520, height: 680 },
+      { url: LOGIN_URL, type: "popup", width: 520, height: 680 },
       (win) => {
         if (!win || !win.tabs || win.tabs.length === 0) {
           resolve({
@@ -308,25 +309,28 @@ async function handleTriggerLogin(): Promise<CredentialResult> {
           // Clear stale cached tokens so the next attempt fetches fresh ones.
           cachedSyncToken = "";
           cachedUniqueSessionId = "";
-          chrome.tabs.update(tabId, { url: REGISTRATION_URL }).catch(() => {});
+          chrome.tabs.update(tabId, { url: LOGIN_URL }).catch(() => {});
         };
 
         const onUpdated = (
           id: number,
           changeInfo: { status?: string },
-          updatedTab: chrome.tabs.Tab,
+          _updatedTab: chrome.tabs.Tab,
         ) => {
           if (id !== tabId || changeInfo.status !== "complete") return;
-          const url = updatedTab.url ?? "";
+          // const url = updatedTab.url ?? "";
           // Only act once we're back on a real Banner page — not on the SSO
           // login form or any intermediate redirect.
-          if (
-            url.includes("sait.ca") ||
-            (!url.includes("personalInformation") &&
-              !url.includes("StudentRegistrationSsb/ssb/"))
-          ) {
-            return;
-          }
+          // if (
+          //   !url.includes(
+          //     "sait-sust-prd-prd1-eid-idm-wso2.sait.ca/cas-web/login",
+          //   )
+          //   // url.includes("sait.ca") &&
+          //   // (url.includes("personalInformation") ||
+          //   //   url.includes("StudentRegistrationSsb/ssb/"))
+          // ) {
+          //   return;
+          // }
 
           attempts++;
 
@@ -400,7 +404,7 @@ async function handleOpenAuthUrl(): Promise<
 > {
   return new Promise((resolve) => {
     chrome.windows.create(
-      { url: REGISTRATION_URL, type: "popup", width: 520, height: 680 },
+      { url: LOGIN_URL, type: "popup", width: 520, height: 680 },
       (win) => {
         if (!win) {
           resolve({
@@ -422,7 +426,7 @@ async function handleOpenAuthUrl(): Promise<
  * existing session; no manual Cookie header needed.
  */
 async function fetchSyncToken(): Promise<string | null> {
-  const res = await fetch(REGISTRATION_URL, { credentials: "include" });
+  const res = await fetch(LOGIN_URL, { credentials: "include" });
 
   const syncHeader = res.headers.get("X-Synchronizer-Token");
   if (syncHeader) return syncHeader;

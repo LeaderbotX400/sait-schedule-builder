@@ -4,10 +4,8 @@ import {
   forceReauth,
   getCredentialsFromExtension,
   triggerLogin,
-  waitForExtension
+  waitForExtension,
 } from "../lib/extension";
-
-const DEV = import.meta.env.DEV;
 
 interface Props {
   onCredentials: (
