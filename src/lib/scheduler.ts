@@ -8,14 +8,7 @@ import type {
 } from "./types";
 import { DEFAULT_RULES, sectionsHaveConflict } from "./types";
 import { scoreSchedule } from "./scoring";
-
-function formatTime12(t: number): string {
-  const h = Math.floor(t / 100);
-  const m = (t % 100).toString().padStart(2, "0");
-  const period = h >= 12 ? "PM" : "AM";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}:${m} ${period}`;
-}
+import { formatTime } from "./time";
 
 /**
  * Explain why every section of a course was filtered out by the rules.
@@ -53,8 +46,8 @@ function explainFilteredOut(
   }
 
   const reasons: string[] = [];
-  if (allTooEarly) reasons.push(`every section starts before ${formatTime12(earliest)}`);
-  if (allTooLate) reasons.push(`every section ends after ${formatTime12(latest)}`);
+  if (allTooEarly) reasons.push(`every section starts before ${formatTime(earliest)}`);
+  if (allTooLate) reasons.push(`every section ends after ${formatTime(latest)}`);
   if (allOnFreeDays && rules.freeDays.length > 0) {
     reasons.push(`every section meets on a free day (${rules.freeDays.join(", ")})`);
   }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { CourseSection, MeetingBlock } from "../lib/types";
+import { formatTimeCompact } from "../lib/time";
 
 interface Props {
   courseGroups: Map<string, CourseSection[]>;
@@ -7,17 +8,9 @@ interface Props {
   onToggle: (subjectCourse: string) => void;
 }
 
-function formatTime(t: number): string {
-  const h = Math.floor(t / 100);
-  const m = (t % 100).toString().padStart(2, "0");
-  const period = h >= 12 ? "PM" : "AM";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}:${m}${period}`;
-}
-
 function meetingSummary(m: MeetingBlock): string {
   const days = m.days.join("");
-  const time = `${formatTime(m.startTime)}–${formatTime(m.endTime)}`;
+  const time = `${formatTimeCompact(m.startTime)}–${formatTimeCompact(m.endTime)}`;
   return `${days} ${time}`;
 }
 

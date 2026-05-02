@@ -7,10 +7,17 @@ import type {
   MeetingBlock,
   Schedule,
   ScheduleRules,
-  ScheduleWarning,
 } from "../lib/types";
 import { GRID_HOURS, WEEKDAYS, createEmptyBlockout } from "../lib/types";
 import { getExpandedMeetings } from "../lib/scheduler";
+import { formatHour, formatTime, timeToMinutes } from "../lib/time";
+import {
+  COURSE_COLORS,
+  HOUR_HEIGHT,
+  buildColorMap,
+  buildWarnedCourseIds,
+  buildWarningKeys,
+} from "../lib/calendar";
 
 interface Props {
   blockout: BlockoutGridType;
@@ -30,19 +37,6 @@ interface ExpandedMeeting {
   day: DayOfWeek;
 }
 
-const HOUR_HEIGHT = 60;
-
-const COLORS = [
-  { bg: "bg-blue-900/60", bgWarn: "bg-blue-900/30", border: "border-l-blue-500", borderWarn: "border-l-red-500", text: "text-blue-200" },
-  { bg: "bg-emerald-900/60", bgWarn: "bg-emerald-900/30", border: "border-l-emerald-500", borderWarn: "border-l-red-500", text: "text-emerald-200" },
-  { bg: "bg-purple-900/60", bgWarn: "bg-purple-900/30", border: "border-l-purple-500", borderWarn: "border-l-red-500", text: "text-purple-200" },
-  { bg: "bg-amber-900/60", bgWarn: "bg-amber-900/30", border: "border-l-amber-500", borderWarn: "border-l-red-500", text: "text-amber-200" },
-  { bg: "bg-rose-900/60", bgWarn: "bg-rose-900/30", border: "border-l-rose-500", borderWarn: "border-l-red-500", text: "text-rose-200" },
-  { bg: "bg-cyan-900/60", bgWarn: "bg-cyan-900/30", border: "border-l-cyan-500", borderWarn: "border-l-red-500", text: "text-cyan-200" },
-  { bg: "bg-orange-900/60", bgWarn: "bg-orange-900/30", border: "border-l-orange-500", borderWarn: "border-l-red-500", text: "text-orange-200" },
-  { bg: "bg-indigo-900/60", bgWarn: "bg-indigo-900/30", border: "border-l-indigo-500", borderWarn: "border-l-red-500", text: "text-indigo-200" },
-];
-
 const PAINT_MODES: { value: BlockoutCell; label: string }[] = [
   { value: "preferred", label: "Classes here" },
   { value: "blocked", label: "No classes" },
@@ -54,44 +48,6 @@ const HARD_BLOCKED_STYLE: React.CSSProperties = {
     "repeating-linear-gradient(135deg, transparent, transparent 3px, rgba(255,255,255,0.035) 3px, rgba(255,255,255,0.035) 6px)",
   backgroundColor: "rgba(0,0,0,0.32)",
 };
-
-function timeToMinutes(t: number): number {
-  return Math.floor(t / 100) * 60 + (t % 100);
-}
-
-function formatTime(t: number): string {
-  const h = Math.floor(t / 100);
-  const m = (t % 100).toString().padStart(2, "0");
-  const period = h >= 12 ? "PM" : "AM";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}:${m} ${period}`;
-}
-
-function formatHour(h: number): string {
-  const period = h >= 12 ? "PM" : "AM";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}${period}`;
-}
-
-function buildWarningKeys(warnings: ScheduleWarning[]): Set<string> {
-  const keys = new Set<string>();
-  for (const w of warnings) {
-    for (const courseId of w.courseIds) {
-      for (const day of w.days) {
-        for (const [start] of w.times) {
-          keys.add(`${courseId}|${day}|${start}`);
-        }
-      }
-    }
-  }
-  return keys;
-}
-
-function buildWarnedCourseIds(warnings: ScheduleWarning[]): Set<string> {
-  const ids = new Set<string>();
-  for (const w of warnings) for (const id of w.courseIds) ids.add(id);
-  return ids;
-}
 
 function fitBadgeStyle(score: number): string {
   if (score >= 80) return "bg-emerald-900/60 text-emerald-300 border border-emerald-700/60";
@@ -191,11 +147,7 @@ export default function ShapeCalendar({
     () => [...new Set(schedule?.courses.map((c) => c.identifier) ?? [])],
     [schedule],
   );
-  const colorMap = useMemo(() => {
-    const m = new Map<string, (typeof COLORS)[number]>();
-    courseIds.forEach((id, i) => m.set(id, COLORS[i % COLORS.length]));
-    return m;
-  }, [courseIds]);
+  const colorMap = useMemo(() => buildColorMap(courseIds), [courseIds]);
   const warningKeys = useMemo(
     () => buildWarningKeys(schedule?.warnings ?? []),
     [schedule],
@@ -429,7 +381,7 @@ export default function ShapeCalendar({
                       const endMin = timeToMinutes(meeting.endTime) - gridStartMinutes;
                       const top = (startMin / 60) * HOUR_HEIGHT;
                       const height = ((endMin - startMin) / 60) * HOUR_HEIGHT;
-                      const color = colorMap.get(course.identifier) ?? COLORS[0];
+                      const color = colorMap.get(course.identifier) ?? COURSE_COLORS[0];
 
                       const blockKey = `${course.identifier}|${day}|${meeting.startTime}`;
                       const isWarned =

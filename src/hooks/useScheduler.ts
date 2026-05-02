@@ -1,16 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { BannerCredentials } from "../lib/api";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  fetchGpa,
-  fetchRegistrationNotices,
   fetchRegistrations,
   getTerms,
-  validateLogin,
 } from "../lib/api";
 import {
   parseActiveRegistrations,
   parseBannerData,
-  parseRawJson,
 } from "../lib/parser";
 import { generateSchedules } from "../lib/scheduler";
 import { DEFAULT_TERM } from "../lib/terms";
@@ -18,18 +13,15 @@ import type {
   BannerResponse,
   CourseSection,
   CurrentRegistration,
-  GpaResponse,
-  RegistrationNoticesResponse,
   Schedule,
   ScheduleRules,
 } from "../lib/types";
-import { DEFAULT_RULES, sectionsHaveConflict } from "../lib/types";
+import { DEFAULT_RULES, resolveCurrentSection, sectionsHaveConflict } from "../lib/types";
 import {
   usePersistedState,
   usePersistedStringSet,
 } from "../lib/usePersistedState";
-
-const REVALIDATION_INTERVAL_MS = 5 * 60 * 1000;
+import { useCredentials } from "./useCredentials";
 
 export type GenerationStatus =
   | { kind: "idle" }
@@ -39,6 +31,17 @@ export type GenerationStatus =
   | { kind: "error"; message: string };
 
 export function useScheduler() {
+  const {
+    credentials,
+    studentId,
+    sessionExpired,
+    gpa,
+    registrationNotices,
+    setCredentials,
+    clearSessionExpired,
+    refreshProfile,
+  } = useCredentials();
+
   const [courseGroups, setCourseGroups] = useState<
     Map<string, CourseSection[]>
   >(new Map());
@@ -50,14 +53,6 @@ export function useScheduler() {
     kind: "idle",
   });
   const [activeScheduleIndex, setActiveScheduleIndex] = useState(0);
-  const [credentials, setCredentialsState] = useState<BannerCredentials | null>(
-    null,
-  );
-  const [studentId, setStudentId] = useState<string | null>(null);
-  const [gpa, setGpa] = useState<GpaResponse | null>(null);
-  const [registrationNotices, setRegistrationNotices] =
-    useState<RegistrationNoticesResponse | null>(null);
-  const [sessionExpired, setSessionExpired] = useState(false);
   const [term, setTerm] = usePersistedState<string>("term", DEFAULT_TERM);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [registrationsLoading, setRegistrationsLoading] = useState(false);
@@ -74,72 +69,6 @@ export function useScheduler() {
   const [includedCourses, setIncludedCourses] = useState<Set<string>>(
     new Set(),
   );
-
-  const setCredentials = useCallback(
-    (creds: BannerCredentials | null, sid?: string | null) => {
-      setCredentialsState(creds);
-      if (creds) {
-        setSessionExpired(false);
-        setStudentId(sid ?? null);
-      } else {
-        setStudentId(null);
-        setGpa(null);
-        setRegistrationNotices(null);
-      }
-    },
-    [],
-  );
-
-  // Fetch GPA + registration notices once we have a studentId.
-  useEffect(() => {
-    if (!credentials || !studentId) return;
-    let cancelled = false;
-    fetchGpa(credentials, studentId).then((g) => {
-      if (!cancelled) setGpa(g);
-    });
-    fetchRegistrationNotices(credentials, studentId).then((n) => {
-      if (!cancelled) setRegistrationNotices(n);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [credentials, studentId]);
-
-  // Background re-validation: poll getBannerId every 5 minutes while
-  // connected. On an authoritative logged-out result, clear state and
-  // signal HeaderInput/ConnectionStatus to trigger reauth. Network
-  // errors do NOT clear state — transient blips shouldn't log the user
-  // out. Pause polling while the tab is hidden.
-  const credsRef = useRef(credentials);
-  credsRef.current = credentials;
-  useEffect(() => {
-    if (!credentials) return;
-
-    let cancelled = false;
-    const tick = async () => {
-      if (cancelled) return;
-      if (typeof document !== "undefined" && document.hidden) return;
-      const creds = credsRef.current;
-      if (!creds) return;
-      const result = await validateLogin(creds);
-      if (cancelled) return;
-      if (!result.valid && result.reason !== "NETWORK") {
-        setCredentialsState(null);
-        setStudentId(null);
-        setGpa(null);
-        setRegistrationNotices(null);
-        setSessionExpired(true);
-      } else if (result.valid && result.studentId !== studentId) {
-        setStudentId(result.studentId);
-      }
-    };
-
-    const id = window.setInterval(tick, REVALIDATION_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, [credentials, studentId]);
 
   // Auto-fetch registered courses when credentials are first set.
   // Fetch the term list first so we always use the student's current active term.
@@ -234,32 +163,6 @@ export function useScheduler() {
       setSectionOverrides(new Map());
     },
     [],
-  );
-
-  /** Load from raw JSON (file upload / paste) */
-  const loadData = useCallback(
-    (json: unknown) => {
-      setLoadError(null);
-      try {
-        const groups = parseRawJson(json);
-        if (groups.size === 0) {
-          setLoadError(
-            'No course sections found in the provided data. Check that the JSON contains a "data" array with course entries.',
-          );
-          return;
-        }
-        setCourseGroups(groups);
-        setSelectedCourses(new Set(groups.keys()));
-        setSchedules([]);
-        setActiveScheduleIndex(0);
-        setGenerationStatus({ kind: "idle" });
-        // Initialize current registrations from loaded data
-        initializeCurrentRegistrations(groups);
-      } catch (e) {
-        setLoadError(e instanceof Error ? e.message : "Failed to parse data");
-      }
-    },
-    [initializeCurrentRegistrations],
   );
 
   /** Load from Banner API response — merges into existing data. Returns count of new sections. */
@@ -449,16 +352,15 @@ export function useScheduler() {
 
       // Check for conflicts with other courses in current schedule
       const conflicts: CourseSection[] = [];
-      for (const [course, reg] of currentRegistrations) {
+      for (const course of currentRegistrations.keys()) {
         if (course === subjectCourse) continue;
         if (!includedCourses.has(course)) continue;
-
-        const otherSection = sectionOverrides.has(course)
-          ? courseGroups
-              .get(course)
-              ?.find((s) => s.identifier === sectionOverrides.get(course))
-          : reg.currentSection;
-
+        const otherSection = resolveCurrentSection(
+          course,
+          currentRegistrations,
+          sectionOverrides,
+          courseGroups,
+        );
         if (otherSection && sectionsHaveConflict(newSection, otherSection)) {
           conflicts.push(otherSection);
         }
@@ -484,12 +386,7 @@ export function useScheduler() {
     setRegistrationsLoading(true);
     setLoadError(null);
 
-    const [gpaResult, noticesResult] = await Promise.all([
-      fetchGpa(credentials, studentId),
-      fetchRegistrationNotices(credentials, studentId),
-    ]);
-    setGpa(gpaResult);
-    setRegistrationNotices(noticesResult);
+    await refreshProfile();
 
     try {
       const terms = await getTerms(credentials);
@@ -521,7 +418,7 @@ export function useScheduler() {
     } finally {
       setRegistrationsLoading(false);
     }
-  }, [credentials, studentId, initializeCurrentRegistrations]);
+  }, [credentials, studentId, initializeCurrentRegistrations, refreshProfile]);
 
   /** Toggle a course on/off in the current schedule */
   const toggleCurrentCourse = useCallback((subjectCourse: string) => {
@@ -541,18 +438,15 @@ export function useScheduler() {
     if (currentRegistrations.size === 0) return null;
 
     const courses: CourseSection[] = [];
-    for (const [subjectCourse, reg] of currentRegistrations) {
+    for (const subjectCourse of currentRegistrations.keys()) {
       if (!includedCourses.has(subjectCourse)) continue;
-
-      const section = sectionOverrides.has(subjectCourse)
-        ? courseGroups
-            .get(subjectCourse)
-            ?.find((s) => s.identifier === sectionOverrides.get(subjectCourse))
-        : reg.currentSection;
-
-      if (section) {
-        courses.push(section);
-      }
+      const section = resolveCurrentSection(
+        subjectCourse,
+        currentRegistrations,
+        sectionOverrides,
+        courseGroups,
+      );
+      if (section) courses.push(section);
     }
 
     if (courses.length === 0) return null;
@@ -590,11 +484,10 @@ export function useScheduler() {
     gpa,
     registrationNotices,
     sessionExpired,
-    clearSessionExpired: () => setSessionExpired(false),
+    clearSessionExpired,
     term,
     setTerm,
     loadError,
-    loadData,
     loadBannerResponse,
     clearCourses,
     toggleCourse,

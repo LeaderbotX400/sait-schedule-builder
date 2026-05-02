@@ -1,54 +1,163 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import ConnectionStatus from "./components/ConnectionStatus";
 import CourseSearch from "./components/CourseSearch";
 import CourseSelector from "./components/CourseSelector";
 import CurrentScheduleEditor from "./components/CurrentScheduleEditor";
 import HeaderInput from "./components/HeaderInput";
 import Popover from "./components/Popover";
+import RegistrationStatusInline from "./components/RegistrationStatusInline";
 import RulesPanel from "./components/RulesPanel";
 import ScheduleDetail from "./components/ScheduleDetail";
 import ScheduleStrip from "./components/ScheduleStrip";
 import ShapeCalendar from "./components/ShapeCalendar";
-import { useScheduler } from "./hooks/useScheduler";
-import { validateLogin } from "./lib/api";
-import { forceReauth } from "./lib/extension";
+import { useScheduler, type GenerationStatus } from "./hooks/useScheduler";
+import type { BannerCredentials } from "./lib/api";
 import { downloadICal } from "./lib/ical";
 import { describeTerm } from "./lib/terms";
-import type { BlockoutGrid, RegistrationNoticesResponse } from "./lib/types";
+import type {
+  BlockoutGrid,
+  CourseSection,
+  CurrentRegistration,
+  Schedule,
+  ScheduleRules,
+} from "./lib/types";
 
-function RegistrationStatusInline({
-  notices,
-}: {
-  notices: RegistrationNoticesResponse;
-}) {
-  const blocked =
-    notices.regStudentStatus?.allowsRegistration === false ||
-    (notices.timeTickets?.length ?? 0) > 0 ||
-    notices.academicStanding?.preventsRegistration != null;
+type PanelId = "courses";
 
-  if (blocked) {
+interface ScheduleAreaProps {
+  activeTab: "current" | "browse";
+  currentRegistrations: Map<string, CurrentRegistration>;
+  courseGroups: Map<string, CourseSection[]>;
+  selectedCourses: Set<string>;
+  includedCourses: Set<string>;
+  sectionOverrides: Map<string, string>;
+  generationStatus: GenerationStatus;
+  activeSchedule: Schedule | null;
+  rules: ScheduleRules;
+  credentials: BannerCredentials | null;
+  term: string;
+  swapSection: (subjectCourse: string, newSectionId: string) => { success: boolean; conflicts: CourseSection[] };
+  toggleCurrentCourse: (subjectCourse: string) => void;
+  onBlockoutChange: (blockout: BlockoutGrid) => void;
+  onBlockoutWeightChange: (weight: number) => void;
+  onGenerate: () => void;
+}
+
+/**
+ * Main scheduling area: switches between the "current schedule" editor and
+ * the planner (shape calendar + active schedule details / empty / error).
+ */
+function ScheduleArea({
+  activeTab,
+  currentRegistrations,
+  courseGroups,
+  selectedCourses,
+  includedCourses,
+  sectionOverrides,
+  generationStatus,
+  activeSchedule,
+  rules,
+  credentials,
+  term,
+  swapSection,
+  toggleCurrentCourse,
+  onBlockoutChange,
+  onBlockoutWeightChange,
+  onGenerate,
+}: ScheduleAreaProps) {
+  if (activeTab === "current" && currentRegistrations.size > 0) {
     return (
-      <span className="text-yellow-400">
-        ⚠ Registration blocked
-        {notices.academicStanding?.description &&
-          ` · ${notices.academicStanding.description}`}
-        {(notices.timeTickets?.length ?? 0) > 0 &&
-          ` · ${notices.timeTickets!.length} time ticket${notices.timeTickets!.length === 1 ? "" : "s"}`}
-      </span>
+      <CurrentScheduleEditor
+        currentRegistrations={currentRegistrations}
+        courseGroups={courseGroups}
+        includedCourses={includedCourses}
+        sectionOverrides={sectionOverrides}
+        onSwapSection={swapSection}
+        onToggleCourse={toggleCurrentCourse}
+      />
     );
   }
 
+  if (generationStatus.kind === "generating") {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
+          <p className="mt-3 text-sm text-gray-400">Generating schedules...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const registeredCrns =
+    currentRegistrations.size > 0
+      ? new Set([...currentRegistrations.values()].map((r) => r.currentSection.crn))
+      : undefined;
+
   return (
-    <span className="text-gray-400">
-      <span className="text-emerald-400">●</span>{" "}
-      {notices.standingAsOf?.fullDescription ??
-        notices.regStudentStatus?.description ??
-        "Registration open"}
-    </span>
+    <div className="space-y-4">
+      <ShapeCalendar
+        blockout={rules.blockout}
+        onBlockoutChange={onBlockoutChange}
+        rules={rules}
+        blockoutWeight={rules.blockoutWeight}
+        onBlockoutWeightChange={onBlockoutWeightChange}
+        schedule={activeSchedule ?? null}
+        courseGroups={courseGroups}
+        selectedCourses={selectedCourses}
+      />
+      {activeSchedule ? (
+        <ScheduleDetail
+          schedule={activeSchedule}
+          rules={rules}
+          credentials={credentials}
+          term={term}
+          registeredCrns={registeredCrns}
+        />
+      ) : generationStatus.kind === "empty" ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="max-w-md text-center space-y-2">
+            <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-yellow-900/30 border border-yellow-800">
+              <span className="text-lg">⚠</span>
+            </div>
+            <h2 className="text-base font-semibold text-white">
+              No valid schedules found
+            </h2>
+            <p className="text-sm text-gray-400">{generationStatus.reason}</p>
+          </div>
+        </div>
+      ) : generationStatus.kind === "error" ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="max-w-md text-center space-y-2">
+            <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-red-900/30 border border-red-800">
+              <span className="text-lg">✕</span>
+            </div>
+            <h2 className="text-base font-semibold text-white">Generation failed</h2>
+            <p className="text-sm text-red-400">{generationStatus.message}</p>
+            <p className="text-xs text-gray-600">
+              Try adjusting your rules or course selection, then generate again.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+          <p className="text-sm text-gray-400">
+            {selectedCourses.size === 0
+              ? "Select at least one course to generate."
+              : `${selectedCourses.size} course${selectedCourses.size !== 1 ? "s" : ""} ready.`}
+          </p>
+          <button
+            onClick={onGenerate}
+            disabled={selectedCourses.size === 0}
+            className="rounded-md bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Generate Schedules
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
-
-type PanelId = "courses";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"current" | "browse">("current");
@@ -63,11 +172,8 @@ export default function App() {
     activeScheduleIndex,
     activeSchedule,
     credentials,
-    studentId: _studentId,
     gpa,
     registrationNotices,
-    sessionExpired,
-    clearSessionExpired,
     term,
     setTerm,
     loadBannerResponse,
@@ -86,36 +192,26 @@ export default function App() {
     toggleCurrentCourse,
     refresh,
   } = useScheduler();
-  void _studentId;
-
-  // Background re-validation flagged the session as logged-out.
-  // Auto-trigger a reauth popup so the user doesn't have to click.
-  useEffect(() => {
-    if (!sessionExpired) return;
-    let cancelled = false;
-    (async () => {
-      const result = await forceReauth();
-      if (cancelled) return;
-      clearSessionExpired();
-      if (!result.ok || !result.credentials) return;
-      const validation = await validateLogin(result.credentials);
-      if (cancelled || !validation.valid) return;
-      setCredentials(result.credentials, validation.studentId);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionExpired, clearSessionExpired, setCredentials]);
 
   const hasData = courseGroups.size > 0;
 
-  const togglePanel = (panel: PanelId) =>
-    setActivePanel((p) => (p === panel ? null : panel));
+  const togglePanel = useCallback(
+    (panel: PanelId) =>
+      setActivePanel((p) => (p === panel ? null : panel)),
+    [],
+  );
 
-  const handleBlockoutChange = (blockout: BlockoutGrid) =>
-    setRules((r) => ({ ...r, blockout }));
-  const handleBlockoutWeightChange = (weight: number) =>
-    setRules((r) => ({ ...r, blockoutWeight: weight }));
+  const handleBlockoutChange = useCallback(
+    (blockout: BlockoutGrid) =>
+      setRules((r) => ({ ...r, blockout })),
+    [setRules],
+  );
+
+  const handleBlockoutWeightChange = useCallback(
+    (weight: number) =>
+      setRules((r) => ({ ...r, blockoutWeight: weight })),
+    [setRules],
+  );
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
@@ -328,102 +424,24 @@ export default function App() {
 
             {/* ── Main content ── */}
             <div className="flex-1 min-w-0">
-              {activeTab === "current" && currentRegistrations.size > 0 ? (
-                <CurrentScheduleEditor
-                  currentRegistrations={currentRegistrations}
-                  courseGroups={courseGroups}
-                  includedCourses={includedCourses}
-                  sectionOverrides={sectionOverrides}
-                  onSwapSection={swapSection}
-                  onToggleCourse={toggleCurrentCourse}
-                />
-              ) : generationStatus.kind === "generating" ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
-                    <p className="mt-3 text-sm text-gray-400">
-                      Generating schedules...
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <ShapeCalendar
-                    blockout={rules.blockout}
-                    onBlockoutChange={handleBlockoutChange}
-                    rules={rules}
-                    blockoutWeight={rules.blockoutWeight}
-                    onBlockoutWeightChange={handleBlockoutWeightChange}
-                    schedule={activeSchedule ?? null}
-                    courseGroups={courseGroups}
-                    selectedCourses={selectedCourses}
-                  />
-                  {activeSchedule ? (
-                    <ScheduleDetail
-                      schedule={activeSchedule}
-                      rules={rules}
-                      credentials={credentials}
-                      term={term}
-                      registeredCrns={
-                        currentRegistrations.size > 0
-                          ? new Set(
-                              [...currentRegistrations.values()].map(
-                                (r) => r.currentSection.crn,
-                              ),
-                            )
-                          : undefined
-                      }
-                    />
-                  ) : generationStatus.kind === "empty" ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="max-w-md text-center space-y-2">
-                        <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-yellow-900/30 border border-yellow-800">
-                          <span className="text-lg">⚠</span>
-                        </div>
-                        <h2 className="text-base font-semibold text-white">
-                          No valid schedules found
-                        </h2>
-                        <p className="text-sm text-gray-400">
-                          {generationStatus.reason}
-                        </p>
-                      </div>
-                    </div>
-                  ) : generationStatus.kind === "error" ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="max-w-md text-center space-y-2">
-                        <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-red-900/30 border border-red-800">
-                          <span className="text-lg">✕</span>
-                        </div>
-                        <h2 className="text-base font-semibold text-white">
-                          Generation failed
-                        </h2>
-                        <p className="text-sm text-red-400">
-                          {generationStatus.message}
-                        </p>
-                        <p className="text-xs text-gray-600">
-                          Try adjusting your rules or course selection, then
-                          generate again.
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-                      <p className="text-sm text-gray-400">
-                        {selectedCourses.size === 0
-                          ? "Select at least one course to generate."
-                          : `${selectedCourses.size} course${selectedCourses.size !== 1 ? "s" : ""} ready.`}
-                      </p>
-                      <button
-                        onClick={generate}
-                        disabled={selectedCourses.size === 0}
-                        className="rounded-md bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                      >
-                        Generate Schedules
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+              <ScheduleArea
+                activeTab={activeTab}
+                currentRegistrations={currentRegistrations}
+                courseGroups={courseGroups}
+                selectedCourses={selectedCourses}
+                includedCourses={includedCourses}
+                sectionOverrides={sectionOverrides}
+                generationStatus={generationStatus}
+                activeSchedule={activeSchedule}
+                rules={rules}
+                credentials={credentials}
+                term={term}
+                swapSection={swapSection}
+                toggleCurrentCourse={toggleCurrentCourse}
+                onBlockoutChange={handleBlockoutChange}
+                onBlockoutWeightChange={handleBlockoutWeightChange}
+                onGenerate={generate}
+              />
             </div>
           </div>
         ) : credentials ? (

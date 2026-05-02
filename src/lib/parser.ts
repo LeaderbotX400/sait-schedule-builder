@@ -143,11 +143,3 @@ export function parseActiveRegistrations(
   return grouped;
 }
 
-/** Parse raw JSON (file or API response) */
-export function parseRawJson(json: unknown): Map<string, CourseSection[]> {
-  const response = json as BannerResponse;
-  if (!response.data || !Array.isArray(response.data)) {
-    throw new Error("Invalid data format: expected { data: [...] }");
-  }
-  return parseBannerData(response);
-}

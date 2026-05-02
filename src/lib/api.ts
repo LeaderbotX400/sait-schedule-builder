@@ -135,15 +135,6 @@ export async function validateLogin(
   return { valid: true, studentId: String(bannerId) };
 }
 
-/** Back-compat shim — prefer validateLogin for new code. */
-export async function validateCredentials(
-  creds: BannerCredentials,
-): Promise<{ valid: boolean; error?: string; studentId?: string }> {
-  const result = await validateLogin(creds);
-  if (result.valid) return { valid: true, studentId: result.studentId };
-  return { valid: false, error: result.error };
-}
-
 // ---- Student profile fetchers ----
 
 export async function fetchGpa(

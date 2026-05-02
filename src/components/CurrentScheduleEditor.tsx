@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import type { CourseSection, CurrentRegistration } from "../lib/types";
+import { resolveCurrentSection } from "../lib/types";
 import CalendarGrid from "./CalendarGrid";
+import { formatTime } from "../lib/time";
 
 interface Props {
   currentRegistrations: Map<string, CurrentRegistration>;
@@ -9,14 +11,6 @@ interface Props {
   sectionOverrides: Map<string, string>;
   onSwapSection: (subjectCourse: string, newSectionId: string) => { success: boolean; conflicts: CourseSection[] };
   onToggleCourse: (subjectCourse: string) => void;
-}
-
-function formatTime(t: number): string {
-  const h = Math.floor(t / 100);
-  const m = (t % 100).toString().padStart(2, "0");
-  const period = h >= 12 ? "PM" : "AM";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}:${m} ${period}`;
 }
 
 function formatMeetingTime(course: CourseSection): string {
@@ -41,16 +35,15 @@ export default function CurrentScheduleEditor({
   // Build current schedule from registrations + overrides
   const currentScheduleCourses = useMemo(() => {
     const courses: CourseSection[] = [];
-    for (const [subjectCourse, reg] of currentRegistrations) {
+    for (const subjectCourse of currentRegistrations.keys()) {
       if (!includedCourses.has(subjectCourse)) continue;
-
-      const section = sectionOverrides.has(subjectCourse)
-        ? courseGroups.get(subjectCourse)?.find((s) => s.identifier === sectionOverrides.get(subjectCourse))
-        : reg.currentSection;
-
-      if (section) {
-        courses.push(section);
-      }
+      const section = resolveCurrentSection(
+        subjectCourse,
+        currentRegistrations,
+        sectionOverrides,
+        courseGroups,
+      );
+      if (section) courses.push(section);
     }
     return courses;
   }, [currentRegistrations, includedCourses, sectionOverrides, courseGroups]);
@@ -114,10 +107,13 @@ export default function CurrentScheduleEditor({
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(13rem,1fr))] gap-3 xl:grid-cols-3">
-          {Array.from(currentRegistrations.entries()).map(([subjectCourse, reg]) => {
-            const currentSection = sectionOverrides.has(subjectCourse)
-              ? courseGroups.get(subjectCourse)?.find((s) => s.identifier === sectionOverrides.get(subjectCourse))
-              : reg.currentSection;
+          {Array.from(currentRegistrations.keys()).map((subjectCourse) => {
+            const currentSection = resolveCurrentSection(
+              subjectCourse,
+              currentRegistrations,
+              sectionOverrides,
+              courseGroups,
+            );
 
             const isIncluded = includedCourses.has(subjectCourse);
             const courseConflicts = conflicts.get(subjectCourse);

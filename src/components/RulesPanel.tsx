@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { DayOfWeek, ScheduleRules } from "../lib/types";
+import { formatTimeFromString } from "../lib/time";
 
 interface Props {
   rules: ScheduleRules;
@@ -14,14 +15,6 @@ const TIME_OPTIONS = [
   "1300", "1400", "1500", "1600", "1700", "1800",
   "1900", "2000", "2100",
 ];
-
-function formatTime(t: string): string {
-  const h = parseInt(t.slice(0, 2), 10);
-  const m = t.slice(2);
-  const period = h >= 12 ? "PM" : "AM";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}:${m} ${period}`;
-}
 
 function SectionHeading({ label }: { label: string }) {
   return (
@@ -105,7 +98,7 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
           onChange={(e) => update("earliestStart", e.target.value)}
           className="w-full rounded-md bg-gray-800 border border-gray-700 px-1.5 py-1 text-xs text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          {TIME_OPTIONS.map((t) => <option key={t} value={t}>{formatTime(t)}</option>)}
+          {TIME_OPTIONS.map((t) => <option key={t} value={t}>{formatTimeFromString(t)}</option>)}
         </select>
       </div>
       <div>
@@ -115,7 +108,7 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
           onChange={(e) => update("latestEnd", e.target.value)}
           className="w-full rounded-md bg-gray-800 border border-gray-700 px-1.5 py-1 text-xs text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          {TIME_OPTIONS.map((t) => <option key={t} value={t}>{formatTime(t)}</option>)}
+          {TIME_OPTIONS.map((t) => <option key={t} value={t}>{formatTimeFromString(t)}</option>)}
         </select>
       </div>
     </div>
@@ -252,7 +245,7 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
           <span className="text-sm font-semibold text-gray-200">Time Window</span>
           {!openSections.timeWindow && (
             <span className="text-xs text-gray-500 font-normal ml-1">
-              {formatTime(rules.earliestStart)} – {formatTime(rules.latestEnd)}
+              {formatTimeFromString(rules.earliestStart)} – {formatTimeFromString(rules.latestEnd)}
             </span>
           )}
         </div>

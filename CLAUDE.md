@@ -36,4 +36,3 @@ SAIT Schedule Builder is a client-side React/TypeScript SPA. It fetches course s
 - **Day abbreviations**: `Mon | Tue | Wed | Thu | Fri | Sat | Sun` (type `DayOfWeek`).
 - **No routing**: single-page tab navigation, no React Router.
 - **No persistence**: all state lives in React; nothing is saved to localStorage or a backend.
-- **Anthropic SDK** is installed but not yet wired into the app — placeholder for future LLM-powered suggestions.

@@ -7,10 +7,42 @@ import type {
   BlockoutGrid,
 } from "./types";
 import { ALL_DAYS, GRID_HOURS } from "./types";
+import { formatTimeCompact, timeToMinutes } from "./time";
 
-function timeToMinutes(time: number): number {
-  return Math.floor(time / 100) * 60 + (time % 100);
-}
+/**
+ * Scoring philosophy: each schedule starts at SCORE_BASELINE (100) and
+ * accumulates penalties (subtractions) plus two clustering bonuses (squared
+ * meeting counts per day reward dense days over scattered days). The
+ * blockout-fit score (0–100, computed independently) is then blended in,
+ * weighted by `rules.blockoutWeight / 100`. Final score is clamped to [0, 100].
+ *
+ * Penalty weights are intentionally relative: early-morning is the harshest
+ * hit because students rank it as the worst attribute, while per-day-used at
+ * -1 just nudges toward fewer days when other factors tie.
+ */
+const SCORE_BASELINE = 100;
+
+// Class times <= this count as "early morning" (HHMM, so 0800 = 8:00 AM).
+const EARLY_MORNING_THRESHOLD = 800;
+
+const PENALTY_EARLY_MORNING_PER_MEETING = 10;
+const PENALTY_TRAVEL_GAP_PER_VIOLATION = 5;
+const PENALTY_EXCESS_CAMPUS_DAY = 10;
+const PENALTY_PER_CAMPUS_DAY = 5;
+const PENALTY_PER_DAY_USED = 1;
+const PENALTY_LARGE_GAP = 3;
+const PENALTY_PARTIAL_SCHEDULE = 20;
+
+// Reward dense days: each day contributes (meetings_on_day)^2 to a sum that
+// is multiplied by the per-square weight. Campus-cluster only counts on-campus
+// meetings; day-cluster counts all meetings (online + campus).
+const BONUS_CAMPUS_CLUSTER_PER_SQUARE = 3;
+const BONUS_DAY_CLUSTER_PER_SQUARE = 1;
+
+const BLOCKOUT_FIT_BASELINE = 50;
+const BLOCKOUT_FIT_PREFERRED_BONUS_MAX = 50;
+const BLOCKOUT_FIT_BLOCKED_PENALTY_PER_HIT = 15;
+const BLOCKOUT_FIT_NO_PREFERENCE_SCORE = 100;
 
 /**
  * Score how well a schedule matches the blockout grid (0-100).
@@ -40,7 +72,7 @@ function scoreBlockoutFit(
   // No preferences painted — everything is a perfect fit
   const hasAnyPreference = preferredTotal > 0 ||
     ALL_DAYS.some((d) => GRID_HOURS.some((h) => blockout[d]?.[h] === "blocked"));
-  if (!hasAnyPreference) return { fitScore: 100, warnings: [] };
+  if (!hasAnyPreference) return { fitScore: BLOCKOUT_FIT_NO_PREFERENCE_SCORE, warnings: [] };
 
   for (const course of courses) {
     for (const meeting of course.meetings) {
@@ -68,11 +100,11 @@ function scoreBlockoutFit(
   }
 
   // Score: reward covering preferred slots, heavily penalize blocked slots
-  let fitScore = 50; // baseline
+  let fitScore = BLOCKOUT_FIT_BASELINE;
   if (preferredTotal > 0) {
-    fitScore += (preferredHits / preferredTotal) * 50;
+    fitScore += (preferredHits / preferredTotal) * BLOCKOUT_FIT_PREFERRED_BONUS_MAX;
   }
-  fitScore -= blockedHits * 15;
+  fitScore -= blockedHits * BLOCKOUT_FIT_BLOCKED_PENALTY_PER_HIT;
 
   return {
     fitScore: Math.max(0, Math.min(100, Math.round(fitScore))),
@@ -88,7 +120,7 @@ export function scoreSchedule(
   omittedCourses: import("./types").OmittedCourse[],
 ): Schedule {
   const warnings: ScheduleWarning[] = [];
-  let score = 100;
+  let score = SCORE_BASELINE;
 
   // Collect per-day meetings with course info for warning attribution
   interface DayMeeting {
@@ -128,11 +160,11 @@ export function scoreSchedule(
   let earlyCount = 0;
   for (const course of courses) {
     for (const m of course.meetings) {
-      if (!m.isOnline && m.startTime <= 800) {
+      if (!m.isOnline && m.startTime <= EARLY_MORNING_THRESHOLD) {
         earlyCount += m.days.length;
         warnings.push({
           kind: "early_morning",
-          message: `${course.identifier} starts at ${formatTimeShort(m.startTime)} on ${m.days.join(", ")}`,
+          message: `${course.identifier} starts at ${formatTimeCompact(m.startTime)} on ${m.days.join(", ")}`,
           courseIds: [course.identifier],
           days: [...m.days],
           times: [[m.startTime, m.endTime]],
@@ -140,7 +172,7 @@ export function scoreSchedule(
       }
     }
   }
-  const earlyMorningPenalty = earlyCount * 10;
+  const earlyMorningPenalty = earlyCount * PENALTY_EARLY_MORNING_PER_MEETING;
   score -= earlyMorningPenalty;
 
   // --- Penalty: insufficient travel gaps ---
@@ -161,22 +193,22 @@ export function scoreSchedule(
           travelGapViolations++;
           warnings.push({
             kind: "travel_gap",
-            message: `${gapMinutes}min gap between ${current.courseId} and ${next.courseId} on ${day} (need ${rules.minTravelGapMinutes}min for ${current.isOnline ? "online" : "campus"}\u2192${next.isOnline ? "online" : "campus"})`,
+            message: `${gapMinutes}min gap between ${current.courseId} and ${next.courseId} on ${day} (need ${rules.minTravelGapMinutes}min for ${current.isOnline ? "online" : "campus"}→${next.isOnline ? "online" : "campus"})`,
             courseIds: [current.courseId, next.courseId],
-            days: [day as DayOfWeek],
+            days: [day],
             times: [[current.startTime, current.endTime], [next.startTime, next.endTime]],
           });
         }
       }
     }
   }
-  const travelTimePenalty = travelGapViolations * 5;
+  const travelTimePenalty = travelGapViolations * PENALTY_TRAVEL_GAP_PER_VIOLATION;
   score -= travelTimePenalty;
 
   // --- Penalty: too many on-campus days ---
   if (onCampusDays.length > rules.maxOnCampusDays) {
     const excess = onCampusDays.length - rules.maxOnCampusDays;
-    score -= excess * 10;
+    score -= excess * PENALTY_EXCESS_CAMPUS_DAY;
     warnings.push({
       kind: "campus_days",
       message: `${onCampusDays.length} on-campus days (preferred max: ${rules.maxOnCampusDays})`,
@@ -187,19 +219,19 @@ export function scoreSchedule(
   }
 
   // --- Penalty: on-campus day spread ---
-  score -= onCampusDays.length * 5;
+  score -= onCampusDays.length * PENALTY_PER_CAMPUS_DAY;
 
-  // --- Bonus: on-campus day concentration ---
+  // --- Bonus: on-campus day concentration (rewards dense campus days) ---
   if (rules.preferClusteredCampusDays) {
     let concentration = 0;
     for (const count of Object.values(onCampusPerDay)) {
       concentration += count * count;
     }
-    score += concentration * 3;
+    score += concentration * BONUS_CAMPUS_CLUSTER_PER_SQUARE;
   }
 
   // --- Penalty: total days used ---
-  score -= daysUsed.length;
+  score -= daysUsed.length * PENALTY_PER_DAY_USED;
 
   // --- Penalty: large gaps between classes ---
   if (rules.maxGapBetweenClasses > 0) {
@@ -210,12 +242,12 @@ export function scoreSchedule(
       for (let i = 0; i < sorted.length - 1; i++) {
         const gap = timeToMinutes(sorted[i + 1].startTime) - timeToMinutes(sorted[i].endTime);
         if (gap > rules.maxGapBetweenClasses) {
-          score -= 3;
+          score -= PENALTY_LARGE_GAP;
           warnings.push({
             kind: "large_gap",
             message: `${gap}min gap on ${day} between ${sorted[i].courseId} and ${sorted[i + 1].courseId}`,
             courseIds: [sorted[i].courseId, sorted[i + 1].courseId],
-            days: [day as DayOfWeek],
+            days: [day],
             times: [[sorted[i].startTime, sorted[i].endTime], [sorted[i + 1].startTime, sorted[i + 1].endTime]],
           });
         }
@@ -225,18 +257,18 @@ export function scoreSchedule(
 
   // --- Penalty: partial schedule ---
   if (isPartial) {
-    score -= 20;
+    score -= PENALTY_PARTIAL_SCHEDULE;
     const names = omittedCourses.map((o) => o.subjectCourse).join(", ");
     warnings.push({
       kind: "partial",
-      message: `Partial schedule \u2014 missing ${names}`,
+      message: `Partial schedule — missing ${names}`,
       courseIds: [],
       days: [],
       times: [],
     });
   }
 
-  // --- Day concentration bonus ---
+  // --- Bonus: per-day meeting concentration (rewards dense days overall) ---
   const dayCourseCount: Record<string, number> = {};
   for (const day of daysUsed) {
     dayCourseCount[day] = dayMeetings[day]?.length ?? 0;
@@ -245,7 +277,7 @@ export function scoreSchedule(
   for (const count of Object.values(dayCourseCount)) {
     dayConcentration += count * count;
   }
-  score += dayConcentration;
+  score += dayConcentration * BONUS_DAY_CLUSTER_PER_SQUARE;
 
   // --- Blockout fit ---
   const { fitScore: blockoutFitScore, warnings: blockoutWarnings } =
@@ -275,12 +307,4 @@ export function scoreSchedule(
     omittedCourses,
     blockoutFitScore,
   };
-}
-
-function formatTimeShort(t: number): string {
-  const h = Math.floor(t / 100);
-  const m = (t % 100).toString().padStart(2, "0");
-  const period = h >= 12 ? "PM" : "AM";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}:${m}${period}`;
 }

@@ -3,6 +3,7 @@ import type { Schedule, ScheduleWarning, ScheduleRules, RegistrationBatchResult 
 import { downloadICal } from "../lib/ical";
 import type { BannerCredentials } from "../lib/api";
 import { registerSchedule } from "../lib/api";
+import { formatTime } from "../lib/time";
 
 interface Props {
   schedule: Schedule;
@@ -11,14 +12,6 @@ interface Props {
   term?: string | null;
   /** CRNs the student is already enrolled in — these are skipped on register */
   registeredCrns?: Set<string>;
-}
-
-function formatTime(t: number): string {
-  const h = Math.floor(t / 100);
-  const m = (t % 100).toString().padStart(2, "0");
-  const period = h >= 12 ? "PM" : "AM";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}:${m} ${period}`;
 }
 
 const WARNING_STYLES: Record<string, { icon: string; color: string; bg: string; border: string }> = {

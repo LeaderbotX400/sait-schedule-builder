@@ -290,6 +290,27 @@ export function timesOverlap(
   return start1 < end2 && start2 < end1;
 }
 
+/**
+ * Resolve the section that's currently active for a course: the override
+ * (if the user swapped) else the original `currentSection` from Banner.
+ * Returns undefined when the course isn't tracked or the override identifier
+ * no longer matches a known section.
+ */
+export function resolveCurrentSection(
+  subjectCourse: string,
+  currentRegs: Map<string, CurrentRegistration>,
+  sectionOverrides: Map<string, string>,
+  courseGroups: Map<string, CourseSection[]>,
+): CourseSection | undefined {
+  const reg = currentRegs.get(subjectCourse);
+  if (!reg) return undefined;
+  const overrideId = sectionOverrides.get(subjectCourse);
+  if (overrideId) {
+    return courseGroups.get(subjectCourse)?.find((s) => s.identifier === overrideId);
+  }
+  return reg.currentSection;
+}
+
 /** Utility: check if two course sections have any time conflicts */
 export function sectionsHaveConflict(a: CourseSection, b: CourseSection): boolean {
   for (const ma of a.meetings) {
