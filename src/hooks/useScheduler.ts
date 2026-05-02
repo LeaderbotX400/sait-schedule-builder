@@ -143,47 +143,70 @@ export function useScheduler() {
 
   // Auto-fetch registered courses when credentials are first set.
   // Fetch the term list first so we always use the student's current active term.
+  // Retries once after 1.5 s to handle the case where the Banner session on ssag6
+  // hasn't fully settled by the time credentials are returned from the extension.
   useEffect(() => {
     if (!credentials) return;
-    setRegistrationsLoading(true);
-    setLoadError(null);
-    getTerms(credentials)
-      .then((terms) => {
+    let cancelled = false;
+
+    const SKIP = ["(View Only)", "Non-Credit", "Apprentice", "(View only)"];
+
+    const doFetch = async (isRetry: boolean) => {
+      if (cancelled) return;
+      setRegistrationsLoading(true);
+      if (!isRetry) setLoadError(null);
+
+      try {
+        const terms = await getTerms(credentials);
+        if (cancelled) return;
         if (!Array.isArray(terms) || terms.length === 0) {
           throw new Error("Banner returned no terms — session may be invalid");
         }
-        // Skip non-enrollable terms: view-only, non-credit, apprentice, etc.
-        const SKIP = ["(View Only)", "Non-Credit", "Apprentice", "(View only)"];
         const activeTerm = terms.find(
           (t) => !SKIP.some((s) => t.description.includes(s)),
         );
         const termCode = activeTerm?.code;
-        if (!termCode) return [];
+        if (!termCode) return;
         setTerm(termCode);
-        return fetchRegistrations(credentials, termCode);
-      })
-      .then((registrations) => {
+
+        const registrations = await fetchRegistrations(credentials, termCode);
+        if (cancelled) return;
+
         if (registrations.length > 0) {
           const groups = parseActiveRegistrations(registrations);
           setCourseGroups(groups);
           setSelectedCourses((prev) => {
-            // Restore persisted selection intersected with what Banner returned;
-            // if nothing persists, default to all loaded courses.
             const restored = new Set(
               [...prev].filter((name) => groups.has(name)),
             );
             return restored.size > 0 ? restored : new Set(groups.keys());
           });
           initializeCurrentRegistrations(groups);
+        } else if (!isRetry) {
+          // Session may not be fully ready — retry once after a short delay.
+          setTimeout(() => doFetch(true), 1500);
+          return;
         }
-      })
-      .catch((err) => {
+      } catch (err) {
+        if (cancelled) return;
+        if (!isRetry) {
+          // On first failure retry; only surface the error after the second attempt.
+          setTimeout(() => doFetch(true), 1500);
+          return;
+        }
         const msg = err instanceof Error ? err.message : String(err);
         setLoadError(
           `Could not load your registrations: ${msg}. Try reconnecting to Banner.`,
         );
-      })
-      .finally(() => setRegistrationsLoading(false));
+      } finally {
+        if (!cancelled) setRegistrationsLoading(false);
+      }
+    };
+
+    doFetch(false);
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [credentials]);
 
