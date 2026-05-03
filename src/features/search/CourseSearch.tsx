@@ -1,21 +1,23 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { type BannerCredentials, searchCourses, searchSubjects } from "../lib/api";
-import { TERM_OPTIONS } from "../lib/terms";
-import type { BannerResponse } from "../lib/types";
-
-interface Props {
-  credentials: BannerCredentials;
-  onResults: (data: BannerResponse) => number;
-  term: string;
-  onTermChange: (term: string) => void;
-}
+import { TERM_OPTIONS } from "../../lib/terms";
+import { useStore } from "../../store";
+import { getSdk } from "../../store/sdk";
 
 interface Suggestion {
   code: string;
   description: string;
 }
 
-export default function CourseSearch({ credentials, onResults, term, onTermChange }: Props) {
+/**
+ * Course-search panel. Owns the tag-chip input + autocomplete + term picker
+ * + result-breakdown UI; pulls term/loadBannerResponse from the store and
+ * routes search calls through `sdk.registration.search.byCourses`.
+ */
+export default function CourseSearch() {
+  const term = useStore((s) => s.term);
+  const setTerm = useStore((s) => s.setTerm);
+  const loadBannerResponse = useStore((s) => s.loadBannerResponse);
+
   const [tags, setTags] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -31,7 +33,7 @@ export default function CourseSearch({ credentials, onResults, term, onTermChang
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxId = useId();
 
-  // Debounced autocomplete
+  // Debounced autocomplete via the SDK.
   useEffect(() => {
     const trimmed = inputValue.trim().toUpperCase();
     if (trimmed.length < 2) {
@@ -43,18 +45,21 @@ export default function CourseSearch({ credentials, onResults, term, onTermChang
 
     const timeout = setTimeout(async () => {
       try {
-        const raw = await searchSubjects(credentials, term, trimmed);
+        const raw = await getSdk().registration.lookups.subjectCourseCombo({
+          term,
+          searchTerm: trimmed,
+        });
         const filtered = raw.filter((s) => !tags.includes(s.code)).slice(0, 8);
         setSuggestions(filtered);
         setShowSuggestions(filtered.length > 0);
         setSuggestionIndex(-1);
       } catch {
-        // Autocomplete is best-effort; ignore errors
+        // Autocomplete is best-effort; ignore errors.
       }
     }, 280);
 
     return () => clearTimeout(timeout);
-  }, [inputValue, term, credentials, tags]);
+  }, [inputValue, term, tags]);
 
   const commitTag = useCallback(
     (code: string) => {
@@ -74,35 +79,7 @@ export default function CourseSearch({ credentials, onResults, term, onTermChang
     setTags((prev) => prev.filter((t) => t !== code));
   }, []);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSuggestionIndex((i) => Math.min(i + 1, suggestions.length - 1));
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSuggestionIndex((i) => Math.max(i - 1, -1));
-      } else if (e.key === "Escape") {
-        setShowSuggestions(false);
-        setSuggestionIndex(-1);
-      } else if (e.key === "Enter" || e.key === "," || e.key === " ") {
-        e.preventDefault();
-        if (suggestionIndex >= 0 && suggestions[suggestionIndex]) {
-          commitTag(suggestions[suggestionIndex].code);
-        } else if (inputValue.trim()) {
-          commitTag(inputValue);
-        } else if (e.key === "Enter" && tags.length > 0) {
-          handleSearch();
-        }
-      } else if (e.key === "Backspace" && !inputValue && tags.length > 0) {
-        setTags((prev) => prev.slice(0, -1));
-      }
-    },
-    [suggestions, suggestionIndex, inputValue, tags, commitTag],
-  );
-
   const handleSearch = useCallback(async () => {
-    // Commit any partially-typed code first
     const pending = inputValue.trim().toUpperCase();
     const allCodes = pending ? [...tags, pending] : tags;
     const deduped = [...new Set(allCodes)];
@@ -125,12 +102,12 @@ export default function CourseSearch({ credentials, onResults, term, onTermChang
 
     try {
       setLoadingCode(deduped[0] ?? null);
-      const searchResult = await searchCourses(credentials, term, deduped);
+      const searchResult = await getSdk().registration.search.byCourses(deduped, term);
       setLoadingCode(null);
       setResults(searchResult.perCode);
 
       if (searchResult.response.data.length > 0) {
-        onResults(searchResult.response);
+        loadBannerResponse(searchResult.response);
       }
 
       const allFailed = searchResult.perCode.every((r) => r.count === 0);
@@ -158,9 +135,36 @@ export default function CourseSearch({ credentials, onResults, term, onTermChang
     } finally {
       setLoading(false);
     }
-  }, [credentials, term, tags, inputValue, onResults]);
+  }, [term, tags, inputValue, loadBannerResponse]);
 
-  // Highlight the typed portion of a suggestion description
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSuggestionIndex((i) => Math.min(i + 1, suggestions.length - 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSuggestionIndex((i) => Math.max(i - 1, -1));
+      } else if (e.key === "Escape") {
+        setShowSuggestions(false);
+        setSuggestionIndex(-1);
+      } else if (e.key === "Enter" || e.key === "," || e.key === " ") {
+        e.preventDefault();
+        if (suggestionIndex >= 0 && suggestions[suggestionIndex]) {
+          commitTag(suggestions[suggestionIndex].code);
+        } else if (inputValue.trim()) {
+          commitTag(inputValue);
+        } else if (e.key === "Enter" && tags.length > 0) {
+          void handleSearch();
+        }
+      } else if (e.key === "Backspace" && !inputValue && tags.length > 0) {
+        setTags((prev) => prev.slice(0, -1));
+      }
+    },
+    [suggestions, suggestionIndex, inputValue, tags, commitTag, handleSearch],
+  );
+
+  // Highlight the typed portion of a suggestion description.
   const highlight = (text: string, query: string) => {
     const idx = text.toUpperCase().indexOf(query.toUpperCase());
     if (idx === -1) return <span>{text}</span>;
@@ -180,7 +184,7 @@ export default function CourseSearch({ credentials, onResults, term, onTermChang
         <select
           value={term}
           onChange={(e) => {
-            onTermChange(e.target.value);
+            setTerm(e.target.value);
             setResults(null);
             setSuggestions([]);
             setShowSuggestions(false);
@@ -197,7 +201,6 @@ export default function CourseSearch({ credentials, onResults, term, onTermChang
 
       <div>
         <div className="relative">
-          {/* Tag chips + text input */}
           <div
             className="min-h-[2.5rem] w-full rounded-lg bg-gray-800 border border-gray-700 px-2 py-1.5 flex flex-wrap gap-1.5 items-center cursor-text focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent"
             onClick={() => inputRef.current?.focus()}
@@ -239,9 +242,9 @@ export default function CourseSearch({ credentials, onResults, term, onTermChang
               role="combobox"
               aria-expanded={showSuggestions}
               aria-controls={listboxId}
-              aria-activedescendant={
-                suggestionIndex >= 0 ? `${listboxId}-${suggestionIndex}` : undefined
-              }
+              {...(suggestionIndex >= 0
+                ? { "aria-activedescendant": `${listboxId}-${suggestionIndex}` }
+                : {})}
             />
           </div>
 
@@ -307,6 +310,7 @@ export default function CourseSearch({ credentials, onResults, term, onTermChang
       )}
 
       <button
+        type="button"
         onClick={handleSearch}
         disabled={loading || (tags.length === 0 && !inputValue.trim())}
         className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"

@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react";
-import CourseSearch from "./components/CourseSearch";
 import CourseSelector from "./components/CourseSelector";
 import CurrentScheduleEditor from "./components/CurrentScheduleEditor";
 import RegistrationStatusInline from "./components/RegistrationStatusInline";
@@ -10,6 +9,7 @@ import ShapeCalendar from "./components/ShapeCalendar";
 import { downloadICal } from "./domain/ical";
 import ConnectionStatus from "./features/auth/ConnectionStatus";
 import HeaderInput from "./features/auth/HeaderInput";
+import CourseSearch from "./features/search/CourseSearch";
 import { type GenerationStatus, useScheduler } from "./hooks/useScheduler";
 import type { BannerCredentials } from "./lib/api";
 import { describeTerm } from "./lib/terms";
@@ -176,8 +176,6 @@ export default function App() {
     gpa,
     registrationNotices,
     term,
-    setTerm,
-    loadBannerResponse,
     clearCourses,
     toggleCourse,
     generate,
@@ -342,12 +340,7 @@ export default function App() {
             {activePanel === "courses" && (
               <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                 <div className="sm:w-72 sm:shrink-0">
-                  <CourseSearch
-                    credentials={credentials}
-                    onResults={loadBannerResponse}
-                    term={term}
-                    onTermChange={setTerm}
-                  />
+                  <CourseSearch />
                 </div>
 
                 {hasData && (
