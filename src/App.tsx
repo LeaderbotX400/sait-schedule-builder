@@ -1,16 +1,15 @@
 import { useCallback, useState } from "react";
-import ConnectionStatus from "./components/ConnectionStatus";
 import CourseSearch from "./components/CourseSearch";
 import CourseSelector from "./components/CourseSelector";
 import CurrentScheduleEditor from "./components/CurrentScheduleEditor";
-import HeaderInput from "./components/HeaderInput";
-import Popover from "./components/Popover";
 import RegistrationStatusInline from "./components/RegistrationStatusInline";
 import RulesPanel from "./components/RulesPanel";
 import ScheduleDetail from "./components/ScheduleDetail";
 import ScheduleStrip from "./components/ScheduleStrip";
 import ShapeCalendar from "./components/ShapeCalendar";
 import { downloadICal } from "./domain/ical";
+import ConnectionStatus from "./features/auth/ConnectionStatus";
+import HeaderInput from "./features/auth/HeaderInput";
 import { type GenerationStatus, useScheduler } from "./hooks/useScheduler";
 import type { BannerCredentials } from "./lib/api";
 import { describeTerm } from "./lib/terms";
@@ -21,6 +20,7 @@ import type {
   Schedule,
   ScheduleRules,
 } from "./lib/types";
+import Popover from "./ui/Popover";
 
 type PanelId = "courses";
 
@@ -180,7 +180,6 @@ export default function App() {
     loadBannerResponse,
     clearCourses,
     toggleCourse,
-    setCredentials,
     generate,
     setRules,
     setActiveScheduleIndex,
@@ -276,11 +275,7 @@ export default function App() {
               </button>
             )}
             {credentials && (
-              <ConnectionStatus
-                onCredentials={setCredentials}
-                termLabel={describeTerm(term)}
-                loading={registrationsLoading}
-              />
+              <ConnectionStatus termLabel={describeTerm(term)} loading={registrationsLoading} />
             )}
             {hasData && (
               <button
@@ -464,7 +459,7 @@ export default function App() {
         ) : (
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="w-full max-w-sm rounded-xl border border-gray-800 bg-gray-900/60 p-4 sm:p-6 shadow-lg">
-              <HeaderInput onCredentials={setCredentials} isConnected={!!credentials} />
+              <HeaderInput isConnected={!!credentials} />
             </div>
           </div>
         )}

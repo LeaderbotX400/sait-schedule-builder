@@ -1,15 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import { type BannerCredentials, validateLogin } from "../lib/api";
-import { forceReauth } from "../lib/extension";
-import Popover from "./Popover";
+import { forceReauth } from "../../lib/extension";
+import { useStore } from "../../store";
+import { getSdk } from "../../store/sdk";
+import Popover from "../../ui/Popover";
 
 interface Props {
-  onCredentials: (creds: BannerCredentials | null, studentId?: string | null) => void;
   termLabel?: string | null;
   loading?: boolean;
 }
 
-export default function ConnectionStatus({ onCredentials, termLabel, loading }: Props) {
+/**
+ * Header pill showing connection state + a popover with session age and
+ * Force-Reauth / Disconnect actions. Reads from and writes to the
+ * Zustand store.
+ */
+export default function ConnectionStatus({ termLabel, loading }: Props) {
+  const setCredentials = useStore((s) => s.setCredentials);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionAge, setSessionAge] = useState(0);
@@ -37,7 +43,7 @@ export default function ConnectionStatus({ onCredentials, termLabel, loading }: 
       setError(result.message ?? "Reauth failed");
       return;
     }
-    const validation = await validateLogin(result.credentials);
+    const validation = await getSdk().connectAndValidate(result.credentials);
     setBusy(false);
     if (!validation.valid) {
       setError(validation.error);
@@ -45,7 +51,7 @@ export default function ConnectionStatus({ onCredentials, termLabel, loading }: 
     }
     connectedAtRef.current = Date.now();
     setSessionAge(0);
-    onCredentials(result.credentials, validation.studentId);
+    setCredentials(result.credentials, validation.studentId);
     close();
   };
 
@@ -55,6 +61,7 @@ export default function ConnectionStatus({ onCredentials, termLabel, loading }: 
       widthClass="w-60"
       trigger={({ onClick, "aria-expanded": expanded }) => (
         <button
+          type="button"
           onClick={onClick}
           aria-expanded={expanded}
           className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
@@ -84,6 +91,7 @@ export default function ConnectionStatus({ onCredentials, termLabel, loading }: 
             </p>
           )}
           <button
+            type="button"
             onClick={() => handleReauth(close)}
             disabled={busy}
             className="w-full rounded-md border border-gray-700 px-2.5 py-1.5 text-xs text-gray-300 hover:text-white hover:border-gray-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
@@ -91,8 +99,9 @@ export default function ConnectionStatus({ onCredentials, termLabel, loading }: 
             {busy ? "Waiting for SAIT login…" : "Force Reauth"}
           </button>
           <button
+            type="button"
             onClick={() => {
-              onCredentials(null);
+              setCredentials(null);
               close();
             }}
             className="w-full rounded-md px-2.5 py-1.5 text-xs text-gray-500 hover:text-red-400 transition-colors"

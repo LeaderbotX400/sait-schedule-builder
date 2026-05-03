@@ -1,5 +1,5 @@
 import type { Schedule } from "../lib/types";
-import Popover from "./Popover";
+import Popover from "../ui/Popover";
 
 interface Props {
   schedules: Schedule[];
