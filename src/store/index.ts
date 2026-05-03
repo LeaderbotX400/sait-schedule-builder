@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, type PersistOptions, persist } from "zustand/middleware";
+import { isDemoMode } from "../demo";
 import { type AuthSlice, createAuthSlice } from "./slices/auth";
 import { type CoursesSlice, createCoursesSlice } from "./slices/courses";
 import { type CurrentRegSlice, createCurrentRegSlice } from "./slices/currentReg";
@@ -34,7 +35,9 @@ interface PersistedShape {
 }
 
 const persistOptions: PersistOptions<AppState, PersistedShape> = {
-  name: "sait-sb-v1",
+  // Demo mode uses a separate key so it doesn't pollute real-mode persisted
+  // state. (And starts blank since there's nothing under that key yet.)
+  name: isDemoMode() ? "sait-sb-demo-v1" : "sait-sb-v1",
   storage: createJSONStorage(() => localStorage),
   version: 1,
   partialize: (s) => ({

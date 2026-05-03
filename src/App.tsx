@@ -3,6 +3,7 @@ import AppHeader from "./AppHeader";
 import CoursesPanel from "./CoursesPanel";
 import ProfileStatusRow from "./features/status/ProfileStatusRow";
 import { useAuth } from "./hooks/useAuth";
+import { useDemoBootstrap } from "./hooks/useDemoBootstrap";
 import { useScheduleSync } from "./hooks/useScheduleSync";
 import MainArea from "./MainArea";
 import SignInScreen from "./SignInScreen";
@@ -17,6 +18,7 @@ import { useStore } from "./store";
  * Everything else lives in feature modules and pulls from the store.
  */
 export default function App() {
+  useDemoBootstrap();
   useAuth();
   useScheduleSync();
 
