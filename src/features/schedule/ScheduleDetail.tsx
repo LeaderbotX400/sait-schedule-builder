@@ -1,22 +1,12 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { downloadICal } from "../../domain/ical";
 import { formatTime } from "../../domain/time";
-import type { BannerCredentials } from "../../lib/api";
-import { registerSchedule } from "../../lib/api";
-import type {
-  RegistrationBatchResult,
-  Schedule,
-  ScheduleRules,
-  ScheduleWarning,
-} from "../../lib/types";
+import type { Schedule, ScheduleRules, ScheduleWarning } from "../../lib/types";
+import RegistrationButton from "../registration/RegistrationButton";
 
 interface Props {
   schedule: Schedule;
   rules?: ScheduleRules;
-  credentials?: BannerCredentials | null;
-  term?: string | null;
-  /** CRNs the student is already enrolled in — these are skipped on register */
-  registeredCrns?: Set<string>;
 }
 
 const WARNING_STYLES: Record<string, WarningStyle> = {
@@ -110,27 +100,7 @@ function dedupeBlockoutWarnings(warnings: ScheduleWarning[]): ScheduleWarning[] 
   return result;
 }
 
-type RegisterState =
-  | { kind: "idle" }
-  | { kind: "confirming" }
-  | { kind: "loading" }
-  | { kind: "done"; result: RegistrationBatchResult };
-
-export default function ScheduleDetail({ schedule, credentials, term, registeredCrns }: Props) {
-  const [registerState, setRegisterState] = useState<RegisterState>({ kind: "idle" });
-
-  const newCrns = useMemo(
-    () => schedule.courses.map((c) => c.crn).filter((crn) => !registeredCrns?.has(crn)),
-    [schedule.courses, registeredCrns],
-  );
-
-  const handleRegister = useCallback(async () => {
-    if (!credentials || !term) return;
-    setRegisterState({ kind: "loading" });
-    const result = await registerSchedule(credentials, term, newCrns);
-    setRegisterState({ kind: "done", result });
-  }, [credentials, term, newCrns]);
-
+export default function ScheduleDetail({ schedule }: Props) {
   const handleExportICal = () => downloadICal(schedule);
 
   const dedupedWarnings = useMemo(
@@ -272,121 +242,7 @@ export default function ScheduleDetail({ schedule, credentials, term, registered
         </div>
       </div>
 
-      {/* Registration */}
-      {credentials && term && (
-        <div className="space-y-2">
-          {registerState.kind === "idle" &&
-            (newCrns.length > 0 ? (
-              <button
-                onClick={() => setRegisterState({ kind: "confirming" })}
-                className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 transition-colors"
-              >
-                Register This Schedule ({newCrns.length} new course{newCrns.length !== 1 ? "s" : ""}
-                )
-              </button>
-            ) : (
-              <div className="rounded-lg bg-emerald-900/30 border border-emerald-800 px-3 py-2 text-xs text-emerald-300">
-                All courses in this schedule are already registered.
-              </div>
-            ))}
-
-          {registerState.kind === "confirming" && (
-            <div className="rounded-lg bg-yellow-900/20 border border-yellow-800 p-3 space-y-3">
-              <p className="text-sm text-yellow-200 font-medium">
-                Register {newCrns.length} course{newCrns.length !== 1 ? "s" : ""} in Banner?
-              </p>
-              <ul className="space-y-0.5">
-                {schedule.courses
-                  .filter((c) => newCrns.includes(c.crn))
-                  .map((c) => (
-                    <li key={c.crn} className="text-xs text-gray-300">
-                      {c.identifier} — {c.title}{" "}
-                      <span className="text-gray-500">(CRN {c.crn})</span>
-                    </li>
-                  ))}
-              </ul>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleRegister}
-                  className="flex-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 transition-colors"
-                >
-                  Confirm Registration
-                </button>
-                <button
-                  onClick={() => setRegisterState({ kind: "idle" })}
-                  className="rounded-lg bg-gray-700 px-3 py-1.5 text-sm text-gray-200 hover:bg-gray-600 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
-          {registerState.kind === "loading" && (
-            <div className="rounded-lg bg-gray-800 border border-gray-700 px-4 py-3 flex items-center gap-3">
-              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-blue-400 border-r-transparent" />
-              <span className="text-sm text-gray-300">Registering courses in Banner…</span>
-            </div>
-          )}
-
-          {registerState.kind === "done" && (
-            <div className="space-y-2">
-              {registerState.result.error && (
-                <div className="rounded-lg bg-red-900/30 border border-red-800 px-3 py-2 text-xs text-red-400">
-                  {registerState.result.error}
-                </div>
-              )}
-              {registerState.result.items.map((item) => (
-                <div
-                  key={item.crn}
-                  className={`rounded-lg px-3 py-2 flex items-start gap-2 ${
-                    item.success
-                      ? "bg-emerald-900/20 border border-emerald-800"
-                      : "bg-red-900/20 border border-red-800"
-                  }`}
-                >
-                  <span
-                    className={`text-sm mt-0.5 ${item.success ? "text-emerald-400" : "text-red-400"}`}
-                  >
-                    {item.success ? "✓" : "✗"}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={`text-xs font-medium ${item.success ? "text-emerald-300" : "text-red-300"}`}
-                    >
-                      {item.courseTitle}
-                      <span className="text-gray-500 ml-1 font-normal">(CRN {item.crn})</span>
-                    </p>
-                    {item.errors.length > 0 && (
-                      <ul className="mt-0.5 space-y-0.5">
-                        {item.errors.map((e, i) => (
-                          <li key={i} className="text-xs text-red-400 flex items-baseline gap-1.5">
-                            {e.messageType && (
-                              <span className="shrink-0 font-mono text-[10px] bg-red-900/50 px-1 rounded">
-                                {e.messageType}
-                              </span>
-                            )}
-                            {e.message}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {item.success && (
-                      <p className="text-xs text-gray-500">Status: {item.finalStatus}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-              <button
-                onClick={() => setRegisterState({ kind: "idle" })}
-                className="text-xs text-gray-500 hover:text-gray-300"
-              >
-                Dismiss
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      <RegistrationButton schedule={schedule} />
 
       {/* Export */}
       <div className="flex gap-2">

@@ -11,7 +11,6 @@ import ScheduleStrip from "./features/schedule/ScheduleStrip";
 import CourseSearch from "./features/search/CourseSearch";
 import CourseSelector from "./features/selection/CourseSelector";
 import { type GenerationStatus, useScheduler } from "./hooks/useScheduler";
-import type { BannerCredentials } from "./lib/api";
 import { describeTerm } from "./lib/terms";
 import type {
   BlockoutGrid as BlockoutGridShape,
@@ -34,8 +33,6 @@ interface ScheduleAreaProps {
   generationStatus: GenerationStatus;
   activeSchedule: Schedule | null;
   rules: ScheduleRules;
-  credentials: BannerCredentials | null;
-  term: string;
   swapSection: (
     subjectCourse: string,
     newSectionId: string,
@@ -60,8 +57,6 @@ function ScheduleArea({
   generationStatus,
   activeSchedule,
   rules,
-  credentials,
-  term,
   swapSection,
   toggleCurrentCourse,
   onBlockoutChange,
@@ -92,11 +87,6 @@ function ScheduleArea({
     );
   }
 
-  const registeredCrns =
-    currentRegistrations.size > 0
-      ? new Set([...currentRegistrations.values()].map((r) => r.currentSection.crn))
-      : undefined;
-
   return (
     <div className="space-y-4">
       <BlockoutGrid
@@ -110,13 +100,7 @@ function ScheduleArea({
         selectedCourses={selectedCourses}
       />
       {activeSchedule ? (
-        <ScheduleDetail
-          schedule={activeSchedule}
-          rules={rules}
-          credentials={credentials}
-          term={term}
-          {...(registeredCrns ? { registeredCrns } : {})}
-        />
+        <ScheduleDetail schedule={activeSchedule} rules={rules} />
       ) : generationStatus.kind === "empty" ? (
         <div className="flex items-center justify-center py-8">
           <div className="max-w-md text-center space-y-2">
@@ -417,8 +401,6 @@ export default function App() {
                 generationStatus={generationStatus}
                 activeSchedule={activeSchedule}
                 rules={rules}
-                credentials={credentials}
-                term={term}
                 swapSection={swapSection}
                 toggleCurrentCourse={toggleCurrentCourse}
                 onBlockoutChange={handleBlockoutChange}
