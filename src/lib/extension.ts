@@ -1,4 +1,4 @@
-import type { BannerCredentials } from "./api";
+import type { BannerCredentials } from "../banner-sdk";
 
 /**
  * Bridge to the SAIT Schedule Builder extension.
