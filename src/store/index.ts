@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { createJSONStorage, type PersistOptions, persist } from "zustand/middleware";
 import { type AuthSlice, createAuthSlice } from "./slices/auth";
 import { type CoursesSlice, createCoursesSlice } from "./slices/courses";
 import { type CurrentRegSlice, createCurrentRegSlice } from "./slices/currentReg";
@@ -17,16 +18,61 @@ export type AppState = AuthSlice &
   CurrentRegSlice &
   UiSlice;
 
-export const useStore = create<AppState>()((...args) => ({
-  ...createAuthSlice(...args),
-  ...createTermSlice(...args),
-  ...createCoursesSlice(...args),
-  ...createSelectionSlice(...args),
-  ...createRulesSlice(...args),
-  ...createSchedulesSlice(...args),
-  ...createCurrentRegSlice(...args),
-  ...createUiSlice(...args),
-}));
+/**
+ * Slices we persist to localStorage. Generated schedules + the credential
+ * blob + transient UI flags are intentionally NOT persisted: regenerate
+ * from inputs on every load, and never save secrets or in-flight work.
+ *
+ * Map and Set get serialized as arrays via partialize/merge below.
+ */
+interface PersistedShape {
+  rules: AppState["rules"];
+  term: AppState["term"];
+  selectedCourses: string[];
+  sectionOverrides: [string, string][];
+  includedCourses: string[];
+}
+
+const persistOptions: PersistOptions<AppState, PersistedShape> = {
+  name: "sait-sb-v1",
+  storage: createJSONStorage(() => localStorage),
+  version: 1,
+  partialize: (s) => ({
+    rules: s.rules,
+    term: s.term,
+    selectedCourses: [...s.selectedCourses],
+    sectionOverrides: [...s.sectionOverrides.entries()],
+    includedCourses: [...s.includedCourses],
+  }),
+  merge: (persisted, current) => {
+    if (!persisted || typeof persisted !== "object") return current;
+    const p = persisted as Partial<PersistedShape>;
+    return {
+      ...current,
+      ...(p.rules ? { rules: p.rules } : {}),
+      ...(p.term ? { term: p.term } : {}),
+      selectedCourses: new Set(p.selectedCourses ?? []),
+      sectionOverrides: new Map(p.sectionOverrides ?? []),
+      includedCourses: new Set(p.includedCourses ?? []),
+    };
+  },
+};
+
+export const useStore = create<AppState>()(
+  persist(
+    (...args) => ({
+      ...createAuthSlice(...args),
+      ...createTermSlice(...args),
+      ...createCoursesSlice(...args),
+      ...createSelectionSlice(...args),
+      ...createRulesSlice(...args),
+      ...createSchedulesSlice(...args),
+      ...createCurrentRegSlice(...args),
+      ...createUiSlice(...args),
+    }),
+    persistOptions,
+  ),
+);
 
 /** Stable selector for the rare consumer that wants the whole store. */
 export function useAppStore<T>(selector: (s: AppState) => T): T {
