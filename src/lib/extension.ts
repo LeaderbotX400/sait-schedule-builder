@@ -123,11 +123,79 @@ export async function waitForExtension(timeoutMs = 1500): Promise<boolean> {
 }
 
 export function triggerLogin(): Promise<ExtensionResult> {
-  return send({ type: "LOGIN" });
+  return openLoginPort("login");
 }
 
 export function forceReauth(): Promise<ExtensionResult> {
-  return send({ type: "FORCE_REAUTH" });
+  return openLoginPort("force-reauth");
+}
+
+/**
+ * Open a long-lived port to the extension for the login flow. Ports
+ * keep the MV3 service worker alive for their entire lifetime, so the
+ * full SAML/B2C dance completes without the worker idling out and
+ * losing its in-memory state.
+ *
+ * Resolves with the credentials when the SW posts them through; resolves
+ * with an error if the port disconnects before any message arrives.
+ */
+async function openLoginPort(name: "login" | "force-reauth"): Promise<ExtensionResult> {
+  if (!isMessagingAvailable()) {
+    return {
+      ok: false,
+      error: "NO_RUNTIME",
+      message: "Browser extension is not installed or not reachable.",
+    };
+  }
+  const extensionId = isExtensionPage() ? null : await getExtensionId();
+  if (!isExtensionPage() && !extensionId) {
+    return {
+      ok: false,
+      error: "EXTENSION_NOT_DETECTED",
+      message:
+        "Schedule Builder extension not detected on this page. Install it and reload, or open the app from the extension's icon.",
+    };
+  }
+
+  return new Promise<ExtensionResult>((resolve) => {
+    let port: chrome.runtime.Port;
+    try {
+      port = extensionId
+        ? chrome.runtime.connect(extensionId, { name })
+        : chrome.runtime.connect({ name });
+    } catch (e) {
+      resolve({
+        ok: false,
+        error: "CONNECT_FAILED",
+        message: e instanceof Error ? e.message : "Could not open port to extension",
+      });
+      return;
+    }
+
+    let resolved = false;
+    const finish = (result: ExtensionResult) => {
+      if (resolved) return;
+      resolved = true;
+      try {
+        port.disconnect();
+      } catch {
+        /* port already disconnected */
+      }
+      resolve(result);
+    };
+
+    port.onMessage.addListener((msg: ExtensionResult) => {
+      finish(msg);
+    });
+    port.onDisconnect.addListener(() => {
+      const err = chrome.runtime.lastError;
+      finish({
+        ok: false,
+        error: "DISCONNECTED",
+        message: err?.message ?? "Extension disconnected before login completed. Please try again.",
+      });
+    });
+  });
 }
 
 export function getCredentialsFromExtension(): Promise<ExtensionResult> {

@@ -67,11 +67,6 @@ function routeMessage(message: unknown, sendResponse: SendResponse): boolean {
       handleGetCredentials().then(sendResponse);
       return true;
 
-    case "LOGIN":
-    case "FORCE_REAUTH":
-      handleTriggerLogin().then(sendResponse);
-      return true;
-
     case "OPEN_AUTH_URL":
       handleOpenAuthUrl().then(sendResponse);
       return true;
@@ -98,6 +93,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) =>
 chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) =>
   routeMessage(message, sendResponse),
 );
+
+// Port-based login flow. Ports keep the MV3 service worker alive for
+// their entire lifetime, so the long auth flow (B2C login form, SAML
+// dance, redirects back to Banner) doesn't get killed by the 30-second
+// idle timeout. Local listeners registered inside `runLoginFlow` survive
+// because the worker stays up.
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === "login" || port.name === "force-reauth") {
+    void runLoginFlow(port);
+  }
+});
+chrome.runtime.onConnectExternal.addListener((port) => {
+  if (port.name === "login" || port.name === "force-reauth") {
+    void runLoginFlow(port);
+  }
+});
 
 interface BannerFetchRequest {
   type: "BANNER_FETCH";
@@ -270,23 +281,24 @@ async function clearBannerSession(): Promise<void> {
 }
 
 /**
- * Open a SAIT login tab and resolve once we can capture credentials.
+ * Run the SAIT login flow against a long-lived port from the React side.
  *
- * Always clears existing Banner cookies first — Banner sessions can be
- * invalidated server-side without the cookie expiring client-side, so a
- * cached session is never trustworthy.
+ * Why a port? MV3 service workers idle out after 30 seconds without
+ * activity, which would normally kill any in-memory listeners we set up
+ * inside this function. An open port keeps the worker alive for as long
+ * as the React side is connected — which is the entire login flow,
+ * including the time the user spends typing their password into B2C.
  *
- * Three triggers race to capture credentials, whichever fires first wins:
+ * Four triggers race to capture credentials; whichever lands them first wins:
  *
- *   1. SYNC_TOKEN_FOUND from the content script — fires the moment the
- *      Banner page's `<meta name="synchronizerToken">` is scraped. This
- *      is the fastest path on a successful auth.
- *   2. tabs.onUpdated "complete" event + 2s settle — covers redirect
- *      chains where the content script fires before we listen, or where
- *      the user lands on a page that doesn't have the meta tag.
- *   3. 500ms poll — final safety net for the case where neither (1) nor
- *      (2) gets us across the line (e.g., redirect lands on a non-
- *      `/StudentRegistrationSsb/` page so the content script never fires).
+ *   1. cookies.onChanged on JSESSIONID/ssag6 — strongest signal that the
+ *      SAML dance landed and Banner gave the popup a session.
+ *   2. SYNC_TOKEN_FOUND from the content script — fires when the Banner
+ *      page's `<meta name="synchronizerToken">` is scraped.
+ *   3. tabs.onUpdated "complete" + 2s — covers redirect chains where
+ *      neither cookie nor message fires immediately.
+ *   4. 1-second poll — final safety net for the case where the user
+ *      lands on a page outside `/StudentRegistrationSsb/*`.
  *
  * Caps total wait at 2 minutes so a stuck popup doesn't hang forever.
  *
@@ -295,99 +307,148 @@ async function clearBannerSession(): Promise<void> {
  * whether to retry. The extension stays a thin credential-capture shim.
  */
 const LOGIN_TIMEOUT_MS = 2 * 60 * 1000;
-const LOGIN_POLL_INTERVAL_MS = 500;
+const LOGIN_POLL_INTERVAL_MS = 1000;
 
-async function handleTriggerLogin(): Promise<CredentialResult> {
+async function runLoginFlow(port: chrome.runtime.Port): Promise<void> {
+  console.log("[sait-ext] runLoginFlow start", port.name);
   await clearBannerSession();
 
-  return new Promise((resolve) => {
-    chrome.windows.create({ url: LOGIN_URL, type: "popup", width: 520, height: 680 }, (win) => {
-      if (!win || !win.tabs || win.tabs.length === 0) {
-        resolve({
-          ok: false,
-          error: "NO_WINDOW",
-          message: "Could not open login window.",
-        });
-        return;
-      }
-      const winId = win.id!;
-      const tabId = win.tabs[0]!.id!;
-      let settled = false;
-
-      const cleanup = () => {
-        chrome.tabs.onUpdated.removeListener(onUpdated);
-        chrome.tabs.onRemoved.removeListener(onRemoved);
-        chrome.runtime.onMessage.removeListener(onMessage);
-        clearInterval(pollId);
-        clearTimeout(timeoutId);
-      };
-
-      const settle = (result: CredentialResult) => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        resolve(result);
-      };
-
-      // Single capture attempt: probe credentials, close popup on success.
-      const tryCapture = async (): Promise<void> => {
-        if (settled) return;
-        const creds = await handleGetCredentials();
-        if (!creds.ok) return;
-        chrome.windows.remove(winId).catch(() => {});
-        settle(creds);
-      };
-
-      // Trigger 1 — SYNC_TOKEN_FOUND from the content script.
-      const onMessage = (message: unknown, sender: chrome.runtime.MessageSender) => {
-        if (sender.tab?.id !== tabId) return;
-        const m = message as { type?: string };
-        if (m?.type !== "SYNC_TOKEN_FOUND") return;
-        // Defer one tick so the global routeMessage handler runs first
-        // and writes to cachedSyncToken before we read it.
-        setTimeout(() => {
-          void tryCapture();
-        }, 50);
-      };
-
-      // Trigger 2 — every "complete" event + 2s settle. Covers redirect
-      // chains where the content script fires before we listen.
-      const onUpdated = (id: number, changeInfo: { status?: string }) => {
-        if (id !== tabId || changeInfo.status !== "complete") return;
-        setTimeout(() => {
-          void tryCapture();
-        }, 2000);
-      };
-
-      // Trigger 3 — 500ms poll, kicks in immediately as final safety net.
-      const pollId = setInterval(() => {
-        void tryCapture();
-      }, LOGIN_POLL_INTERVAL_MS);
-
-      // Hard ceiling.
-      const timeoutId = setTimeout(() => {
-        settle({
-          ok: false,
-          error: "TIMEOUT",
-          message:
-            "Sign-in took too long. If you completed login but the popup didn't close, please close it and try again.",
-        });
-      }, LOGIN_TIMEOUT_MS);
-
-      const onRemoved = (id: number) => {
-        if (id !== tabId) return;
-        settle({
-          ok: false,
-          error: "TAB_CLOSED",
-          message: "Login tab was closed before completing. Please try again.",
-        });
-      };
-
-      chrome.tabs.onUpdated.addListener(onUpdated);
-      chrome.tabs.onRemoved.addListener(onRemoved);
-      chrome.runtime.onMessage.addListener(onMessage);
+  let win: chrome.windows.Window | undefined;
+  try {
+    win = await chrome.windows.create({
+      url: LOGIN_URL,
+      type: "popup",
+      width: 520,
+      height: 680,
     });
+  } catch (e) {
+    console.error("[sait-ext] windows.create failed", e);
+  }
+
+  if (!win || !win.tabs || win.tabs.length === 0 || win.id == null || win.tabs[0]?.id == null) {
+    safePost(port, {
+      ok: false,
+      error: "NO_WINDOW",
+      message: "Could not open login window.",
+    });
+    return;
+  }
+
+  const winId = win.id;
+  const tabId = win.tabs[0].id;
+  console.log("[sait-ext] popup opened", { winId, tabId });
+
+  let settled = false;
+
+  const cleanup = () => {
+    chrome.tabs.onUpdated.removeListener(onUpdated);
+    chrome.tabs.onRemoved.removeListener(onRemoved);
+    chrome.runtime.onMessage.removeListener(onMessage);
+    chrome.cookies.onChanged.removeListener(onCookieChanged);
+    clearInterval(pollId);
+    clearTimeout(timeoutId);
+  };
+
+  const settle = (result: CredentialResult) => {
+    if (settled) return;
+    settled = true;
+    cleanup();
+    console.log("[sait-ext] settle", result.ok ? "ok" : `${result.error}: ${result.message}`);
+    safePost(port, result);
+    try {
+      port.disconnect();
+    } catch {
+      /* port already disconnected */
+    }
+  };
+
+  const tryCapture = async (source: string): Promise<void> => {
+    if (settled) return;
+    const creds = await handleGetCredentials();
+    console.log("[sait-ext] tryCapture", source, creds.ok ? "ok" : `fail: ${creds.error}`);
+    if (!creds.ok) return;
+    chrome.windows.remove(winId).catch(() => {});
+    settle(creds);
+  };
+
+  // Trigger 1 — JSESSIONID set on ssag6 means SAML landed.
+  const onCookieChanged = (info: chrome.cookies.CookieChangeInfo) => {
+    if (info.removed) return;
+    const c = info.cookie;
+    if (c.name !== "JSESSIONID") return;
+    if (!c.domain.includes("ssag6.sait.ca")) return;
+    console.log("[sait-ext] JSESSIONID cookie set on ssag6");
+    setTimeout(() => void tryCapture("cookie"), 200);
+  };
+
+  // Trigger 2 — content script reports the sync token.
+  const onMessage = (message: unknown, sender: chrome.runtime.MessageSender) => {
+    if (sender.tab?.id !== tabId) return;
+    const m = message as { type?: string };
+    if (m?.type !== "SYNC_TOKEN_FOUND") return;
+    console.log("[sait-ext] SYNC_TOKEN_FOUND from popup tab");
+    // Defer one tick so the global routeMessage handler runs first
+    // and writes to cachedSyncToken before we read it.
+    setTimeout(() => void tryCapture("sync-token"), 50);
+  };
+
+  // Trigger 3 — popup tab finishes navigation.
+  const onUpdated = (id: number, changeInfo: { status?: string }, _tab: chrome.tabs.Tab) => {
+    if (id !== tabId || changeInfo.status !== "complete") return;
+    console.log("[sait-ext] popup tab complete", _tab.url);
+    setTimeout(() => void tryCapture("tab-complete"), 2000);
+  };
+
+  // Trigger 4 — final safety-net poll.
+  const pollId = setInterval(() => {
+    void tryCapture("poll");
+  }, LOGIN_POLL_INTERVAL_MS);
+
+  // Hard ceiling.
+  const timeoutId = setTimeout(() => {
+    settle({
+      ok: false,
+      error: "TIMEOUT",
+      message:
+        "Sign-in took too long. If you completed login but the popup didn't close, please close it and try again.",
+    });
+  }, LOGIN_TIMEOUT_MS);
+
+  const onRemoved = (id: number) => {
+    if (id !== tabId) return;
+    console.log("[sait-ext] popup tab closed by user");
+    settle({
+      ok: false,
+      error: "TAB_CLOSED",
+      message: "Login tab was closed before completing. Please try again.",
+    });
+  };
+
+  chrome.tabs.onUpdated.addListener(onUpdated);
+  chrome.tabs.onRemoved.addListener(onRemoved);
+  chrome.runtime.onMessage.addListener(onMessage);
+  chrome.cookies.onChanged.addListener(onCookieChanged);
+
+  // If the React side disconnects (page reload, tab close, etc.) before
+  // login completes, give up cleanly so we don't leak listeners.
+  port.onDisconnect.addListener(() => {
+    if (settled) return;
+    console.log("[sait-ext] port disconnected by client; aborting login");
+    cleanup();
+    settled = true;
   });
+
+  // First probe immediately in case the user is already authenticated
+  // and the popup just redirects through CAS without showing a form.
+  void tryCapture("initial");
+}
+
+function safePost(port: chrome.runtime.Port, message: unknown): void {
+  try {
+    port.postMessage(message);
+  } catch (e) {
+    console.warn("[sait-ext] safePost failed (port likely closed)", e);
+  }
 }
 
 /**
