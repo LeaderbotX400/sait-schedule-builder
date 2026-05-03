@@ -6,6 +6,7 @@ import ScheduleDetail from "./features/schedule/ScheduleDetail";
 import ScheduleStrip from "./features/schedule/ScheduleStrip";
 import { useStore } from "./store";
 import Button from "./ui/Button";
+import EmptyStatePrimitive from "./ui/EmptyState";
 import Spinner from "./ui/Spinner";
 
 type Tab = "current" | "browse";
@@ -182,32 +183,30 @@ function ScheduleArea({ activeTab }: { activeTab: Tab }) {
 
 function EmptyState({ reason }: { reason: string }) {
   return (
-    <div className="flex items-center justify-center py-8">
-      <div className="max-w-md text-center space-y-2">
-        <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-yellow-900/30 border border-yellow-800">
-          <span className="text-lg">⚠</span>
-        </div>
-        <h2 className="text-base font-semibold text-white">No valid schedules found</h2>
-        <p className="text-sm text-gray-400">{reason}</p>
-      </div>
-    </div>
+    <EmptyStatePrimitive
+      tone="warn"
+      icon="⚠"
+      title="No valid schedules found"
+      description={reason}
+    />
   );
 }
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className="flex items-center justify-center py-8">
-      <div className="max-w-md text-center space-y-2">
-        <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-red-900/30 border border-red-800">
-          <span className="text-lg">✕</span>
-        </div>
-        <h2 className="text-base font-semibold text-white">Generation failed</h2>
-        <p className="text-sm text-red-400">{message}</p>
-        <p className="text-xs text-gray-600">
-          Try adjusting your rules or course selection, then generate again.
-        </p>
-      </div>
-    </div>
+    <EmptyStatePrimitive
+      tone="danger"
+      icon="✕"
+      title="Generation failed"
+      description={
+        <>
+          <span className="block">{message}</span>
+          <span className="block text-xs text-gray-600 mt-2">
+            Try adjusting your rules or course selection, then generate again.
+          </span>
+        </>
+      }
+    />
   );
 }
 
