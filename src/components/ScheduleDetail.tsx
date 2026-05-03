@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
+import { downloadICal } from "../domain/ical";
+import { formatTime } from "../domain/time";
 import type { BannerCredentials } from "../lib/api";
 import { registerSchedule } from "../lib/api";
-import { downloadICal } from "../lib/ical";
-import { formatTime } from "../lib/time";
 import type {
   RegistrationBatchResult,
   Schedule,

@@ -10,9 +10,9 @@ import RulesPanel from "./components/RulesPanel";
 import ScheduleDetail from "./components/ScheduleDetail";
 import ScheduleStrip from "./components/ScheduleStrip";
 import ShapeCalendar from "./components/ShapeCalendar";
+import { downloadICal } from "./domain/ical";
 import { type GenerationStatus, useScheduler } from "./hooks/useScheduler";
 import type { BannerCredentials } from "./lib/api";
-import { downloadICal } from "./lib/ical";
 import { describeTerm } from "./lib/terms";
 import type {
   BlockoutGrid,

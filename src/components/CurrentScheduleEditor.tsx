@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { formatTime } from "../lib/time";
+import { formatTime } from "../domain/time";
 import type { CourseSection, CurrentRegistration } from "../lib/types";
 import { resolveCurrentSection } from "../lib/types";
 import CalendarGrid from "./CalendarGrid";

@@ -1,3 +1,5 @@
+import { DEFAULT_RULES } from "./blockout";
+import { sectionsHaveConflict } from "./conflicts";
 import { scoreSchedule } from "./scoring";
 import { formatTime } from "./time";
 import type {
@@ -8,7 +10,6 @@ import type {
   Schedule,
   ScheduleRules,
 } from "./types";
-import { DEFAULT_RULES, sectionsHaveConflict } from "./types";
 
 /**
  * Explain why every section of a course was filtered out by the rules.
@@ -74,17 +75,15 @@ function explainConflict(omittedSections: CourseSection[], chosen: CourseSection
   return "No section fits without violating your on-campus day or conflict rules.";
 }
 
-/** Check if a section violates hard rules (free days, time bounds) */
+/** Hard-rules pre-filter: free days, time bounds, optional open-seats. */
 function violatesRules(section: CourseSection, rules: ScheduleRules): boolean {
   const earliest = parseInt(rules.earliestStart, 10);
   const latest = parseInt(rules.latestEnd, 10);
 
   for (const meeting of section.meetings) {
-    // Check time bounds
     if (meeting.startTime < earliest || meeting.endTime > latest) {
       return true;
     }
-    // Check free days
     for (const day of meeting.days) {
       if (rules.freeDays.includes(day)) {
         return true;
@@ -99,7 +98,6 @@ function violatesRules(section: CourseSection, rules: ScheduleRules): boolean {
   return false;
 }
 
-/** Cartesian product of arrays */
 function cartesianProduct<T>(arrays: T[][]): T[][] {
   if (arrays.length === 0) return [[]];
   return arrays.reduce<T[][]>(
@@ -108,7 +106,6 @@ function cartesianProduct<T>(arrays: T[][]): T[][] {
   );
 }
 
-/** Collect all days with on-campus meetings for a set of courses */
 function getOnCampusDays(courses: CourseSection[]): DayOfWeek[] {
   const days = new Set<DayOfWeek>();
   for (const course of courses) {
@@ -123,23 +120,21 @@ function getOnCampusDays(courses: CourseSection[]): DayOfWeek[] {
 
 export interface GenerateOptions {
   rules?: ScheduleRules;
-  /** If set, only generate up to this many schedules (sorted by score) */
+  /** If set, only return up to this many schedules (sorted by score). */
   limit?: number;
-  /** Progress callback: (completed combinations, total combinations) */
+  /** Progress callback: (completed combinations, total combinations). */
   onProgress?: (done: number, total: number) => void;
 }
 
-/** Generate all valid, conflict-free schedules from grouped course sections */
+/** Generate all valid, conflict-free schedules from grouped course sections. */
 export function generateSchedules(
   courseGroups: Map<string, CourseSection[]>,
   options: GenerateOptions = {},
 ): Schedule[] {
   const rules = options.rules ?? DEFAULT_RULES;
 
-  // Filter sections that violate hard rules
   const filteredGroups: CourseSection[][] = [];
   const courseNames: string[] = [];
-  /** Globally-excluded courses — applies to every generated schedule */
   const baselineOmitted: OmittedCourse[] = [];
 
   for (const [name, sections] of courseGroups) {
@@ -157,7 +152,6 @@ export function generateSchedules(
 
   if (filteredGroups.length === 0) return [];
 
-  // Generate combinations for complete schedules
   const allCombinations = cartesianProduct(filteredGroups);
   const schedules: Schedule[] = [];
   let scheduleId = 1;
@@ -166,7 +160,6 @@ export function generateSchedules(
     const combo = allCombinations[i];
     if (!combo) continue;
 
-    // Check for pairwise conflicts
     let valid = true;
     for (let a = 0; a < combo.length && valid; a++) {
       for (let b = a + 1; b < combo.length && valid; b++) {
@@ -179,7 +172,6 @@ export function generateSchedules(
     }
     if (!valid) continue;
 
-    // Check on-campus day limit
     const onCampusDays = getOnCampusDays(combo);
     if (onCampusDays.length > rules.maxOnCampusDays) continue;
 
@@ -191,7 +183,6 @@ export function generateSchedules(
     }
   }
 
-  // Optionally generate partial schedules
   if (rules.allowPartialSchedules && filteredGroups.length > 1) {
     for (let omitIdx = 0; omitIdx < filteredGroups.length; omitIdx++) {
       const partialGroups = filteredGroups.filter((_, i) => i !== omitIdx);
@@ -227,7 +218,6 @@ export function generateSchedules(
     }
   }
 
-  // Sort by quality score descending
   schedules.sort((a, b) => b.qualityScore - a.qualityScore);
 
   if (options.limit) {
@@ -237,7 +227,7 @@ export function generateSchedules(
   return schedules;
 }
 
-/** Get all unique meeting blocks for a schedule, expanded per-day */
+/** Get all unique meeting blocks for a schedule, expanded per-day. */
 export function getExpandedMeetings(
   schedule: Schedule,
 ): { course: CourseSection; meeting: MeetingBlock; day: DayOfWeek }[] {

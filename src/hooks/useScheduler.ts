@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { parseActiveRegistrations, parseBannerData } from "../domain/parser";
+import { generateSchedules } from "../domain/scheduler";
 import { fetchRegistrations, getTerms } from "../lib/api";
-import { parseActiveRegistrations, parseBannerData } from "../lib/parser";
-import { generateSchedules } from "../lib/scheduler";
 import { DEFAULT_TERM } from "../lib/terms";
 import type {
   BannerResponse,

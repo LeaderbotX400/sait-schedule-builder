@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { formatTimeCompact } from "../lib/time";
+import { formatTimeCompact } from "../domain/time";
 import type { CourseSection, MeetingBlock } from "../lib/types";
 
 interface Props {

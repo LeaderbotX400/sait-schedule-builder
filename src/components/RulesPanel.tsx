@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { formatTimeFromString } from "../lib/time";
+import { formatTimeFromString } from "../domain/time";
 import type { DayOfWeek, ScheduleRules } from "../lib/types";
 
 interface Props {

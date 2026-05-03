@@ -3,10 +3,8 @@ import type {
   BannerMeetingTime,
   BannerResponse,
   BannerSection,
-  CourseSection,
-  DayOfWeek,
-  MeetingBlock,
-} from "./types";
+} from "../lib/types";
+import type { CourseSection, DayOfWeek, MeetingBlock } from "./types";
 
 const DAY_MAP: [keyof BannerMeetingTime, DayOfWeek][] = [
   ["monday", "Mon"],
@@ -69,7 +67,7 @@ function parseSection(section: BannerSection): CourseSection {
   };
 }
 
-/** Parse a Banner API response into grouped course sections */
+/** Parse a Banner API response into grouped course sections. */
 export function parseBannerData(response: BannerResponse): Map<string, CourseSection[]> {
   const grouped = new Map<string, CourseSection[]>();
 

@@ -3,6 +3,7 @@ import type {
   BlockoutGrid,
   CourseSection,
   DayOfWeek,
+  OmittedCourse,
   Schedule,
   ScheduleRules,
   ScheduleWarning,
@@ -118,7 +119,7 @@ export function scoreSchedule(
   id: number,
   rules: ScheduleRules,
   isPartial: boolean,
-  omittedCourses: import("./types").OmittedCourse[],
+  omittedCourses: OmittedCourse[],
 ): Schedule {
   const warnings: ScheduleWarning[] = [];
   let score = SCORE_BASELINE;
