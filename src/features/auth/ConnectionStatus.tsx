@@ -3,6 +3,7 @@ import { forceReauth } from "../../lib/extension";
 import { useStore } from "../../store";
 import { getSdk } from "../../store/sdk";
 import Popover from "../../ui/Popover";
+import StatusDot from "../../ui/StatusDot";
 
 interface Props {
   termLabel?: string | null;
@@ -70,9 +71,7 @@ export default function ConnectionStatus({ termLabel, loading }: Props) {
               : "bg-emerald-900/30 border border-emerald-800/60 text-emerald-300 hover:bg-emerald-900/50"
           }`}
         >
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${stale ? "bg-yellow-400" : "bg-emerald-400"}`}
-          />
+          <StatusDot tone={stale ? "warn" : "ok"} />
           <span className="hidden sm:inline">Connected</span>
           {termLabel && <span className="text-emerald-400/70">· {termLabel}</span>}
           {loading && <span className="text-emerald-400/70 italic">· Loading…</span>}

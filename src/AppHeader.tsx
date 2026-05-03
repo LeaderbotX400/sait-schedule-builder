@@ -6,6 +6,7 @@ import { describeTerm } from "./lib/terms";
 import { useStore } from "./store";
 import Button from "./ui/Button";
 import Popover from "./ui/Popover";
+import StatusDot from "./ui/StatusDot";
 
 interface Props {
   panelOpen: boolean;
@@ -49,9 +50,7 @@ export default function AppHeader({ panelOpen, onTogglePanel }: Props) {
               : "text-gray-400 hover:text-gray-200 hover:bg-gray-800/60"
           }`}
         >
-          <span
-            className={`h-1.5 w-1.5 rounded-full shrink-0 ${credentials ? "bg-emerald-400" : "bg-gray-500"}`}
-          />
+          <StatusDot tone={credentials ? "ok" : "neutral"} />
           Courses
           {courseGroups.size > 0 && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-300">
