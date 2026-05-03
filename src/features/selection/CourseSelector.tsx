@@ -6,6 +6,7 @@ interface Props {
   courseGroups: Map<string, CourseSection[]>;
   selectedCourses: Set<string>;
   onToggle: (subjectCourse: string) => void;
+  onRemove: (subjectCourse: string) => void;
 }
 
 function meetingSummary(m: MeetingBlock): string {
@@ -28,7 +29,12 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
-export default function CourseSelector({ courseGroups, selectedCourses, onToggle }: Props) {
+export default function CourseSelector({
+  courseGroups,
+  selectedCourses,
+  onToggle,
+  onRemove,
+}: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const toggleExpanded = (name: string) =>
@@ -91,6 +97,27 @@ export default function CourseSelector({ courseGroups, selectedCourses, onToggle
                   aria-expanded={isOpen}
                 >
                   <ChevronIcon open={isOpen} />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove(name);
+                  }}
+                  className="shrink-0 rounded p-1 text-gray-500 hover:text-red-400 hover:bg-gray-700/60 transition-colors"
+                  aria-label={`Remove ${name}`}
+                  title={`Remove ${name}`}
+                >
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                    aria-hidden="true"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
               {isOpen && (

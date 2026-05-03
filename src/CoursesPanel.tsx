@@ -16,6 +16,7 @@ export default function CoursesPanel({ open }: Props) {
   const courseGroups = useStore((s) => s.courseGroups);
   const selectedCourses = useStore((s) => s.selectedCourses);
   const toggleCourse = useStore((s) => s.toggleCourse);
+  const removeCourse = useStore((s) => s.removeCourse);
 
   if (!open || !credentials) return null;
 
@@ -33,6 +34,7 @@ export default function CoursesPanel({ open }: Props) {
                 courseGroups={courseGroups}
                 selectedCourses={selectedCourses}
                 onToggle={toggleCourse}
+                onRemove={removeCourse}
               />
             </div>
           )}

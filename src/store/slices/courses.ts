@@ -16,6 +16,12 @@ export interface CoursesSlice {
    * generated-schedules slice. Returns count of new sections.
    */
   loadBannerResponse: (response: BannerResponse) => number;
+  /**
+   * Drop a single course from courseGroups + every dependent slice
+   * (selection, currentReg, sectionOverrides, includedCourses) so the
+   * planner stops considering it. Re-running search adds it back.
+   */
+  removeCourse: (subjectCourse: string) => void;
   clearCourses: () => void;
 }
 
@@ -58,6 +64,33 @@ export const createCoursesSlice: StateCreator<
     });
     get().setLoadError(null);
     return response.data.length;
+  },
+
+  removeCourse(subjectCourse) {
+    set((s) => {
+      if (!s.courseGroups.has(subjectCourse)) return s;
+      const courseGroups = new Map(s.courseGroups);
+      courseGroups.delete(subjectCourse);
+      const selectedCourses = new Set(s.selectedCourses);
+      selectedCourses.delete(subjectCourse);
+      const includedCourses = new Set(s.includedCourses);
+      includedCourses.delete(subjectCourse);
+      const sectionOverrides = new Map(s.sectionOverrides);
+      sectionOverrides.delete(subjectCourse);
+      const currentRegistrations = new Map(s.currentRegistrations);
+      currentRegistrations.delete(subjectCourse);
+      return {
+        courseGroups,
+        selectedCourses,
+        includedCourses,
+        sectionOverrides,
+        currentRegistrations,
+        // Drop generated schedules — the input changed.
+        schedules: [],
+        activeScheduleIndex: 0,
+        generationStatus: { kind: "idle" } as const,
+      };
+    });
   },
 
   clearCourses() {
