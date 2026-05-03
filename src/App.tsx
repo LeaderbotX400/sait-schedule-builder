@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react";
-import RegistrationStatusInline from "./components/RegistrationStatusInline";
 import { downloadICal } from "./domain/ical";
 import ConnectionStatus from "./features/auth/ConnectionStatus";
 import HeaderInput from "./features/auth/HeaderInput";
@@ -10,6 +9,7 @@ import ScheduleDetail from "./features/schedule/ScheduleDetail";
 import ScheduleStrip from "./features/schedule/ScheduleStrip";
 import CourseSearch from "./features/search/CourseSearch";
 import CourseSelector from "./features/selection/CourseSelector";
+import ProfileStatusRow from "./features/status/ProfileStatusRow";
 import { type GenerationStatus, useScheduler } from "./hooks/useScheduler";
 import { describeTerm } from "./lib/terms";
 import type {
@@ -157,8 +157,6 @@ export default function App() {
     activeScheduleIndex,
     activeSchedule,
     credentials,
-    gpa,
-    registrationNotices,
     term,
     clearCourses,
     toggleCourse,
@@ -289,33 +287,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* ── Student status row (GPA + registration block warning) ── */}
-      {credentials && (gpa || registrationNotices) && (
-        <div className="border-b border-gray-800/60 bg-gray-900/40">
-          <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 py-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
-            {gpa &&
-              (() => {
-                const overallEntry = gpa.gpas?.find(
-                  (g) =>
-                    g.typeDesc === "Overall" ||
-                    g.gpaTypeIndicatorDesc?.toLowerCase().includes("overall"),
-                );
-                const displayGpa = gpa.overallGpa ?? overallEntry?.gpa;
-                const displayHours = gpa.overallHours ?? overallEntry?.hours;
-                if (!displayGpa) return null;
-                return (
-                  <span className="text-gray-400">
-                    GPA <span className="font-semibold text-gray-200">{displayGpa}</span>
-                    {displayHours != null && (
-                      <span className="text-gray-600"> · {displayHours} cr</span>
-                    )}
-                  </span>
-                );
-              })()}
-            {registrationNotices && <RegistrationStatusInline notices={registrationNotices} />}
-          </div>
-        </div>
-      )}
+      <ProfileStatusRow />
 
       {/* ── Expandable panel — only shown once connected ── */}
       {activePanel && credentials && (

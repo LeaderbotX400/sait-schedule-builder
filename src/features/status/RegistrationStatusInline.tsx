@@ -1,4 +1,4 @@
-import type { RegistrationNoticesResponse } from "../lib/types";
+import type { RegistrationNoticesResponse } from "../../banner-sdk/apps/selfService/types";
 
 interface Props {
   notices: RegistrationNoticesResponse;
