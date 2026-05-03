@@ -9,6 +9,7 @@ import {
 } from "../../lib/extension";
 import { useStore } from "../../store";
 import { getSdk } from "../../store/sdk";
+import Spinner from "../../ui/Spinner";
 import { parsePastedHeaders } from "./parseHeaders";
 
 interface Props {
@@ -177,7 +178,7 @@ export default function HeaderInput({ isConnected }: Props) {
         >
           {loading ? (
             <span className="flex items-center justify-center gap-2">
-              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-gray-400 border-r-transparent" />
+              <Spinner size="xs" color="text-gray-400" />
               Waiting for SAIT login…
             </span>
           ) : (
@@ -216,7 +217,7 @@ export default function HeaderInput({ isConnected }: Props) {
       >
         {loading ? (
           <span className="flex items-center justify-center gap-2">
-            <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-r-transparent" />
+            <Spinner size="sm" color="text-white" />
             Waiting for SAIT login…
           </span>
         ) : (

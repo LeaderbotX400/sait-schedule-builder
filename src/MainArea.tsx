@@ -5,6 +5,7 @@ import RulesPanel from "./features/rules/RulesPanel";
 import ScheduleDetail from "./features/schedule/ScheduleDetail";
 import ScheduleStrip from "./features/schedule/ScheduleStrip";
 import { useStore } from "./store";
+import Spinner from "./ui/Spinner";
 
 type Tab = "current" | "browse";
 
@@ -239,7 +240,7 @@ function CenteredSpinner({ label }: { label: string }) {
   return (
     <div className="flex items-center justify-center h-64">
       <div className="text-center">
-        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
+        <Spinner size="lg" color="text-blue-500" />
         <p className="mt-3 text-sm text-gray-400">{label}</p>
       </div>
     </div>

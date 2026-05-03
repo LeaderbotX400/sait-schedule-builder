@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { Schedule } from "../../domain/types";
 import { useStore } from "../../store";
+import Spinner from "../../ui/Spinner";
 import RegistrationResult from "./RegistrationResult";
 import { useRegistration } from "./useRegistration";
 
@@ -87,7 +88,7 @@ export default function RegistrationButton({ schedule }: Props) {
 
       {state.kind === "loading" && (
         <div className="rounded-lg bg-gray-800 border border-gray-700 px-4 py-3 flex items-center gap-3">
-          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-blue-400 border-r-transparent" />
+          <Spinner size="md" color="text-blue-400" />
           <span className="text-sm text-gray-300">Registering courses in Banner…</span>
         </div>
       )}

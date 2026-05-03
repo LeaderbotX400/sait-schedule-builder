@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { TERM_OPTIONS } from "../../lib/terms";
 import { useStore } from "../../store";
 import { getSdk } from "../../store/sdk";
+import Spinner from "../../ui/Spinner";
 
 interface Suggestion {
   code: string;
@@ -317,7 +318,7 @@ export default function CourseSearch() {
       >
         {loading ? (
           <span className="flex items-center justify-center gap-2">
-            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
+            <Spinner size="md" color="text-white" />
             {loadingCode ? `Fetching ${loadingCode}…` : "Searching…"}
           </span>
         ) : (
