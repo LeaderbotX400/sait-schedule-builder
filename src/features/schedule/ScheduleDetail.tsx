@@ -1,14 +1,14 @@
 import { useCallback, useMemo, useState } from "react";
-import { downloadICal } from "../domain/ical";
-import { formatTime } from "../domain/time";
-import type { BannerCredentials } from "../lib/api";
-import { registerSchedule } from "../lib/api";
+import { downloadICal } from "../../domain/ical";
+import { formatTime } from "../../domain/time";
+import type { BannerCredentials } from "../../lib/api";
+import { registerSchedule } from "../../lib/api";
 import type {
   RegistrationBatchResult,
   Schedule,
   ScheduleRules,
   ScheduleWarning,
-} from "../lib/types";
+} from "../../lib/types";
 
 interface Props {
   schedule: Schedule;

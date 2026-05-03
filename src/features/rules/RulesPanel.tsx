@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { formatTimeFromString } from "../domain/time";
-import type { DayOfWeek, ScheduleRules } from "../lib/types";
+import { formatTimeFromString } from "../../domain/time";
+import type { DayOfWeek, ScheduleRules } from "../../lib/types";
 
 interface Props {
   rules: ScheduleRules;

@@ -1,4 +1,4 @@
-import type { ScheduleWarning } from "./types";
+import type { ScheduleWarning } from "../../domain/types";
 
 /** Pixel height of a single hour-row in the calendar grid. */
 export const HOUR_HEIGHT = 60;

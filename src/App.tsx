@@ -1,20 +1,20 @@
 import { useCallback, useState } from "react";
-import CourseSelector from "./components/CourseSelector";
-import CurrentScheduleEditor from "./components/CurrentScheduleEditor";
 import RegistrationStatusInline from "./components/RegistrationStatusInline";
-import RulesPanel from "./components/RulesPanel";
-import ScheduleDetail from "./components/ScheduleDetail";
-import ScheduleStrip from "./components/ScheduleStrip";
-import ShapeCalendar from "./components/ShapeCalendar";
 import { downloadICal } from "./domain/ical";
 import ConnectionStatus from "./features/auth/ConnectionStatus";
 import HeaderInput from "./features/auth/HeaderInput";
+import CurrentScheduleEditor from "./features/current/CurrentScheduleEditor";
+import BlockoutGrid from "./features/rules/BlockoutGrid";
+import RulesPanel from "./features/rules/RulesPanel";
+import ScheduleDetail from "./features/schedule/ScheduleDetail";
+import ScheduleStrip from "./features/schedule/ScheduleStrip";
 import CourseSearch from "./features/search/CourseSearch";
+import CourseSelector from "./features/selection/CourseSelector";
 import { type GenerationStatus, useScheduler } from "./hooks/useScheduler";
 import type { BannerCredentials } from "./lib/api";
 import { describeTerm } from "./lib/terms";
 import type {
-  BlockoutGrid,
+  BlockoutGrid as BlockoutGridShape,
   CourseSection,
   CurrentRegistration,
   Schedule,
@@ -41,7 +41,7 @@ interface ScheduleAreaProps {
     newSectionId: string,
   ) => { success: boolean; conflicts: CourseSection[] };
   toggleCurrentCourse: (subjectCourse: string) => void;
-  onBlockoutChange: (blockout: BlockoutGrid) => void;
+  onBlockoutChange: (blockout: BlockoutGridShape) => void;
   onBlockoutWeightChange: (weight: number) => void;
   onGenerate: () => void;
 }
@@ -99,7 +99,7 @@ function ScheduleArea({
 
   return (
     <div className="space-y-4">
-      <ShapeCalendar
+      <BlockoutGrid
         blockout={rules.blockout}
         onBlockoutChange={onBlockoutChange}
         rules={rules}
@@ -199,7 +199,7 @@ export default function App() {
   );
 
   const handleBlockoutChange = useCallback(
-    (blockout: BlockoutGrid) => setRules((r) => ({ ...r, blockout })),
+    (blockout: BlockoutGridShape) => setRules((r) => ({ ...r, blockout })),
     [setRules],
   );
 

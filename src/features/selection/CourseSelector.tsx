@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { formatTimeCompact } from "../domain/time";
-import type { CourseSection, MeetingBlock } from "../lib/types";
+import { formatTimeCompact } from "../../domain/time";
+import type { CourseSection, MeetingBlock } from "../../lib/types";
 
 interface Props {
   courseGroups: Map<string, CourseSection[]>;

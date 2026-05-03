@@ -1,13 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { getExpandedMeetings } from "../domain/scheduler";
-import { formatHour, formatTime, timeToMinutes } from "../domain/time";
-import {
-  buildColorMap,
-  buildWarnedCourseIds,
-  buildWarningKeys,
-  COURSE_COLORS,
-  HOUR_HEIGHT,
-} from "../lib/calendar";
+import { getExpandedMeetings } from "../../domain/scheduler";
+import { formatHour, formatTime, timeToMinutes } from "../../domain/time";
 import type {
   BlockoutCell,
   BlockoutGrid as BlockoutGridType,
@@ -16,8 +9,15 @@ import type {
   MeetingBlock,
   Schedule,
   ScheduleRules,
-} from "../lib/types";
-import { createEmptyBlockout, GRID_HOURS, WEEKDAYS } from "../lib/types";
+} from "../../lib/types";
+import { createEmptyBlockout, GRID_HOURS, WEEKDAYS } from "../../lib/types";
+import {
+  buildColorMap,
+  buildWarnedCourseIds,
+  buildWarningKeys,
+  COURSE_COLORS,
+  HOUR_HEIGHT,
+} from "../schedule/calendarColors";
 
 interface Props {
   blockout: BlockoutGridType;
@@ -55,7 +55,7 @@ function fitBadgeStyle(score: number): string {
   return "bg-red-900/60 text-red-300 border border-red-700/60";
 }
 
-export default function ShapeCalendar({
+export default function BlockoutGrid({
   blockout,
   onBlockoutChange,
   rules,

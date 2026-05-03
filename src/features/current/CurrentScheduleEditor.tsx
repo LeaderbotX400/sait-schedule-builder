@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { formatTime } from "../domain/time";
-import type { CourseSection, CurrentRegistration } from "../lib/types";
-import { resolveCurrentSection } from "../lib/types";
-import CalendarGrid from "./CalendarGrid";
+import { formatTime } from "../../domain/time";
+import type { CourseSection, CurrentRegistration } from "../../lib/types";
+import { resolveCurrentSection } from "../../lib/types";
+import CalendarGrid from "../schedule/CalendarGrid";
 
 interface Props {
   currentRegistrations: Map<string, CurrentRegistration>;

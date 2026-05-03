@@ -1,14 +1,20 @@
 import { useMemo, useRef, useState } from "react";
-import { getExpandedMeetings } from "../domain/scheduler";
-import { formatTime, timeToMinutes } from "../domain/time";
+import { getExpandedMeetings } from "../../domain/scheduler";
+import { formatTime, timeToMinutes } from "../../domain/time";
+import type {
+  BlockoutGrid,
+  CourseSection,
+  DayOfWeek,
+  MeetingBlock,
+  Schedule,
+} from "../../lib/types";
 import {
   buildColorMap,
   buildWarnedCourseIds,
   buildWarningKeys,
   COURSE_COLORS,
   HOUR_HEIGHT,
-} from "../lib/calendar";
-import type { BlockoutGrid, CourseSection, DayOfWeek, MeetingBlock, Schedule } from "../lib/types";
+} from "../schedule/calendarColors";
 
 interface Props {
   schedule: Schedule;
