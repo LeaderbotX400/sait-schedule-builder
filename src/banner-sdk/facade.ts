@@ -32,7 +32,7 @@ export function createBannerSdk(transport: BannerTransport, opts: BannerSdkOptio
     session,
 
     /** Probe getBannerId on ssag2 to confirm we're logged in. */
-    validateLogin: (): Promise<LoginValidation> => validateLogin(transport, hosts),
+    validateLogin: (): Promise<LoginValidation> => validateLogin(transport, hosts, tokens),
 
     /** Install Banner credentials (synchronizer token + uniqueSessionId). */
     connect: (creds: BannerCredentials): void => session.applyCredentials(creds),
@@ -40,7 +40,7 @@ export function createBannerSdk(transport: BannerTransport, opts: BannerSdkOptio
     /** connect + immediately validateLogin. The common case from the UI. */
     async connectAndValidate(creds: BannerCredentials): Promise<LoginValidation> {
       session.applyCredentials(creds);
-      return validateLogin(transport, hosts);
+      return validateLogin(transport, hosts, tokens);
     },
 
     /** Drop primed term + cached sync token. UI calls this on disconnect. */

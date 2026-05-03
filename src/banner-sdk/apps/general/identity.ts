@@ -1,6 +1,7 @@
 import { type BannerHostConfig, ssag2Url } from "../../config/hosts";
 import { bannerHeaders } from "../../core/headers";
 import { parseJsonOrThrow } from "../../core/json";
+import type { SyncTokenCache } from "../../core/syncToken";
 import { BannerNetworkError } from "../../transport/errors";
 import type { BannerTransport } from "../../transport/types";
 import type { BannerIdResponse } from "./types";
@@ -25,11 +26,12 @@ export type LoginValidation =
 export async function validateLogin(
   transport: BannerTransport,
   hosts: BannerHostConfig,
+  tokens?: SyncTokenCache,
 ): Promise<LoginValidation> {
   let raw: Awaited<ReturnType<BannerTransport["fetch"]>>;
   try {
     raw = await transport.fetch(ssag2Url(hosts, "/ssb/PersonalInformationDetails/getBannerId"), {
-      headers: bannerHeaders(),
+      headers: bannerHeaders({ syncToken: tokens?.get() ?? null }),
     });
   } catch (e) {
     return {
