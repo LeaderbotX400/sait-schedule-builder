@@ -276,15 +276,27 @@ async function clearBannerSession(): Promise<void> {
  * invalidated server-side without the cookie expiring client-side, so a
  * cached session is never trustworthy.
  *
- * Once the user finishes signing in and lands back on Banner, the
- * content script (or our fallback fetch) picks up the sync token; we
- * grab the credentials via `handleGetCredentials` and resolve.
+ * Three triggers race to capture credentials, whichever fires first wins:
  *
- * Session validation (was: `validateSession` calling getBannerId) now
- * lives in the SDK (`sdk.connectAndValidate`); the React caller decides
- * whether to retry. This keeps the extension a thin credential-capture
- * shim.
+ *   1. SYNC_TOKEN_FOUND from the content script — fires the moment the
+ *      Banner page's `<meta name="synchronizerToken">` is scraped. This
+ *      is the fastest path on a successful auth.
+ *   2. tabs.onUpdated "complete" event + 2s settle — covers redirect
+ *      chains where the content script fires before we listen, or where
+ *      the user lands on a page that doesn't have the meta tag.
+ *   3. 500ms poll — final safety net for the case where neither (1) nor
+ *      (2) gets us across the line (e.g., redirect lands on a non-
+ *      `/StudentRegistrationSsb/` page so the content script never fires).
+ *
+ * Caps total wait at 2 minutes so a stuck popup doesn't hang forever.
+ *
+ * Session validation (was: `validateSession` calling getBannerId) lives
+ * in the SDK now (`sdk.connectAndValidate`); the React caller decides
+ * whether to retry. The extension stays a thin credential-capture shim.
  */
+const LOGIN_TIMEOUT_MS = 2 * 60 * 1000;
+const LOGIN_POLL_INTERVAL_MS = 500;
+
 async function handleTriggerLogin(): Promise<CredentialResult> {
   await clearBannerSession();
 
@@ -305,6 +317,9 @@ async function handleTriggerLogin(): Promise<CredentialResult> {
       const cleanup = () => {
         chrome.tabs.onUpdated.removeListener(onUpdated);
         chrome.tabs.onRemoved.removeListener(onRemoved);
+        chrome.runtime.onMessage.removeListener(onMessage);
+        clearInterval(pollId);
+        clearTimeout(timeoutId);
       };
 
       const settle = (result: CredentialResult) => {
@@ -314,23 +329,50 @@ async function handleTriggerLogin(): Promise<CredentialResult> {
         resolve(result);
       };
 
-      const onUpdated = (
-        id: number,
-        changeInfo: { status?: string },
-        _updatedTab: chrome.tabs.Tab,
-      ) => {
-        if (id !== tabId || changeInfo.status !== "complete") return;
+      // Single capture attempt: probe credentials, close popup on success.
+      const tryCapture = async (): Promise<void> => {
+        if (settled) return;
+        const creds = await handleGetCredentials();
+        if (!creds.ok) return;
+        chrome.windows.remove(winId).catch(() => {});
+        settle(creds);
+      };
 
-        // Allow time for cookies to settle and for the content script
-        // (on ssag6) to extract the sync token.
-        setTimeout(async () => {
-          if (settled) return;
-          const creds = await handleGetCredentials();
-          if (!creds.ok) return; // Wait for the next page-load tick.
-          chrome.windows.remove(winId).catch(() => {});
-          settle(creds);
+      // Trigger 1 — SYNC_TOKEN_FOUND from the content script.
+      const onMessage = (message: unknown, sender: chrome.runtime.MessageSender) => {
+        if (sender.tab?.id !== tabId) return;
+        const m = message as { type?: string };
+        if (m?.type !== "SYNC_TOKEN_FOUND") return;
+        // Defer one tick so the global routeMessage handler runs first
+        // and writes to cachedSyncToken before we read it.
+        setTimeout(() => {
+          void tryCapture();
+        }, 50);
+      };
+
+      // Trigger 2 — every "complete" event + 2s settle. Covers redirect
+      // chains where the content script fires before we listen.
+      const onUpdated = (id: number, changeInfo: { status?: string }) => {
+        if (id !== tabId || changeInfo.status !== "complete") return;
+        setTimeout(() => {
+          void tryCapture();
         }, 2000);
       };
+
+      // Trigger 3 — 500ms poll, kicks in immediately as final safety net.
+      const pollId = setInterval(() => {
+        void tryCapture();
+      }, LOGIN_POLL_INTERVAL_MS);
+
+      // Hard ceiling.
+      const timeoutId = setTimeout(() => {
+        settle({
+          ok: false,
+          error: "TIMEOUT",
+          message:
+            "Sign-in took too long. If you completed login but the popup didn't close, please close it and try again.",
+        });
+      }, LOGIN_TIMEOUT_MS);
 
       const onRemoved = (id: number) => {
         if (id !== tabId) return;
@@ -343,6 +385,7 @@ async function handleTriggerLogin(): Promise<CredentialResult> {
 
       chrome.tabs.onUpdated.addListener(onUpdated);
       chrome.tabs.onRemoved.addListener(onRemoved);
+      chrome.runtime.onMessage.addListener(onMessage);
     });
   });
 }
