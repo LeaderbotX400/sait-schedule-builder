@@ -17,7 +17,15 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
     "erasableSyntaxOnly": true
   },
-  "include": ["src", "extension", "manifest.config.ts", "vite.config.ts"]
+  "include": [
+    "src",
+    "extension",
+    "manifest.config.ts",
+    "vite.config.ts",
+    "vitest.config.ts"
+  ]
 }

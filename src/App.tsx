@@ -10,7 +10,7 @@ import RulesPanel from "./components/RulesPanel";
 import ScheduleDetail from "./components/ScheduleDetail";
 import ScheduleStrip from "./components/ScheduleStrip";
 import ShapeCalendar from "./components/ShapeCalendar";
-import { useScheduler, type GenerationStatus } from "./hooks/useScheduler";
+import { type GenerationStatus, useScheduler } from "./hooks/useScheduler";
 import type { BannerCredentials } from "./lib/api";
 import { downloadICal } from "./lib/ical";
 import { describeTerm } from "./lib/terms";
@@ -36,7 +36,10 @@ interface ScheduleAreaProps {
   rules: ScheduleRules;
   credentials: BannerCredentials | null;
   term: string;
-  swapSection: (subjectCourse: string, newSectionId: string) => { success: boolean; conflicts: CourseSection[] };
+  swapSection: (
+    subjectCourse: string,
+    newSectionId: string,
+  ) => { success: boolean; conflicts: CourseSection[] };
   toggleCurrentCourse: (subjectCourse: string) => void;
   onBlockoutChange: (blockout: BlockoutGrid) => void;
   onBlockoutWeightChange: (weight: number) => void;
@@ -112,7 +115,7 @@ function ScheduleArea({
           rules={rules}
           credentials={credentials}
           term={term}
-          registeredCrns={registeredCrns}
+          {...(registeredCrns ? { registeredCrns } : {})}
         />
       ) : generationStatus.kind === "empty" ? (
         <div className="flex items-center justify-center py-8">
@@ -120,9 +123,7 @@ function ScheduleArea({
             <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-yellow-900/30 border border-yellow-800">
               <span className="text-lg">⚠</span>
             </div>
-            <h2 className="text-base font-semibold text-white">
-              No valid schedules found
-            </h2>
+            <h2 className="text-base font-semibold text-white">No valid schedules found</h2>
             <p className="text-sm text-gray-400">{generationStatus.reason}</p>
           </div>
         </div>
@@ -196,20 +197,17 @@ export default function App() {
   const hasData = courseGroups.size > 0;
 
   const togglePanel = useCallback(
-    (panel: PanelId) =>
-      setActivePanel((p) => (p === panel ? null : panel)),
+    (panel: PanelId) => setActivePanel((p) => (p === panel ? null : panel)),
     [],
   );
 
   const handleBlockoutChange = useCallback(
-    (blockout: BlockoutGrid) =>
-      setRules((r) => ({ ...r, blockout })),
+    (blockout: BlockoutGrid) => setRules((r) => ({ ...r, blockout })),
     [setRules],
   );
 
   const handleBlockoutWeightChange = useCallback(
-    (weight: number) =>
-      setRules((r) => ({ ...r, blockoutWeight: weight })),
+    (weight: number) => setRules((r) => ({ ...r, blockoutWeight: weight })),
     [setRules],
   );
 
@@ -270,7 +268,9 @@ export default function App() {
                 title="Reload data from Banner"
                 className="rounded-md border border-gray-700/80 px-2 py-1 text-gray-400 hover:text-white hover:border-gray-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                <span className={`inline-block text-sm leading-none ${registrationsLoading ? "animate-spin" : ""}`}>
+                <span
+                  className={`inline-block text-sm leading-none ${registrationsLoading ? "animate-spin" : ""}`}
+                >
                   ↻
                 </span>
               </button>
@@ -302,15 +302,10 @@ export default function App() {
             {hasData && (
               <button
                 onClick={generate}
-                disabled={
-                  generationStatus.kind === "generating" ||
-                  selectedCourses.size === 0
-                }
+                disabled={generationStatus.kind === "generating" || selectedCourses.size === 0}
                 className="rounded-md bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                {generationStatus.kind === "generating"
-                  ? "Generating…"
-                  : "Generate"}
+                {generationStatus.kind === "generating" ? "Generating…" : "Generate"}
               </button>
             )}
           </div>
@@ -321,26 +316,26 @@ export default function App() {
       {credentials && (gpa || registrationNotices) && (
         <div className="border-b border-gray-800/60 bg-gray-900/40">
           <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 py-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
-            {gpa && (() => {
-              const overallEntry = gpa.gpas?.find(
-                (g) => g.typeDesc === "Overall" || g.gpaTypeIndicatorDesc?.toLowerCase().includes("overall"),
-              );
-              const displayGpa = gpa.overallGpa ?? overallEntry?.gpa;
-              const displayHours = gpa.overallHours ?? overallEntry?.hours;
-              if (!displayGpa) return null;
-              return (
-                <span className="text-gray-400">
-                  GPA{" "}
-                  <span className="font-semibold text-gray-200">{displayGpa}</span>
-                  {displayHours != null && (
-                    <span className="text-gray-600"> · {displayHours} cr</span>
-                  )}
-                </span>
-              );
-            })()}
-            {registrationNotices && (
-              <RegistrationStatusInline notices={registrationNotices} />
-            )}
+            {gpa &&
+              (() => {
+                const overallEntry = gpa.gpas?.find(
+                  (g) =>
+                    g.typeDesc === "Overall" ||
+                    g.gpaTypeIndicatorDesc?.toLowerCase().includes("overall"),
+                );
+                const displayGpa = gpa.overallGpa ?? overallEntry?.gpa;
+                const displayHours = gpa.overallHours ?? overallEntry?.hours;
+                if (!displayGpa) return null;
+                return (
+                  <span className="text-gray-400">
+                    GPA <span className="font-semibold text-gray-200">{displayGpa}</span>
+                    {displayHours != null && (
+                      <span className="text-gray-600"> · {displayHours} cr</span>
+                    )}
+                  </span>
+                );
+              })()}
+            {registrationNotices && <RegistrationStatusInline notices={registrationNotices} />}
           </div>
         </div>
       )}
@@ -449,18 +444,14 @@ export default function App() {
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
                 <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
-                <p className="mt-3 text-sm text-gray-400">
-                  Loading your registered courses...
-                </p>
+                <p className="mt-3 text-sm text-gray-400">Loading your registered courses...</p>
               </div>
             </div>
           ) : loadError ? (
             <div className="flex items-center justify-center h-64">
               <div className="max-w-sm text-center space-y-2">
                 <p className="text-sm text-red-400">{loadError}</p>
-                <p className="text-xs text-gray-500">
-                  Try disconnecting and signing in again.
-                </p>
+                <p className="text-xs text-gray-500">Try disconnecting and signing in again.</p>
               </div>
             </div>
           ) : (
@@ -473,10 +464,7 @@ export default function App() {
         ) : (
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="w-full max-w-sm rounded-xl border border-gray-800 bg-gray-900/60 p-4 sm:p-6 shadow-lg">
-              <HeaderInput
-                onCredentials={setCredentials}
-                isConnected={!!credentials}
-              />
+              <HeaderInput onCredentials={setCredentials} isConnected={!!credentials} />
             </div>
           </div>
         )}

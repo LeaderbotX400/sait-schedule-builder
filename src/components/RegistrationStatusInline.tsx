@@ -14,8 +14,7 @@ export default function RegistrationStatusInline({ notices }: Props) {
     return (
       <span className="text-yellow-400">
         ⚠ Registration blocked
-        {notices.academicStanding?.description &&
-          ` · ${notices.academicStanding.description}`}
+        {notices.academicStanding?.description && ` · ${notices.academicStanding.description}`}
         {(notices.timeTickets?.length ?? 0) > 0 &&
           ` · ${notices.timeTickets!.length} time ticket${notices.timeTickets!.length === 1 ? "" : "s"}`}
       </span>

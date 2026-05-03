@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  fetchRegistrations,
-  getTerms,
-} from "../lib/api";
-import {
-  parseActiveRegistrations,
-  parseBannerData,
-} from "../lib/parser";
+import { fetchRegistrations, getTerms } from "../lib/api";
+import { parseActiveRegistrations, parseBannerData } from "../lib/parser";
 import { generateSchedules } from "../lib/scheduler";
 import { DEFAULT_TERM } from "../lib/terms";
 import type {
@@ -17,10 +11,7 @@ import type {
   ScheduleRules,
 } from "../lib/types";
 import { DEFAULT_RULES, resolveCurrentSection, sectionsHaveConflict } from "../lib/types";
-import {
-  usePersistedState,
-  usePersistedStringSet,
-} from "../lib/usePersistedState";
+import { usePersistedState, usePersistedStringSet } from "../lib/usePersistedState";
 import { useCredentials } from "./useCredentials";
 
 export type GenerationStatus =
@@ -42,11 +33,8 @@ export function useScheduler() {
     refreshProfile,
   } = useCredentials();
 
-  const [courseGroups, setCourseGroups] = useState<
-    Map<string, CourseSection[]>
-  >(new Map());
-  const [selectedCourses, setSelectedCourses] =
-    usePersistedStringSet("selected-courses");
+  const [courseGroups, setCourseGroups] = useState<Map<string, CourseSection[]>>(new Map());
+  const [selectedCourses, setSelectedCourses] = usePersistedStringSet("selected-courses");
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [rules, setRules] = useState<ScheduleRules>(DEFAULT_RULES);
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus>({
@@ -62,13 +50,9 @@ export function useScheduler() {
     Map<string, CurrentRegistration>
   >(new Map());
   // Track section swaps: subjectCourse -> sectionIdentifier being used
-  const [sectionOverrides, setSectionOverrides] = useState<Map<string, string>>(
-    new Map(),
-  );
+  const [sectionOverrides, setSectionOverrides] = useState<Map<string, string>>(new Map());
   // Track which courses are toggled on/off in current schedule
-  const [includedCourses, setIncludedCourses] = useState<Set<string>>(
-    new Set(),
-  );
+  const [includedCourses, setIncludedCourses] = useState<Set<string>>(new Set());
 
   // Auto-fetch registered courses when credentials are first set.
   // Fetch the term list first so we always use the student's current active term.
@@ -91,9 +75,7 @@ export function useScheduler() {
         if (!Array.isArray(terms) || terms.length === 0) {
           throw new Error("Banner returned no terms — session may be invalid");
         }
-        const activeTerm = terms.find(
-          (t) => !SKIP.some((s) => t.description.includes(s)),
-        );
+        const activeTerm = terms.find((t) => !SKIP.some((s) => t.description.includes(s)));
         const termCode = activeTerm?.code;
         if (!termCode) return;
         setTerm(termCode);
@@ -105,9 +87,7 @@ export function useScheduler() {
           const groups = parseActiveRegistrations(registrations);
           setCourseGroups(groups);
           setSelectedCourses((prev) => {
-            const restored = new Set(
-              [...prev].filter((name) => groups.has(name)),
-            );
+            const restored = new Set([...prev].filter((name) => groups.has(name)));
             return restored.size > 0 ? restored : new Set(groups.keys());
           });
           initializeCurrentRegistrations(groups);
@@ -124,9 +104,7 @@ export function useScheduler() {
           return;
         }
         const msg = err instanceof Error ? err.message : String(err);
-        setLoadError(
-          `Could not load your registrations: ${msg}. Try reconnecting to Banner.`,
-        );
+        setLoadError(`Could not load your registrations: ${msg}. Try reconnecting to Banner.`);
       } finally {
         if (!cancelled) setRegistrationsLoading(false);
       }
@@ -146,9 +124,8 @@ export function useScheduler() {
       const included = new Set<string>();
 
       for (const [subjectCourse, sections] of fromCourseGroups) {
-        if (sections.length > 0) {
-          // Default to first section as "current registration"
-          const currentSection = sections[0];
+        const currentSection = sections[0];
+        if (currentSection) {
           regs.set(subjectCourse, {
             subjectCourse,
             currentSection,
@@ -177,9 +154,7 @@ export function useScheduler() {
 
     const newGroups = parseBannerData(response);
     if (newGroups.size === 0) {
-      setLoadError(
-        "Received data but no valid course sections could be parsed.",
-      );
+      setLoadError("Received data but no valid course sections could be parsed.");
       return 0;
     }
 
@@ -243,8 +218,7 @@ export function useScheduler() {
         if (filtered.size === 0) {
           setGenerationStatus({
             kind: "empty",
-            reason:
-              "No courses selected. Select at least one course in the sidebar.",
+            reason: "No courses selected. Select at least one course in the sidebar.",
           });
           return;
         }
@@ -273,8 +247,7 @@ export function useScheduler() {
               let timeOk = true;
               let dayOk = true;
               for (const m of section.meetings) {
-                if (m.startTime < earliest || m.endTime > latest)
-                  timeOk = false;
+                if (m.startTime < earliest || m.endTime > latest) timeOk = false;
                 for (const d of m.days) {
                   if (rules.freeDays.includes(d)) dayOk = false;
                 }
@@ -341,14 +314,10 @@ export function useScheduler() {
     (subjectCourse: string, newSectionIdentifier: string) => {
       // Find the section in courseGroups
       const sections = courseGroups.get(subjectCourse);
-      if (!sections)
-        return { success: false, conflicts: [] as CourseSection[] };
+      if (!sections) return { success: false, conflicts: [] as CourseSection[] };
 
-      const newSection = sections.find(
-        (s) => s.identifier === newSectionIdentifier,
-      );
-      if (!newSection)
-        return { success: false, conflicts: [] as CourseSection[] };
+      const newSection = sections.find((s) => s.identifier === newSectionIdentifier);
+      if (!newSection) return { success: false, conflicts: [] as CourseSection[] };
 
       // Check for conflicts with other courses in current schedule
       const conflicts: CourseSection[] = [];
@@ -393,9 +362,7 @@ export function useScheduler() {
       if (!Array.isArray(terms) || terms.length === 0) {
         throw new Error("Banner returned no terms — session may be invalid");
       }
-      const activeTerm = terms.find(
-        (t) => !SKIP_TERMS.some((s) => t.description.includes(s)),
-      );
+      const activeTerm = terms.find((t) => !SKIP_TERMS.some((s) => t.description.includes(s)));
       const termCode = activeTerm?.code;
       if (termCode) {
         setTerm(termCode);
@@ -412,9 +379,7 @@ export function useScheduler() {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      setLoadError(
-        `Could not refresh your registrations: ${msg}. Try reconnecting to Banner.`,
-      );
+      setLoadError(`Could not refresh your registrations: ${msg}. Try reconnecting to Banner.`);
     } finally {
       setRegistrationsLoading(false);
     }

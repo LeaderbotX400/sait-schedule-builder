@@ -1,8 +1,8 @@
 import type {
   ActiveRegistration,
-  BannerSection,
   BannerMeetingTime,
   BannerResponse,
+  BannerSection,
   CourseSection,
   DayOfWeek,
   MeetingBlock,
@@ -28,9 +28,7 @@ function parseMeetingTime(mt: BannerMeetingTime): MeetingBlock | null {
   if (days.length === 0) return null;
 
   const isOnline =
-    mt.campus === "OL" ||
-    mt.campusDescription === "Online" ||
-    mt.buildingDescription === "Online";
+    mt.campus === "OL" || mt.campusDescription === "Online" || mt.buildingDescription === "Online";
 
   return {
     days,
@@ -100,9 +98,10 @@ export function parseActiveRegistrations(
   // Only include actively enrolled registrations. "Registered-Sponsored" entries
   // are admin/sponsor placements that the student did not self-enroll in.
   const ACTIVE_STATUSES = ["Web Registered", "Registered", "Web Add"];
-  const activeRegistrations = registrations.filter((r) =>
-    ACTIVE_STATUSES.some((s) => r.courseRegistrationStatusDescription.includes(s)) &&
-    !r.courseRegistrationStatusDescription.includes("Sponsored"),
+  const activeRegistrations = registrations.filter(
+    (r) =>
+      ACTIVE_STATUSES.some((s) => r.courseRegistrationStatusDescription.includes(s)) &&
+      !r.courseRegistrationStatusDescription.includes("Sponsored"),
   );
 
   for (const reg of activeRegistrations) {
@@ -142,4 +141,3 @@ export function parseActiveRegistrations(
 
   return grouped;
 }
-

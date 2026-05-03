@@ -1,23 +1,23 @@
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  buildColorMap,
+  buildWarnedCourseIds,
+  buildWarningKeys,
+  COURSE_COLORS,
+  HOUR_HEIGHT,
+} from "../lib/calendar";
+import { getExpandedMeetings } from "../lib/scheduler";
+import { formatHour, formatTime, timeToMinutes } from "../lib/time";
 import type {
-  BlockoutGrid as BlockoutGridType,
   BlockoutCell,
+  BlockoutGrid as BlockoutGridType,
   CourseSection,
   DayOfWeek,
   MeetingBlock,
   Schedule,
   ScheduleRules,
 } from "../lib/types";
-import { GRID_HOURS, WEEKDAYS, createEmptyBlockout } from "../lib/types";
-import { getExpandedMeetings } from "../lib/scheduler";
-import { formatHour, formatTime, timeToMinutes } from "../lib/time";
-import {
-  COURSE_COLORS,
-  HOUR_HEIGHT,
-  buildColorMap,
-  buildWarnedCourseIds,
-  buildWarningKeys,
-} from "../lib/calendar";
+import { createEmptyBlockout, GRID_HOURS, WEEKDAYS } from "../lib/types";
 
 interface Props {
   blockout: BlockoutGridType;
@@ -115,8 +115,8 @@ export default function ShapeCalendar({
 
   // Time range: GRID_HOURS, expanded by both active and ghost events
   const hours = useMemo(() => {
-    let minHour = GRID_HOURS[0];
-    let maxHour = GRID_HOURS[GRID_HOURS.length - 1] + 1;
+    let minHour = GRID_HOURS[0] ?? 7;
+    let maxHour = (GRID_HOURS[GRID_HOURS.length - 1] ?? 21) + 1;
     const consider = (m: MeetingBlock) => {
       const sh = Math.floor(m.startTime / 100);
       const eh = Math.ceil(m.endTime / 100);
@@ -128,15 +128,13 @@ export default function ShapeCalendar({
     return Array.from({ length: maxHour - minHour }, (_, i) => minHour + i);
   }, [expanded, ghosts]);
 
-  const gridStartMinutes = hours[0] * 60;
+  const gridStartMinutes = (hours[0] ?? 7) * 60;
   const totalHeight = hours.length * HOUR_HEIGHT;
 
   // Weekend columns when active or ghost meetings need them
   const displayDays = useMemo((): DayOfWeek[] => {
-    const hasSat =
-      expanded.some((e) => e.day === "Sat") || ghosts.some((g) => g.day === "Sat");
-    const hasSun =
-      expanded.some((e) => e.day === "Sun") || ghosts.some((g) => g.day === "Sun");
+    const hasSat = expanded.some((e) => e.day === "Sat") || ghosts.some((g) => g.day === "Sat");
+    const hasSun = expanded.some((e) => e.day === "Sun") || ghosts.some((g) => g.day === "Sun");
     return [
       ...WEEKDAYS,
       ...(hasSat ? (["Sat"] as DayOfWeek[]) : []),
@@ -148,14 +146,8 @@ export default function ShapeCalendar({
     [schedule],
   );
   const colorMap = useMemo(() => buildColorMap(courseIds), [courseIds]);
-  const warningKeys = useMemo(
-    () => buildWarningKeys(schedule?.warnings ?? []),
-    [schedule],
-  );
-  const warnedCourseIds = useMemo(
-    () => buildWarnedCourseIds(schedule?.warnings ?? []),
-    [schedule],
-  );
+  const warningKeys = useMemo(() => buildWarningKeys(schedule?.warnings ?? []), [schedule]);
+  const warnedCourseIds = useMemo(() => buildWarnedCourseIds(schedule?.warnings ?? []), [schedule]);
 
   const dayEvents = useMemo(() => {
     const m = new Map<DayOfWeek, ExpandedMeeting[]>();
@@ -210,10 +202,8 @@ export default function ShapeCalendar({
 
   return (
     <div className="rounded-xl bg-gray-900/60 border border-gray-800/80 overflow-hidden">
-
       {/* Toolbar */}
       <div className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-800/80 bg-gray-900/40 flex-wrap gap-y-2">
-
         {/* Paint mode segmented control */}
         <div className="flex rounded-lg overflow-hidden border border-gray-700/60 text-xs font-medium shrink-0">
           {PAINT_MODES.map((mode, i) => (
@@ -225,8 +215,8 @@ export default function ShapeCalendar({
                   ? mode.value === "preferred"
                     ? "bg-emerald-700 text-white"
                     : mode.value === "blocked"
-                    ? "bg-red-700 text-white"
-                    : "bg-gray-600 text-white"
+                      ? "bg-red-700 text-white"
+                      : "bg-gray-600 text-white"
                   : "bg-gray-800/80 text-gray-400 hover:text-gray-200 hover:bg-gray-700/60"
               }`}
             >
@@ -280,7 +270,6 @@ export default function ShapeCalendar({
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
         >
-
           {/* Time label column */}
           <div className="w-14 shrink-0">
             <div className="h-8" />
@@ -302,7 +291,6 @@ export default function ShapeCalendar({
             const isDayHardBlocked = hardBlockedDays.has(day) || !WEEKDAYS.includes(day);
             return (
               <div key={day} className="flex-1 min-w-[80px]">
-
                 {/* Column header */}
                 <div
                   className={`h-8 flex flex-col items-center justify-center border-b border-gray-700/60 ${
@@ -331,10 +319,10 @@ export default function ShapeCalendar({
                           hardBlocked
                             ? ""
                             : cell === "preferred"
-                            ? "bg-emerald-500/[.22]"
-                            : cell === "blocked"
-                            ? "bg-red-500/[.22]"
-                            : ""
+                              ? "bg-emerald-500/[.22]"
+                              : cell === "blocked"
+                                ? "bg-red-500/[.22]"
+                                : ""
                         }`}
                         style={{
                           top: i * HOUR_HEIGHT,
@@ -398,7 +386,9 @@ export default function ShapeCalendar({
                             {isWarned && (
                               <span className="text-[10px] text-red-400 shrink-0">&#x26A0;</span>
                             )}
-                            <span className={`text-xs font-semibold ${color.text} truncate leading-tight`}>
+                            <span
+                              className={`text-xs font-semibold ${color.text} truncate leading-tight`}
+                            >
                               {course.identifier}
                             </span>
                           </div>
@@ -436,7 +426,8 @@ export default function ShapeCalendar({
           <span
             className="inline-block w-3 h-3 rounded-sm"
             style={{
-              backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 3px, rgba(255,255,255,0.06) 3px, rgba(255,255,255,0.06) 6px)",
+              backgroundImage:
+                "repeating-linear-gradient(135deg, transparent, transparent 3px, rgba(255,255,255,0.06) 3px, rgba(255,255,255,0.06) 6px)",
               backgroundColor: "rgba(0,0,0,0.32)",
             }}
           />

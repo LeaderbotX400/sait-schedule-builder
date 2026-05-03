@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { DayOfWeek, ScheduleRules } from "../lib/types";
 import { formatTimeFromString } from "../lib/time";
+import type { DayOfWeek, ScheduleRules } from "../lib/types";
 
 interface Props {
   rules: ScheduleRules;
@@ -11,9 +11,21 @@ interface Props {
 const DAYS: DayOfWeek[] = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 
 const TIME_OPTIONS = [
-  "0700", "0800", "0900", "1000", "1100", "1200",
-  "1300", "1400", "1500", "1600", "1700", "1800",
-  "1900", "2000", "2100",
+  "0700",
+  "0800",
+  "0900",
+  "1000",
+  "1100",
+  "1200",
+  "1300",
+  "1400",
+  "1500",
+  "1600",
+  "1700",
+  "1800",
+  "1900",
+  "2000",
+  "2100",
 ];
 
 function SectionHeading({ label }: { label: string }) {
@@ -80,10 +92,7 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const prefSummary =
-    [
-      rules.allowPartialSchedules && "partial ok",
-      rules.requireOpenSeats && "open seats only",
-    ]
+    [rules.allowPartialSchedules && "partial ok", rules.requireOpenSeats && "open seats only"]
       .filter(Boolean)
       .join(" · ") || "defaults";
 
@@ -98,7 +107,11 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
           onChange={(e) => update("earliestStart", e.target.value)}
           className="w-full rounded-md bg-gray-800 border border-gray-700 px-1.5 py-1 text-xs text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          {TIME_OPTIONS.map((t) => <option key={t} value={t}>{formatTimeFromString(t)}</option>)}
+          {TIME_OPTIONS.map((t) => (
+            <option key={t} value={t}>
+              {formatTimeFromString(t)}
+            </option>
+          ))}
         </select>
       </div>
       <div>
@@ -108,7 +121,11 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
           onChange={(e) => update("latestEnd", e.target.value)}
           className="w-full rounded-md bg-gray-800 border border-gray-700 px-1.5 py-1 text-xs text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          {TIME_OPTIONS.map((t) => <option key={t} value={t}>{formatTimeFromString(t)}</option>)}
+          {TIME_OPTIONS.map((t) => (
+            <option key={t} value={t}>
+              {formatTimeFromString(t)}
+            </option>
+          ))}
         </select>
       </div>
     </div>
@@ -134,12 +151,11 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
 
   const campusControls = (
     <div className="space-y-3">
-      <SliderRow
-        label="Max campus days/wk"
-        value={String(rules.maxOnCampusDays)}
-      >
+      <SliderRow label="Max campus days/wk" value={String(rules.maxOnCampusDays)}>
         <input
-          type="range" min={1} max={7}
+          type="range"
+          min={1}
+          max={7}
           value={rules.maxOnCampusDays}
           onChange={(e) => update("maxOnCampusDays", parseInt(e.target.value, 10))}
           className="w-full accent-blue-500"
@@ -150,7 +166,10 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
         value={rules.minTravelGapMinutes === 0 ? "Off" : `${rules.minTravelGapMinutes}m`}
       >
         <input
-          type="range" min={0} max={120} step={15}
+          type="range"
+          min={0}
+          max={120}
+          step={15}
           value={rules.minTravelGapMinutes}
           onChange={(e) => update("minTravelGapMinutes", parseInt(e.target.value, 10))}
           className="w-full accent-blue-500"
@@ -175,7 +194,10 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
         value={rules.maxGapBetweenClasses === 0 ? "off" : `${rules.maxGapBetweenClasses}m`}
       >
         <input
-          type="range" min={0} max={240} step={30}
+          type="range"
+          min={0}
+          max={240}
+          step={30}
           value={rules.maxGapBetweenClasses}
           onChange={(e) => update("maxGapBetweenClasses", parseInt(e.target.value, 10))}
           className="w-full accent-blue-500"
@@ -233,7 +255,6 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
   // ── Vertical layout (accordion, default) ──
   return (
     <div className="space-y-1">
-
       {/* Section 1 — Time Window */}
       <button
         type="button"
@@ -310,7 +331,6 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
         <ChevronIcon open={openSections.preferences} />
       </button>
       {openSections.preferences && <div className="pb-3">{preferencesControls}</div>}
-
     </div>
   );
 }

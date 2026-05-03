@@ -33,10 +33,11 @@ let cachedUniqueSessionId = "";
 chrome.action.onClicked.addListener(async () => {
   const url = chrome.runtime.getURL("index.html");
   const existing = await chrome.tabs.query({ url });
-  if (existing.length > 0 && existing[0].id != null) {
-    await chrome.tabs.update(existing[0].id, { active: true });
-    if (existing[0].windowId != null) {
-      await chrome.windows.update(existing[0].windowId, { focused: true });
+  const first = existing[0];
+  if (first?.id != null) {
+    await chrome.tabs.update(first.id, { active: true });
+    if (first.windowId != null) {
+      await chrome.windows.update(first.windowId, { focused: true });
     }
     return;
   }
@@ -78,6 +79,12 @@ function routeMessage(message: unknown, sendResponse: SendResponse): boolean {
     case "BANNER_FETCH":
       handleBannerFetch(message as BannerFetchRequest).then(sendResponse);
       return true;
+
+    case "SET_COOKIES": {
+      const msg = m as { cookies?: Record<string, string> };
+      handleSetCookies(msg.cookies ?? {}).then(sendResponse);
+      return true;
+    }
   }
   return false;
 }
@@ -110,16 +117,15 @@ interface BannerFetchResponse {
   error?: string;
 }
 
-async function handleBannerFetch(
-  req: BannerFetchRequest,
-): Promise<BannerFetchResponse> {
+async function handleBannerFetch(req: BannerFetchRequest): Promise<BannerFetchResponse> {
   try {
-    const res = await fetch(req.url, {
+    const init: RequestInit = {
       method: req.init?.method ?? "GET",
-      headers: req.init?.headers,
-      body: req.init?.body,
       credentials: "include",
-    });
+    };
+    if (req.init?.headers) init.headers = req.init.headers;
+    if (req.init?.body !== undefined) init.body = req.init.body;
+    const res = await fetch(req.url, init);
     const body = await res.text();
     return {
       ok: res.ok,
@@ -172,8 +178,7 @@ async function handleGetCredentials(): Promise<CredentialResult> {
       return {
         ok: false,
         error: "MISSING_SESSION",
-        message:
-          "JSESSIONID cookie not found. Your Banner session may have expired.",
+        message: "JSESSIONID cookie not found. Your Banner session may have expired.",
         loginUrl: LOGIN_URL,
       };
     }
@@ -208,10 +213,43 @@ async function handleGetCredentials(): Promise<CredentialResult> {
     return {
       ok: false,
       error: "UNKNOWN",
-      message:
-        err instanceof Error
-          ? err.message
-          : "Unknown error reading credentials",
+      message: err instanceof Error ? err.message : "Unknown error reading credentials",
+    };
+  }
+}
+
+/**
+ * Install user-supplied auth cookies (typically JSESSIONID + NLB) on every
+ * Banner host. Used by the manual header-paste flow so users can authenticate
+ * without going through the popup login. Banner cookies are set HttpOnly and
+ * Secure to match how Banner itself issues them.
+ */
+async function handleSetCookies(
+  cookies: Record<string, string>,
+): Promise<{ ok: boolean; message?: string }> {
+  const entries = Object.entries(cookies).filter(([, v]) => typeof v === "string" && v.length > 0);
+  if (entries.length === 0) {
+    return { ok: false, message: "No cookies provided" };
+  }
+  try {
+    for (const host of BANNER_HOSTS) {
+      for (const [name, value] of entries) {
+        await chrome.cookies.set({
+          url: `https://${host}/`,
+          name,
+          value,
+          path: "/",
+          secure: true,
+          httpOnly: true,
+          sameSite: "no_restriction",
+        });
+      }
+    }
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "Failed to set cookies",
     };
   }
 }
@@ -235,9 +273,7 @@ async function clearBannerSession(): Promise<void> {
  * Confirm the session is genuinely usable by calling getBannerId.
  * Returns the bannerId string on success, null on any failure.
  */
-async function validateSession(
-  synchronizerToken: string,
-): Promise<string | null> {
+async function validateSession(synchronizerToken: string): Promise<string | null> {
   try {
     const res = await fetch(
       `https://sait-sust-prd-prd1-ban-ss-ssag2.sait.ca/BannerGeneralSsb/ssb/PersonalInformationDetails/getBannerId`,
@@ -252,8 +288,7 @@ async function validateSession(
     );
     if (!res.ok) return null;
     const ct = res.headers.get("content-type") ?? "";
-    if (!ct.includes("application/json") && !ct.includes("text/javascript"))
-      return null;
+    if (!ct.includes("application/json") && !ct.includes("text/javascript")) return null;
     const json = (await res.json()) as { bannerId?: string };
     return json?.bannerId ? String(json.bannerId) : null;
   } catch {
@@ -276,122 +311,115 @@ async function handleTriggerLogin(): Promise<CredentialResult> {
   await clearBannerSession();
 
   return new Promise((resolve) => {
-    chrome.windows.create(
-      { url: LOGIN_URL, type: "popup", width: 520, height: 680 },
-      (win) => {
-        if (!win || !win.tabs || win.tabs.length === 0) {
-          resolve({
-            ok: false,
-            error: "NO_WINDOW",
-            message: "Could not open login window.",
-          });
-          return;
-        }
-        const winId = win.id!;
-        const tabId = win.tabs[0].id!;
-        let settled = false;
-        let attempts = 0;
-        const MAX_ATTEMPTS = 4;
+    chrome.windows.create({ url: LOGIN_URL, type: "popup", width: 520, height: 680 }, (win) => {
+      if (!win || !win.tabs || win.tabs.length === 0) {
+        resolve({
+          ok: false,
+          error: "NO_WINDOW",
+          message: "Could not open login window.",
+        });
+        return;
+      }
+      const winId = win.id!;
+      const tabId = win.tabs[0]!.id!;
+      let settled = false;
+      let attempts = 0;
+      const MAX_ATTEMPTS = 4;
 
-        const cleanup = () => {
-          chrome.tabs.onUpdated.removeListener(onUpdated);
-          chrome.tabs.onRemoved.removeListener(onRemoved);
-        };
+      const cleanup = () => {
+        chrome.tabs.onUpdated.removeListener(onUpdated);
+        chrome.tabs.onRemoved.removeListener(onRemoved);
+      };
 
-        const settle = (result: CredentialResult) => {
+      const settle = (result: CredentialResult) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(result);
+      };
+
+      const retry = () => {
+        // Clear stale cached tokens so the next attempt fetches fresh ones.
+        cachedSyncToken = "";
+        cachedUniqueSessionId = "";
+        chrome.tabs.update(tabId, { url: LOGIN_URL }).catch(() => {});
+      };
+
+      const onUpdated = (
+        id: number,
+        changeInfo: { status?: string },
+        _updatedTab: chrome.tabs.Tab,
+      ) => {
+        if (id !== tabId || changeInfo.status !== "complete") return;
+        // const url = updatedTab.url ?? "";
+        // Only act once we're back on a real Banner page — not on the SSO
+        // login form or any intermediate redirect.
+        // if (
+        //   !url.includes(
+        //     "sait-sust-prd-prd1-eid-idm-wso2.sait.ca/cas-web/login",
+        //   )
+        //   // url.includes("sait.ca") &&
+        //   // (url.includes("personalInformation") ||
+        //   //   url.includes("StudentRegistrationSsb/ssb/"))
+        // ) {
+        //   return;
+        // }
+
+        attempts++;
+
+        // Allow time for the session cookies to fully settle and for the
+        // content script (on ssag6 pages) to extract the sync token.
+        setTimeout(async () => {
           if (settled) return;
-          settled = true;
-          cleanup();
-          resolve(result);
-        };
 
-        const retry = () => {
-          // Clear stale cached tokens so the next attempt fetches fresh ones.
-          cachedSyncToken = "";
-          cachedUniqueSessionId = "";
-          chrome.tabs.update(tabId, { url: LOGIN_URL }).catch(() => {});
-        };
+          const creds = await handleGetCredentials();
 
-        const onUpdated = (
-          id: number,
-          changeInfo: { status?: string },
-          _updatedTab: chrome.tabs.Tab,
-        ) => {
-          if (id !== tabId || changeInfo.status !== "complete") return;
-          // const url = updatedTab.url ?? "";
-          // Only act once we're back on a real Banner page — not on the SSO
-          // login form or any intermediate redirect.
-          // if (
-          //   !url.includes(
-          //     "sait-sust-prd-prd1-eid-idm-wso2.sait.ca/cas-web/login",
-          //   )
-          //   // url.includes("sait.ca") &&
-          //   // (url.includes("personalInformation") ||
-          //   //   url.includes("StudentRegistrationSsb/ssb/"))
-          // ) {
-          //   return;
-          // }
-
-          attempts++;
-
-          // Allow time for the session cookies to fully settle and for the
-          // content script (on ssag6 pages) to extract the sync token.
-          setTimeout(async () => {
-            if (settled) return;
-
-            const creds = await handleGetCredentials();
-
-            if (!creds.ok) {
-              // Couldn't capture credentials — re-navigate so the user can
-              // complete login again.
-              if (attempts < MAX_ATTEMPTS) {
-                retry();
-              } else {
-                settle(creds);
-              }
-              return;
+          if (!creds.ok) {
+            // Couldn't capture credentials — re-navigate so the user can
+            // complete login again.
+            if (attempts < MAX_ATTEMPTS) {
+              retry();
+            } else {
+              settle(creds);
             }
+            return;
+          }
 
-            // Credentials captured — now confirm the session actually works
-            // before closing the window.
-            const bannerId = await validateSession(
-              creds.credentials.synchronizerToken,
-            );
-            if (!bannerId) {
-              // On Banner but session is invalid — rerun the auth flow.
-              if (attempts < MAX_ATTEMPTS) {
-                retry();
-              } else {
-                settle({
-                  ok: false,
-                  error: "SESSION_INVALID",
-                  message:
-                    "Signed in but the session couldn't be verified. Please try again.",
-                });
-              }
-              return;
+          // Credentials captured — now confirm the session actually works
+          // before closing the window.
+          const bannerId = await validateSession(creds.credentials.synchronizerToken);
+          if (!bannerId) {
+            // On Banner but session is invalid — rerun the auth flow.
+            if (attempts < MAX_ATTEMPTS) {
+              retry();
+            } else {
+              settle({
+                ok: false,
+                error: "SESSION_INVALID",
+                message: "Signed in but the session couldn't be verified. Please try again.",
+              });
             }
+            return;
+          }
 
-            // Session confirmed working — close the popup and return.
-            chrome.windows.remove(winId).catch(() => {});
-            settle(creds);
-          }, 2000);
-        };
+          // Session confirmed working — close the popup and return.
+          chrome.windows.remove(winId).catch(() => {});
+          settle(creds);
+        }, 2000);
+      };
 
-        const onRemoved = (id: number) => {
-          if (id !== tabId) return;
-          settle({
-            ok: false,
-            error: "TAB_CLOSED",
-            message:
-              "Login tab was closed before completing. Please try again.",
-          });
-        };
+      const onRemoved = (id: number) => {
+        if (id !== tabId) return;
+        settle({
+          ok: false,
+          error: "TAB_CLOSED",
+          message: "Login tab was closed before completing. Please try again.",
+        });
+      };
 
-        chrome.tabs.onUpdated.addListener(onUpdated);
-        chrome.tabs.onRemoved.addListener(onRemoved);
-      },
-    );
+      chrome.tabs.onUpdated.addListener(onUpdated);
+      chrome.tabs.onRemoved.addListener(onRemoved);
+    });
   });
 }
 
@@ -403,20 +431,17 @@ async function handleOpenAuthUrl(): Promise<
   { ok: true } | { ok: false; error: string; message: string }
 > {
   return new Promise((resolve) => {
-    chrome.windows.create(
-      { url: LOGIN_URL, type: "popup", width: 520, height: 680 },
-      (win) => {
-        if (!win) {
-          resolve({
-            ok: false,
-            error: "NO_WINDOW",
-            message: "Could not open auth window.",
-          });
-          return;
-        }
-        resolve({ ok: true });
-      },
-    );
+    chrome.windows.create({ url: LOGIN_URL, type: "popup", width: 520, height: 680 }, (win) => {
+      if (!win) {
+        resolve({
+          ok: false,
+          error: "NO_WINDOW",
+          message: "Could not open auth window.",
+        });
+        return;
+      }
+      resolve({ ok: true });
+    });
   });
 }
 
@@ -432,15 +457,11 @@ async function fetchSyncToken(): Promise<string | null> {
   if (syncHeader) return syncHeader;
 
   const html = await res.text();
-  const metaMatch = html.match(
-    /name=["']synchronizerToken["']\s+content=["']([^"']+)["']/,
-  );
-  if (metaMatch) return metaMatch[1];
+  const metaMatch = html.match(/name=["']synchronizerToken["']\s+content=["']([^"']+)["']/);
+  if (metaMatch?.[1]) return metaMatch[1];
 
-  const jsMatch = html.match(
-    /synchronizerToken["']?\s*[:=]\s*["']([a-f0-9-]+)["']/i,
-  );
-  if (jsMatch) return jsMatch[1];
+  const jsMatch = html.match(/synchronizerToken["']?\s*[:=]\s*["']([a-f0-9-]+)["']/i);
+  if (jsMatch?.[1]) return jsMatch[1];
 
   return null;
 }

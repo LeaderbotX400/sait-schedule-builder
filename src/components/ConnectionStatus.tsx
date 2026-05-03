@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { validateLogin, type BannerCredentials } from "../lib/api";
+import { type BannerCredentials, validateLogin } from "../lib/api";
 import { forceReauth } from "../lib/extension";
 import Popover from "./Popover";
 
@@ -63,7 +63,9 @@ export default function ConnectionStatus({ onCredentials, termLabel, loading }: 
               : "bg-emerald-900/30 border border-emerald-800/60 text-emerald-300 hover:bg-emerald-900/50"
           }`}
         >
-          <span className={`h-1.5 w-1.5 rounded-full ${stale ? "bg-yellow-400" : "bg-emerald-400"}`} />
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${stale ? "bg-yellow-400" : "bg-emerald-400"}`}
+          />
           <span className="hidden sm:inline">Connected</span>
           {termLabel && <span className="text-emerald-400/70">· {termLabel}</span>}
           {loading && <span className="text-emerald-400/70 italic">· Loading…</span>}

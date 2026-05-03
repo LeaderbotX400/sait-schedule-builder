@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect, useRef, useId } from "react";
-import { searchCourses, searchSubjects, type BannerCredentials } from "../lib/api";
-import type { BannerResponse } from "../lib/types";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { type BannerCredentials, searchCourses, searchSubjects } from "../lib/api";
 import { TERM_OPTIONS } from "../lib/terms";
+import type { BannerResponse } from "../lib/types";
 
 interface Props {
   credentials: BannerCredentials;
@@ -24,9 +24,9 @@ export default function CourseSearch({ credentials, onResults, term, onTermChang
   const [loading, setLoading] = useState(false);
   const [loadingCode, setLoadingCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [results, setResults] = useState<
-    { code: string; count: number; error?: string }[] | null
-  >(null);
+  const [results, setResults] = useState<{ code: string; count: number; error?: string }[] | null>(
+    null,
+  );
 
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxId = useId();
@@ -56,16 +56,19 @@ export default function CourseSearch({ credentials, onResults, term, onTermChang
     return () => clearTimeout(timeout);
   }, [inputValue, term, credentials, tags]);
 
-  const commitTag = useCallback((code: string) => {
-    const upper = code.trim().toUpperCase();
-    if (!upper || tags.includes(upper)) return;
-    setTags((prev) => [...prev, upper]);
-    setInputValue("");
-    setSuggestions([]);
-    setShowSuggestions(false);
-    setSuggestionIndex(-1);
-    inputRef.current?.focus();
-  }, [tags]);
+  const commitTag = useCallback(
+    (code: string) => {
+      const upper = code.trim().toUpperCase();
+      if (!upper || tags.includes(upper)) return;
+      setTags((prev) => [...prev, upper]);
+      setInputValue("");
+      setSuggestions([]);
+      setShowSuggestions(false);
+      setSuggestionIndex(-1);
+      inputRef.current?.focus();
+    },
+    [tags],
+  );
 
   const removeTag = useCallback((code: string) => {
     setTags((prev) => prev.filter((t) => t !== code));
@@ -121,7 +124,7 @@ export default function CourseSearch({ credentials, onResults, term, onTermChang
     setShowSuggestions(false);
 
     try {
-      setLoadingCode(deduped[0]);
+      setLoadingCode(deduped[0] ?? null);
       const searchResult = await searchCourses(credentials, term, deduped);
       setLoadingCode(null);
       setResults(searchResult.perCode);
@@ -173,9 +176,7 @@ export default function CourseSearch({ credentials, onResults, term, onTermChang
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
-          Search
-        </h3>
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500">Search</h3>
         <select
           value={term}
           onChange={(e) => {
@@ -209,7 +210,10 @@ export default function CourseSearch({ credentials, onResults, term, onTermChang
                 {tag}
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeTag(tag);
+                  }}
                   className="text-blue-400 hover:text-white leading-none"
                   aria-label={`Remove ${tag}`}
                 >
@@ -257,7 +261,9 @@ export default function CourseSearch({ credentials, onResults, term, onTermChang
                   onMouseDown={() => commitTag(s.code)}
                   onMouseEnter={() => setSuggestionIndex(i)}
                   className={`px-3 py-2 text-sm cursor-pointer flex items-baseline gap-2 ${
-                    i === suggestionIndex ? "bg-blue-700/40 text-gray-100" : "text-gray-300 hover:bg-gray-700"
+                    i === suggestionIndex
+                      ? "bg-blue-700/40 text-gray-100"
+                      : "text-gray-300 hover:bg-gray-700"
                   }`}
                 >
                   <span className="font-mono text-xs text-gray-400 shrink-0">{s.code}</span>
@@ -293,9 +299,7 @@ export default function CourseSearch({ credentials, onResults, term, onTermChang
                   {r.count} section{r.count !== 1 ? "s" : ""}
                 </span>
               ) : (
-                <span className="text-red-400/70">
-                  {r.error ?? "no sections found"}
-                </span>
+                <span className="text-red-400/70">{r.error ?? "no sections found"}</span>
               )}
             </div>
           ))}

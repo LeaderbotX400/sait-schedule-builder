@@ -45,7 +45,11 @@ function ScoreBreakdown({ s }: { s: Schedule }) {
     });
   }
   if (s.isPartial) {
-    rows.push({ label: "Partial schedule", value: `−${s.omittedCourses.length} omitted`, dim: true });
+    rows.push({
+      label: "Partial schedule",
+      value: `−${s.omittedCourses.length} omitted`,
+      dim: true,
+    });
   }
 
   return (
@@ -53,7 +57,9 @@ function ScoreBreakdown({ s }: { s: Schedule }) {
       <div className="flex items-baseline justify-between">
         <span className="text-xs text-gray-400">Schedule #{s.id}</span>
         <div className="flex items-baseline gap-1">
-          <span className={`text-2xl font-bold ${scoreBadgeColor(s.qualityScore)} bg-clip-text text-transparent`}>
+          <span
+            className={`text-2xl font-bold ${scoreBadgeColor(s.qualityScore)} bg-clip-text text-transparent`}
+          >
             {s.qualityScore}
           </span>
           <span className="text-[11px] text-gray-500">/ 100</span>
@@ -65,7 +71,9 @@ function ScoreBreakdown({ s }: { s: Schedule }) {
         {rows.map((r) => (
           <div key={r.label} className="flex items-center justify-between text-[11px]">
             <span className={r.dim ? "text-gray-500" : "text-gray-400"}>{r.label}</span>
-            <span className={r.dim ? "text-gray-500" : "text-gray-200 tabular-nums"}>{r.value}</span>
+            <span className={r.dim ? "text-gray-500" : "text-gray-200 tabular-nums"}>
+              {r.value}
+            </span>
           </div>
         ))}
       </div>
@@ -81,7 +89,9 @@ function ScoreBreakdown({ s }: { s: Schedule }) {
             </p>
           ))}
           {s.warnings.length > 4 && (
-            <p className="text-[10px] text-gray-500">+ {s.warnings.length - 4} more in details below</p>
+            <p className="text-[10px] text-gray-500">
+              + {s.warnings.length - 4} more in details below
+            </p>
           )}
         </div>
       )}

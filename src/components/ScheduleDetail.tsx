@@ -1,9 +1,14 @@
-import { useMemo, useState, useCallback } from "react";
-import type { Schedule, ScheduleWarning, ScheduleRules, RegistrationBatchResult } from "../lib/types";
-import { downloadICal } from "../lib/ical";
+import { useCallback, useMemo, useState } from "react";
 import type { BannerCredentials } from "../lib/api";
 import { registerSchedule } from "../lib/api";
+import { downloadICal } from "../lib/ical";
 import { formatTime } from "../lib/time";
+import type {
+  RegistrationBatchResult,
+  Schedule,
+  ScheduleRules,
+  ScheduleWarning,
+} from "../lib/types";
 
 interface Props {
   schedule: Schedule;
@@ -14,19 +19,63 @@ interface Props {
   registeredCrns?: Set<string>;
 }
 
-const WARNING_STYLES: Record<string, { icon: string; color: string; bg: string; border: string }> = {
-  early_morning: { icon: "\u23F0", color: "text-orange-400", bg: "bg-orange-900/20", border: "border-orange-800/50" },
-  travel_gap: { icon: "\uD83D\uDE97", color: "text-red-400", bg: "bg-red-900/20", border: "border-red-800/50" },
-  campus_days: { icon: "\uD83C\uDFEB", color: "text-yellow-400", bg: "bg-yellow-900/20", border: "border-yellow-800/50" },
-  large_gap: { icon: "\u23F3", color: "text-amber-400", bg: "bg-amber-900/20", border: "border-amber-800/50" },
-  partial: { icon: "\u2702\uFE0F", color: "text-yellow-400", bg: "bg-yellow-900/20", border: "border-yellow-800/50" },
-  blockout_conflict: { icon: "\uD83D\uDEAB", color: "text-red-400", bg: "bg-red-900/20", border: "border-red-800/50" },
+const WARNING_STYLES: Record<string, WarningStyle> = {
+  early_morning: {
+    icon: "\u23F0",
+    color: "text-orange-400",
+    bg: "bg-orange-900/20",
+    border: "border-orange-800/50",
+  },
+  travel_gap: {
+    icon: "\uD83D\uDE97",
+    color: "text-red-400",
+    bg: "bg-red-900/20",
+    border: "border-red-800/50",
+  },
+  campus_days: {
+    icon: "\uD83C\uDFEB",
+    color: "text-yellow-400",
+    bg: "bg-yellow-900/20",
+    border: "border-yellow-800/50",
+  },
+  large_gap: {
+    icon: "\u23F3",
+    color: "text-amber-400",
+    bg: "bg-amber-900/20",
+    border: "border-amber-800/50",
+  },
+  partial: {
+    icon: "\u2702\uFE0F",
+    color: "text-yellow-400",
+    bg: "bg-yellow-900/20",
+    border: "border-yellow-800/50",
+  },
+  blockout_conflict: {
+    icon: "\uD83D\uDEAB",
+    color: "text-red-400",
+    bg: "bg-red-900/20",
+    border: "border-red-800/50",
+  },
 };
 
+interface WarningStyle {
+  icon: string;
+  color: string;
+  bg: string;
+  border: string;
+}
+
+const FALLBACK_STYLE: WarningStyle = WARNING_STYLES.partial!;
+function getWarningStyle(kind: string): WarningStyle {
+  return WARNING_STYLES[kind] ?? FALLBACK_STYLE;
+}
+
 function WarningCard({ warning }: { warning: ScheduleWarning }) {
-  const style = WARNING_STYLES[warning.kind] ?? WARNING_STYLES.partial;
+  const style = getWarningStyle(warning.kind);
   return (
-    <div className={`rounded-lg ${style.bg} border ${style.border} px-3 py-2 flex items-start gap-2`}>
+    <div
+      className={`rounded-lg ${style.bg} border ${style.border} px-3 py-2 flex items-start gap-2`}
+    >
       <span className="text-sm mt-0.5">{style.icon}</span>
       <div className="flex-1 min-w-0">
         <p className={`text-xs ${style.color}`}>{warning.message}</p>
@@ -107,9 +156,7 @@ export default function ScheduleDetail({ schedule, credentials, term, registered
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">
-            Schedule #{schedule.id}
-          </h2>
+          <h2 className="text-lg font-semibold text-white">Schedule #{schedule.id}</h2>
           <div className="flex items-center gap-3 text-sm text-gray-400">
             <span>{schedule.courses.length} courses</span>
             <span>{schedule.daysCount} days</span>
@@ -199,8 +246,7 @@ export default function ScheduleDetail({ schedule, credentials, term, registered
                 <div className="mt-1 space-y-0.5">
                   {course.meetings.map((m, i) => (
                     <div key={i} className="text-xs text-gray-400">
-                      {m.days.join(", ")} {formatTime(m.startTime)}-
-                      {formatTime(m.endTime)}
+                      {m.days.join(", ")} {formatTime(m.startTime)}-{formatTime(m.endTime)}
                       <span className="text-gray-600 ml-1">
                         {m.building} {m.room}
                       </span>
@@ -211,7 +257,7 @@ export default function ScheduleDetail({ schedule, credentials, term, registered
                 {cWarnings && cWarnings.length > 0 && (
                   <div className="mt-1.5 space-y-0.5">
                     {cWarnings.map((w, i) => {
-                      const style = WARNING_STYLES[w.kind] ?? WARNING_STYLES.partial;
+                      const style = getWarningStyle(w.kind);
                       return (
                         <div key={i} className={`text-[10px] ${style.color}`}>
                           {style.icon} {w.message}
@@ -229,30 +275,33 @@ export default function ScheduleDetail({ schedule, credentials, term, registered
       {/* Registration */}
       {credentials && term && (
         <div className="space-y-2">
-          {registerState.kind === "idle" && (
-            newCrns.length > 0 ? (
+          {registerState.kind === "idle" &&
+            (newCrns.length > 0 ? (
               <button
                 onClick={() => setRegisterState({ kind: "confirming" })}
                 className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 transition-colors"
               >
-                Register This Schedule ({newCrns.length} new course{newCrns.length !== 1 ? "s" : ""})
+                Register This Schedule ({newCrns.length} new course{newCrns.length !== 1 ? "s" : ""}
+                )
               </button>
             ) : (
               <div className="rounded-lg bg-emerald-900/30 border border-emerald-800 px-3 py-2 text-xs text-emerald-300">
                 All courses in this schedule are already registered.
               </div>
-            )
-          )}
+            ))}
 
           {registerState.kind === "confirming" && (
             <div className="rounded-lg bg-yellow-900/20 border border-yellow-800 p-3 space-y-3">
-              <p className="text-sm text-yellow-200 font-medium">Register {newCrns.length} course{newCrns.length !== 1 ? "s" : ""} in Banner?</p>
+              <p className="text-sm text-yellow-200 font-medium">
+                Register {newCrns.length} course{newCrns.length !== 1 ? "s" : ""} in Banner?
+              </p>
               <ul className="space-y-0.5">
                 {schedule.courses
                   .filter((c) => newCrns.includes(c.crn))
                   .map((c) => (
                     <li key={c.crn} className="text-xs text-gray-300">
-                      {c.identifier} — {c.title} <span className="text-gray-500">(CRN {c.crn})</span>
+                      {c.identifier} — {c.title}{" "}
+                      <span className="text-gray-500">(CRN {c.crn})</span>
                     </li>
                   ))}
               </ul>
@@ -296,11 +345,15 @@ export default function ScheduleDetail({ schedule, credentials, term, registered
                       : "bg-red-900/20 border border-red-800"
                   }`}
                 >
-                  <span className={`text-sm mt-0.5 ${item.success ? "text-emerald-400" : "text-red-400"}`}>
+                  <span
+                    className={`text-sm mt-0.5 ${item.success ? "text-emerald-400" : "text-red-400"}`}
+                  >
                     {item.success ? "✓" : "✗"}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-xs font-medium ${item.success ? "text-emerald-300" : "text-red-300"}`}>
+                    <p
+                      className={`text-xs font-medium ${item.success ? "text-emerald-300" : "text-red-300"}`}
+                    >
                       {item.courseTitle}
                       <span className="text-gray-500 ml-1 font-normal">(CRN {item.crn})</span>
                     </p>

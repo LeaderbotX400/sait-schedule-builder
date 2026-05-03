@@ -16,7 +16,7 @@ export const TERM_OPTIONS: TermOption[] = [
   { code: "202510", description: "Spring 2025" },
 ];
 
-export const DEFAULT_TERM = TERM_OPTIONS[0].code;
+export const DEFAULT_TERM = TERM_OPTIONS[0]!.code;
 
 export function describeTerm(code: string | null | undefined): string | null {
   if (!code) return null;

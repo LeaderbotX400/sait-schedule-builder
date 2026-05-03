@@ -1,14 +1,14 @@
 import { useMemo, useRef, useState } from "react";
-import type { Schedule, DayOfWeek, BlockoutGrid, CourseSection, MeetingBlock } from "../lib/types";
-import { getExpandedMeetings } from "../lib/scheduler";
-import { formatTime, timeToMinutes } from "../lib/time";
 import {
-  COURSE_COLORS,
-  HOUR_HEIGHT,
   buildColorMap,
   buildWarnedCourseIds,
   buildWarningKeys,
+  COURSE_COLORS,
+  HOUR_HEIGHT,
 } from "../lib/calendar";
+import { getExpandedMeetings } from "../lib/scheduler";
+import { formatTime, timeToMinutes } from "../lib/time";
+import type { BlockoutGrid, CourseSection, DayOfWeek, MeetingBlock, Schedule } from "../lib/types";
 
 interface Props {
   schedule: Schedule;
@@ -45,7 +45,10 @@ function EventTooltip({
     : event.blockBottom + ARROW_SIZE;
   const containerWidth = containerRef.current?.scrollWidth ?? 800;
   const rawLeft = event.blockCenterX - TOOLTIP_WIDTH / 2;
-  const left = Math.max(TOOLTIP_PADDING, Math.min(rawLeft, containerWidth - TOOLTIP_WIDTH - TOOLTIP_PADDING));
+  const left = Math.max(
+    TOOLTIP_PADDING,
+    Math.min(rawLeft, containerWidth - TOOLTIP_WIDTH - TOOLTIP_PADDING),
+  );
 
   const seatsColor = course.seatsAvailable > 0 ? "text-emerald-400" : "text-red-400";
 
@@ -59,14 +62,28 @@ function EventTooltip({
         className="absolute border-transparent"
         style={
           showAbove
-            ? { bottom: -ARROW_SIZE, left: event.blockCenterX - left - ARROW_SIZE, borderWidth: `${ARROW_SIZE}px ${ARROW_SIZE}px 0`, borderTopColor: "rgb(55 65 81)" }
-            : { top: -ARROW_SIZE, left: event.blockCenterX - left - ARROW_SIZE, borderWidth: `0 ${ARROW_SIZE}px ${ARROW_SIZE}px`, borderBottomColor: "rgb(55 65 81)" }
+            ? {
+                bottom: -ARROW_SIZE,
+                left: event.blockCenterX - left - ARROW_SIZE,
+                borderWidth: `${ARROW_SIZE}px ${ARROW_SIZE}px 0`,
+                borderTopColor: "rgb(55 65 81)",
+              }
+            : {
+                top: -ARROW_SIZE,
+                left: event.blockCenterX - left - ARROW_SIZE,
+                borderWidth: `0 ${ARROW_SIZE}px ${ARROW_SIZE}px`,
+                borderBottomColor: "rgb(55 65 81)",
+              }
         }
       />
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
-        <span className="font-mono font-semibold text-sm text-white leading-tight">{course.identifier}</span>
-        <span className="text-[10px] text-gray-500 font-mono shrink-0 mt-0.5">CRN {course.crn}</span>
+        <span className="font-mono font-semibold text-sm text-white leading-tight">
+          {course.identifier}
+        </span>
+        <span className="text-[10px] text-gray-500 font-mono shrink-0 mt-0.5">
+          CRN {course.crn}
+        </span>
       </div>
       <div className="text-xs text-gray-300 mt-0.5 leading-snug">{course.title}</div>
 
@@ -91,7 +108,9 @@ function EventTooltip({
       <div className="grid grid-cols-3 gap-x-2">
         <div>
           <div className="text-[9px] text-gray-500 uppercase tracking-wide">Method</div>
-          <div className="text-xs text-gray-200 font-medium truncate">{course.instructionalMethod}</div>
+          <div className="text-xs text-gray-200 font-medium truncate">
+            {course.instructionalMethod}
+          </div>
         </div>
         <div>
           <div className="text-[9px] text-gray-500 uppercase tracking-wide">Seats</div>
@@ -133,7 +152,10 @@ export default function CalendarGrid({ schedule, blockout }: Props) {
 
   // Warning lookups
   const warningKeys = useMemo(() => buildWarningKeys(schedule.warnings), [schedule.warnings]);
-  const warnedCourseIds = useMemo(() => buildWarnedCourseIds(schedule.warnings), [schedule.warnings]);
+  const warnedCourseIds = useMemo(
+    () => buildWarnedCourseIds(schedule.warnings),
+    [schedule.warnings],
+  );
 
   // Weekend columns if needed
   const hasSat = expanded.some((e) => e.day === "Sat");
@@ -154,7 +176,11 @@ export default function CalendarGrid({ schedule, blockout }: Props) {
   }
 
   return (
-    <div className="overflow-x-auto relative" ref={containerRef} onScroll={() => setHoveredEvent(null)}>
+    <div
+      className="overflow-x-auto relative"
+      ref={containerRef}
+      onScroll={() => setHoveredEvent(null)}
+    >
       <div className="flex min-w-[640px]">
         {/* Time labels column */}
         <div className="w-16 shrink-0">
@@ -180,21 +206,20 @@ export default function CalendarGrid({ schedule, blockout }: Props) {
             </div>
             <div className="relative border-l border-gray-800/50" style={{ height: totalHeight }}>
               {/* Blockout shading */}
-              {blockout && hours.map((h, i) => {
-                const cell = blockout[day]?.[h];
-                if (!cell || cell === "neutral") return null;
-                return (
-                  <div
-                    key={`bo-${h}`}
-                    className={`absolute w-full ${
-                      cell === "preferred"
-                        ? "bg-emerald-500/8"
-                        : "bg-red-500/8"
-                    }`}
-                    style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
-                  />
-                );
-              })}
+              {blockout &&
+                hours.map((h, i) => {
+                  const cell = blockout[day]?.[h];
+                  if (!cell || cell === "neutral") return null;
+                  return (
+                    <div
+                      key={`bo-${h}`}
+                      className={`absolute w-full ${
+                        cell === "preferred" ? "bg-emerald-500/8" : "bg-red-500/8"
+                      }`}
+                      style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+                    />
+                  );
+                })}
 
               {/* Hour grid lines */}
               {hours.map((_, i) => (
@@ -241,9 +266,16 @@ export default function CalendarGrid({ schedule, blockout }: Props) {
                   >
                     <div className="flex items-center gap-1">
                       {isWarned && (
-                        <span className="text-[10px] text-red-400 shrink-0" title="This class has a scheduling issue">&#x26A0;</span>
+                        <span
+                          className="text-[10px] text-red-400 shrink-0"
+                          title="This class has a scheduling issue"
+                        >
+                          &#x26A0;
+                        </span>
                       )}
-                      <span className={`text-xs font-semibold ${color.text} truncate leading-tight`}>
+                      <span
+                        className={`text-xs font-semibold ${color.text} truncate leading-tight`}
+                      >
                         {course.identifier}
                       </span>
                     </div>

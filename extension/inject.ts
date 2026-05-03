@@ -2,7 +2,7 @@
 // the production host. Announces the extension ID to the page so the app
 // can route Banner traffic through the extension via externally_connectable.
 
-(function () {
+(() => {
   const id = chrome.runtime.id;
   const send = () => window.postMessage({ source: "sait-ext", type: "EXT_ID", id }, "*");
   send();

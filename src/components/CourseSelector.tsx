@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { CourseSection, MeetingBlock } from "../lib/types";
 import { formatTimeCompact } from "../lib/time";
+import type { CourseSection, MeetingBlock } from "../lib/types";
 
 interface Props {
   courseGroups: Map<string, CourseSection[]>;
@@ -28,11 +28,7 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
-export default function CourseSelector({
-  courseGroups,
-  selectedCourses,
-  onToggle,
-}: Props) {
+export default function CourseSelector({ courseGroups, selectedCourses, onToggle }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const toggleExpanded = (name: string) =>
@@ -54,7 +50,7 @@ export default function CourseSelector({
         {[...courseGroups.entries()].map(([name, sections]) => {
           const selected = selectedCourses.has(name);
           const isOpen = expanded.has(name);
-          const title = sections[0].title;
+          const title = sections[0]?.title ?? name;
           const sectionCount = sections.length;
           const totalSeats = sections.reduce((sum, s) => sum + s.seatsAvailable, 0);
 
@@ -104,14 +100,10 @@ export default function CourseSelector({
                       <div className="flex items-baseline gap-1.5 flex-wrap">
                         <span className="font-mono text-gray-300">{s.identifier}</span>
                         <span className="text-gray-500 tabular-nums">CRN {s.crn}</span>
-                        {s.instructor && (
-                          <span className="text-gray-500">· {s.instructor}</span>
-                        )}
+                        {s.instructor && <span className="text-gray-500">· {s.instructor}</span>}
                       </div>
                       <div className="text-gray-400">
-                        {s.meetings.length === 0
-                          ? "—"
-                          : s.meetings.map(meetingSummary).join(", ")}
+                        {s.meetings.length === 0 ? "—" : s.meetings.map(meetingSummary).join(", ")}
                       </div>
                     </div>
                   ))}

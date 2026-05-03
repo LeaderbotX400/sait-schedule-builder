@@ -1,3 +1,5 @@
+import { scoreSchedule } from "./scoring";
+import { formatTime } from "./time";
 import type {
   CourseSection,
   DayOfWeek,
@@ -7,17 +9,12 @@ import type {
   ScheduleRules,
 } from "./types";
 import { DEFAULT_RULES, sectionsHaveConflict } from "./types";
-import { scoreSchedule } from "./scoring";
-import { formatTime } from "./time";
 
 /**
  * Explain why every section of a course was filtered out by the rules.
  * Returns the most specific reason(s) we can determine.
  */
-function explainFilteredOut(
-  sections: CourseSection[],
-  rules: ScheduleRules,
-): string {
+function explainFilteredOut(sections: CourseSection[], rules: ScheduleRules): string {
   if (sections.length === 0) return "No sections were loaded for this course.";
 
   const earliest = parseInt(rules.earliestStart, 10);
@@ -58,10 +55,7 @@ function explainFilteredOut(
 }
 
 /** Explain why a course had to be dropped from a partial schedule. */
-function explainConflict(
-  omittedSections: CourseSection[],
-  chosen: CourseSection[],
-): string {
+function explainConflict(omittedSections: CourseSection[], chosen: CourseSection[]): string {
   const conflictingCourses = new Set<string>();
   let allConflict = true;
   for (const section of omittedSections) {
@@ -81,10 +75,7 @@ function explainConflict(
 }
 
 /** Check if a section violates hard rules (free days, time bounds) */
-function violatesRules(
-  section: CourseSection,
-  rules: ScheduleRules,
-): boolean {
+function violatesRules(section: CourseSection, rules: ScheduleRules): boolean {
   const earliest = parseInt(rules.earliestStart, 10);
   const latest = parseInt(rules.latestEnd, 10);
 
@@ -173,12 +164,15 @@ export function generateSchedules(
 
   for (let i = 0; i < allCombinations.length; i++) {
     const combo = allCombinations[i];
+    if (!combo) continue;
 
     // Check for pairwise conflicts
     let valid = true;
     for (let a = 0; a < combo.length && valid; a++) {
       for (let b = a + 1; b < combo.length && valid; b++) {
-        if (sectionsHaveConflict(combo[a], combo[b])) {
+        const sa = combo[a];
+        const sb = combo[b];
+        if (sa && sb && sectionsHaveConflict(sa, sb)) {
           valid = false;
         }
       }
@@ -203,13 +197,16 @@ export function generateSchedules(
       const partialGroups = filteredGroups.filter((_, i) => i !== omitIdx);
       const omittedName = courseNames[omitIdx];
       const omittedSections = filteredGroups[omitIdx];
+      if (!omittedName || !omittedSections) continue;
       const partialCombos = cartesianProduct(partialGroups);
 
       for (const combo of partialCombos) {
         let valid = true;
         for (let a = 0; a < combo.length && valid; a++) {
           for (let b = a + 1; b < combo.length && valid; b++) {
-            if (sectionsHaveConflict(combo[a], combo[b])) valid = false;
+            const sa = combo[a];
+            const sb = combo[b];
+            if (sa && sb && sectionsHaveConflict(sa, sb)) valid = false;
           }
         }
         if (!valid) continue;

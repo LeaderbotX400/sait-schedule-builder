@@ -61,7 +61,10 @@ function getExtensionId(timeoutMs = 1500): Promise<string | null> {
   });
 }
 
-async function send<T = ExtensionResult>(message: { type: string; [k: string]: unknown }): Promise<T> {
+async function send<T = ExtensionResult>(message: {
+  type: string;
+  [k: string]: unknown;
+}): Promise<T> {
   if (!isMessagingAvailable()) {
     return Promise.resolve({
       ok: false,
@@ -141,6 +144,10 @@ export interface BannerFetchResponse {
   contentType: string;
   body: string;
   error?: string;
+}
+
+export function installBannerCookies(cookies: Record<string, string>): Promise<ExtensionResult> {
+  return send({ type: "SET_COOKIES", cookies });
 }
 
 export function bannerFetch(

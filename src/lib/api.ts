@@ -1,18 +1,17 @@
+import { bannerFetch } from "./extension";
 import type {
-  BannerResponse,
   ActiveRegistration,
-  RegistrationModel,
+  BannerResponse,
+  GpaResponse,
   RegistrationBatchResult,
   RegistrationItemResult,
-  GpaResponse,
+  RegistrationModel,
   RegistrationNoticesResponse,
 } from "./types";
-import { bannerFetch } from "./extension";
 
 const BANNER_ORIGIN = "https://sait-sust-prd-prd1-ban-ss-ssag6.sait.ca";
 const API_BASE = `${BANNER_ORIGIN}/StudentRegistrationSsb`;
-const GENERAL_SSB_BASE =
-  "https://sait-sust-prd-prd1-ban-ss-ssag2.sait.ca/BannerGeneralSsb";
+const GENERAL_SSB_BASE = "https://sait-sust-prd-prd1-ban-ss-ssag2.sait.ca/BannerGeneralSsb";
 const STUDENT_SELF_SERVICE_BASE =
   "https://sait-sust-prd-prd1-ban-ss-ssag1.sait.ca/StudentSelfService";
 
@@ -26,17 +25,13 @@ function withSessionId(creds: BannerCredentials): BannerCredentials {
   return { ...creds, uniqueSessionId: `sched${Date.now()}` };
 }
 
-function bannerHeaders(creds: BannerCredentials): Record<string, string> {
-  const headers: Record<string, string> = {
+function bannerHeaders(_creds: BannerCredentials): Record<string, string> {
+  return {
     Accept: "application/json, text/javascript, */*; q=0.01",
     "Cache-Control": "no-cache",
     Pragma: "no-cache",
     "X-Requested-With": "XMLHttpRequest",
   };
-  if (creds.synchronizerToken) {
-    headers["X-Synchronizer-Token"] = creds.synchronizerToken;
-  }
-  return headers;
 }
 
 interface ParsedResponse<T> {
@@ -56,8 +51,7 @@ async function bannerCall<T = unknown>(
   let json: T | null = null;
   if (
     res.ok &&
-    (res.contentType.includes("application/json") ||
-      res.contentType.includes("text/javascript"))
+    (res.contentType.includes("application/json") || res.contentType.includes("text/javascript"))
   ) {
     try {
       json = JSON.parse(res.body) as T;
@@ -65,21 +59,26 @@ async function bannerCall<T = unknown>(
       // leave json null; caller decides
     }
   }
-  return {
+  const out: ParsedResponse<T> = {
     ok: res.ok,
     status: res.status,
     contentType: res.contentType,
     json,
     text: res.body,
-    error: res.error,
   };
+  if (res.error !== undefined) out.error = res.error;
+  return out;
 }
 
 // ---- Login validation ----
 
 export type LoginValidation =
   | { valid: true; studentId: string }
-  | { valid: false; reason: "NETWORK" | "NOT_LOGGED_IN" | "MALFORMED"; error: string };
+  | {
+      valid: false;
+      reason: "NETWORK" | "NOT_LOGGED_IN" | "MALFORMED";
+      error: string;
+    };
 
 /**
  * Single source of truth for "is the user logged in?".
@@ -88,9 +87,7 @@ export type LoginValidation =
  * login (non-JSON response), empty body, missing/falsy bannerId — counts as
  * logged out per the user-facing reauth flow.
  */
-export async function validateLogin(
-  creds: BannerCredentials,
-): Promise<LoginValidation> {
+export async function validateLogin(creds: BannerCredentials): Promise<LoginValidation> {
   const idRes = await bannerCall<{ bannerId?: string } | null>(
     `${GENERAL_SSB_BASE}/ssb/PersonalInformationDetails/getBannerId`,
     { headers: bannerHeaders(creds) },
@@ -199,10 +196,7 @@ async function confirmTermStep(creds: BannerCredentials, term: string): Promise<
   });
 }
 
-export async function initializeTermSession(
-  creds: BannerCredentials,
-  term: string,
-): Promise<void> {
+export async function initializeTermSession(creds: BannerCredentials, term: string): Promise<void> {
   const c = withSessionId(creds);
   await fetchUsageTracking(c);
   await saveTermStep(c, term);
@@ -248,7 +242,11 @@ export async function searchCourses(
       );
 
       if (!res.ok || !res.json) {
-        perCode.push({ code, count: 0, error: res.error ?? `HTTP ${res.status}` });
+        perCode.push({
+          code,
+          count: 0,
+          error: res.error ?? `HTTP ${res.status}`,
+        });
         continue;
       }
 
@@ -274,7 +272,11 @@ export async function searchCourses(
 export async function getTerms(
   creds: BannerCredentials,
 ): Promise<{ code: string; description: string }[]> {
-  const params = new URLSearchParams({ searchTerm: "", offset: "1", max: "20" });
+  const params = new URLSearchParams({
+    searchTerm: "",
+    offset: "1",
+    max: "20",
+  });
   const res = await bannerCall<{ code: string; description: string }[]>(
     `${API_BASE}/ssb/classSearch/getTerms?${params}`,
     { headers: bannerHeaders(creds) },
@@ -290,10 +292,11 @@ export async function fetchRegistrations(
   term: string,
 ): Promise<ActiveRegistration[]> {
   const params = new URLSearchParams({ term });
-  const res = await bannerCall<{ data?: { registrations?: ActiveRegistration[] } }>(
-    `${API_BASE}/ssb/registrationHistory/renderActiveRegistrations?${params}`,
-    { headers: bannerHeaders(creds) },
-  );
+  const res = await bannerCall<{
+    data?: { registrations?: ActiveRegistration[] };
+  }>(`${API_BASE}/ssb/registrationHistory/renderActiveRegistrations?${params}`, {
+    headers: bannerHeaders(creds),
+  });
   if (!res.ok) throw new Error(`HTTP ${res.error ?? res.status}`);
   return res.json?.data?.registrations ?? [];
 }
@@ -305,11 +308,18 @@ export async function stageAddRegistrationItem(
   term: string,
   crn: string,
 ): Promise<RegistrationModel> {
-  const params = new URLSearchParams({ term, courseReferenceNumber: crn, olr: "false" });
-  const res = await bannerCall<{ success?: boolean; model?: RegistrationModel; message?: string }>(
-    `${API_BASE}/ssb/classRegistration/addRegistrationItem?${params}`,
-    { headers: bannerHeaders(creds) },
-  );
+  const params = new URLSearchParams({
+    term,
+    courseReferenceNumber: crn,
+    olr: "false",
+  });
+  const res = await bannerCall<{
+    success?: boolean;
+    model?: RegistrationModel;
+    message?: string;
+  }>(`${API_BASE}/ssb/classRegistration/addRegistrationItem?${params}`, {
+    headers: bannerHeaders(creds),
+  });
   if (!res.ok) throw new Error(`HTTP ${res.error ?? res.status}`);
   if (!res.json?.success) throw new Error(res.json?.message ?? `Banner rejected CRN ${crn}`);
   return res.json.model as RegistrationModel;
@@ -324,19 +334,23 @@ export async function submitRegistrationBatch(
   const headers = bannerHeaders(creds);
   headers["Content-Type"] = "application/json";
 
-  const res = await bannerCall<{ success?: boolean; data?: { update?: RegistrationModel[] } }>(
-    `${API_BASE}/ssb/classRegistration/submitRegistration/batch`,
-    {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ create: [], update: updateModels, destroy: [] }),
-    },
-  );
+  const res = await bannerCall<{
+    success?: boolean;
+    data?: { update?: RegistrationModel[] };
+  }>(`${API_BASE}/ssb/classRegistration/submitRegistration/batch`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ create: [], update: updateModels, destroy: [] }),
+  });
 
   if (res.error) return { success: false, items: [], error: res.error };
   if (!res.ok) return { success: false, items: [], error: `HTTP ${res.status}` };
   if (!res.json?.success) {
-    return { success: false, items: [], error: "Banner rejected the batch submission" };
+    return {
+      success: false,
+      items: [],
+      error: "Banner rejected the batch submission",
+    };
   }
 
   const allUpdated: RegistrationModel[] = res.json.data?.update ?? [];
@@ -404,7 +418,12 @@ export async function searchSubjects(
   term: string,
   searchTerm: string,
 ): Promise<{ code: string; description: string }[]> {
-  const params = new URLSearchParams({ searchTerm, term, offset: "1", max: "50" });
+  const params = new URLSearchParams({
+    searchTerm,
+    term,
+    offset: "1",
+    max: "50",
+  });
   const res = await bannerCall<{ code: string; description: string }[]>(
     `${API_BASE}/ssb/classSearch/get_subjectcoursecombo?${params}`,
     { headers: bannerHeaders(creds) },

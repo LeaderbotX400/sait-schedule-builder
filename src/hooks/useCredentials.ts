@@ -1,15 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  type BannerCredentials,
   fetchGpa,
   fetchRegistrationNotices,
   validateLogin,
-  type BannerCredentials,
 } from "../lib/api";
 import { forceReauth } from "../lib/extension";
-import type {
-  GpaResponse,
-  RegistrationNoticesResponse,
-} from "../lib/types";
+import type { GpaResponse, RegistrationNoticesResponse } from "../lib/types";
 
 const REVALIDATION_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -19,10 +16,7 @@ export interface UseCredentialsReturn {
   sessionExpired: boolean;
   gpa: GpaResponse | null;
   registrationNotices: RegistrationNoticesResponse | null;
-  setCredentials: (
-    creds: BannerCredentials | null,
-    studentId?: string | null,
-  ) => void;
+  setCredentials: (creds: BannerCredentials | null, studentId?: string | null) => void;
   clearSessionExpired: () => void;
   /** Re-fetch GPA + registration notices using the current credentials. */
   refreshProfile: () => Promise<void>;
@@ -34,28 +28,24 @@ export interface UseCredentialsReturn {
  * the auto-reauth flow when the polling detects an authoritative logout.
  */
 export function useCredentials(): UseCredentialsReturn {
-  const [credentials, setCredentialsState] =
-    useState<BannerCredentials | null>(null);
+  const [credentials, setCredentialsState] = useState<BannerCredentials | null>(null);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [gpa, setGpa] = useState<GpaResponse | null>(null);
   const [registrationNotices, setRegistrationNotices] =
     useState<RegistrationNoticesResponse | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
 
-  const setCredentials = useCallback<UseCredentialsReturn["setCredentials"]>(
-    (creds, sid) => {
-      setCredentialsState(creds);
-      if (creds) {
-        setSessionExpired(false);
-        setStudentId(sid ?? null);
-      } else {
-        setStudentId(null);
-        setGpa(null);
-        setRegistrationNotices(null);
-      }
-    },
-    [],
-  );
+  const setCredentials = useCallback<UseCredentialsReturn["setCredentials"]>((creds, sid) => {
+    setCredentialsState(creds);
+    if (creds) {
+      setSessionExpired(false);
+      setStudentId(sid ?? null);
+    } else {
+      setStudentId(null);
+      setGpa(null);
+      setRegistrationNotices(null);
+    }
+  }, []);
 
   // Memoized so consumers (e.g. effect deps) get a stable reference.
   const clearSessionExpired = useCallback(() => setSessionExpired(false), []);

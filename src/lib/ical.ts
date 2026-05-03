@@ -1,4 +1,4 @@
-import type { Schedule, DayOfWeek } from "./types";
+import type { DayOfWeek, Schedule } from "./types";
 
 const ICAL_DAYS: Record<DayOfWeek, string> = {
   Mon: "MO",
@@ -71,9 +71,7 @@ export function generateICal(
         lines.push(`DTEND;TZID=${timezone}:${formatICalDate(eventStart, endTimeStr)}`);
         lines.push(`RRULE:FREQ=WEEKLY;BYDAY=${ICAL_DAYS[day]};UNTIL=${endDateStr}`);
         lines.push(`SUMMARY:${escapeICalText(`${course.identifier} - ${course.title}`)}`);
-        lines.push(
-          `LOCATION:${escapeICalText(`${meeting.building} ${meeting.room}`)}`,
-        );
+        lines.push(`LOCATION:${escapeICalText(`${meeting.building} ${meeting.room}`)}`);
         lines.push(
           `DESCRIPTION:${escapeICalText(
             `Instructor: ${course.instructor}\\nCRN: ${course.crn}\\nType: ${meeting.type}`,

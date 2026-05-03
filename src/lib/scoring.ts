@@ -1,13 +1,13 @@
+import { formatTimeCompact, timeToMinutes } from "./time";
 import type {
+  BlockoutGrid,
   CourseSection,
   DayOfWeek,
   Schedule,
   ScheduleRules,
   ScheduleWarning,
-  BlockoutGrid,
 } from "./types";
 import { ALL_DAYS, GRID_HOURS } from "./types";
-import { formatTimeCompact, timeToMinutes } from "./time";
 
 /**
  * Scoring philosophy: each schedule starts at SCORE_BASELINE (100) and
@@ -70,7 +70,8 @@ function scoreBlockoutFit(
   }
 
   // No preferences painted — everything is a perfect fit
-  const hasAnyPreference = preferredTotal > 0 ||
+  const hasAnyPreference =
+    preferredTotal > 0 ||
     ALL_DAYS.some((d) => GRID_HOURS.some((h) => blockout[d]?.[h] === "blocked"));
   if (!hasAnyPreference) return { fitScore: BLOCKOUT_FIT_NO_PREFERENCE_SCORE, warnings: [] };
 
@@ -185,10 +186,10 @@ export function scoreSchedule(
     for (let i = 0; i < sorted.length - 1; i++) {
       const current = sorted[i];
       const next = sorted[i + 1];
+      if (!current || !next) continue;
 
       if (current.isOnline !== next.isOnline) {
-        const gapMinutes =
-          timeToMinutes(next.startTime) - timeToMinutes(current.endTime);
+        const gapMinutes = timeToMinutes(next.startTime) - timeToMinutes(current.endTime);
         if (gapMinutes < rules.minTravelGapMinutes) {
           travelGapViolations++;
           warnings.push({
@@ -196,7 +197,10 @@ export function scoreSchedule(
             message: `${gapMinutes}min gap between ${current.courseId} and ${next.courseId} on ${day} (need ${rules.minTravelGapMinutes}min for ${current.isOnline ? "online" : "campus"}→${next.isOnline ? "online" : "campus"})`,
             courseIds: [current.courseId, next.courseId],
             days: [day],
-            times: [[current.startTime, current.endTime], [next.startTime, next.endTime]],
+            times: [
+              [current.startTime, current.endTime],
+              [next.startTime, next.endTime],
+            ],
           });
         }
       }
@@ -240,15 +244,21 @@ export function scoreSchedule(
       if (!meetings || meetings.length < 2) continue;
       const sorted = [...meetings].sort((a, b) => a.startTime - b.startTime);
       for (let i = 0; i < sorted.length - 1; i++) {
-        const gap = timeToMinutes(sorted[i + 1].startTime) - timeToMinutes(sorted[i].endTime);
+        const current = sorted[i];
+        const next = sorted[i + 1];
+        if (!current || !next) continue;
+        const gap = timeToMinutes(next.startTime) - timeToMinutes(current.endTime);
         if (gap > rules.maxGapBetweenClasses) {
           score -= PENALTY_LARGE_GAP;
           warnings.push({
             kind: "large_gap",
-            message: `${gap}min gap on ${day} between ${sorted[i].courseId} and ${sorted[i + 1].courseId}`,
-            courseIds: [sorted[i].courseId, sorted[i + 1].courseId],
+            message: `${gap}min gap on ${day} between ${current.courseId} and ${next.courseId}`,
+            courseIds: [current.courseId, next.courseId],
             days: [day],
-            times: [[sorted[i].startTime, sorted[i].endTime], [sorted[i + 1].startTime, sorted[i + 1].endTime]],
+            times: [
+              [current.startTime, current.endTime],
+              [next.startTime, next.endTime],
+            ],
           });
         }
       }
@@ -280,16 +290,16 @@ export function scoreSchedule(
   score += dayConcentration * BONUS_DAY_CLUSTER_PER_SQUARE;
 
   // --- Blockout fit ---
-  const { fitScore: blockoutFitScore, warnings: blockoutWarnings } =
-    scoreBlockoutFit(courses, rules.blockout);
+  const { fitScore: blockoutFitScore, warnings: blockoutWarnings } = scoreBlockoutFit(
+    courses,
+    rules.blockout,
+  );
   warnings.push(...blockoutWarnings);
 
   // Blend blockout score into main score
   const weight = rules.blockoutWeight / 100;
   const baseScore = Math.max(0, Math.min(100, score));
-  const blendedScore = Math.round(
-    baseScore * (1 - weight) + blockoutFitScore * weight,
-  );
+  const blendedScore = Math.round(baseScore * (1 - weight) + blockoutFitScore * weight);
 
   return {
     id,

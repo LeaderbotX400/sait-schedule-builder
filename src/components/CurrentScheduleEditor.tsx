@@ -1,22 +1,25 @@
 import { useMemo, useState } from "react";
+import { formatTime } from "../lib/time";
 import type { CourseSection, CurrentRegistration } from "../lib/types";
 import { resolveCurrentSection } from "../lib/types";
 import CalendarGrid from "./CalendarGrid";
-import { formatTime } from "../lib/time";
 
 interface Props {
   currentRegistrations: Map<string, CurrentRegistration>;
   courseGroups: Map<string, CourseSection[]>;
   includedCourses: Set<string>;
   sectionOverrides: Map<string, string>;
-  onSwapSection: (subjectCourse: string, newSectionId: string) => { success: boolean; conflicts: CourseSection[] };
+  onSwapSection: (
+    subjectCourse: string,
+    newSectionId: string,
+  ) => { success: boolean; conflicts: CourseSection[] };
   onToggleCourse: (subjectCourse: string) => void;
 }
 
 function formatMeetingTime(course: CourseSection): string {
-  if (course.meetings.length === 0) return "No scheduled meetings";
-  
   const meeting = course.meetings[0];
+  if (!meeting) return "No scheduled meetings";
+
   const days = meeting.days.join("");
   const time = `${formatTime(meeting.startTime)}-${formatTime(meeting.endTime)}`;
   return `${days} ${time}`;
@@ -73,7 +76,8 @@ export default function CurrentScheduleEditor({
       {conflicts.size > 0 && (
         <div className="rounded-lg bg-red-900/20 border border-red-800/50 px-3 py-2">
           <p className="text-xs text-red-400">
-            &#x26A0;&#xFE0F; {conflicts.size} course{conflicts.size !== 1 ? "s" : ""} has scheduling conflict{conflicts.size !== 1 ? "s" : ""}
+            &#x26A0;&#xFE0F; {conflicts.size} course{conflicts.size !== 1 ? "s" : ""} has scheduling
+            conflict{conflicts.size !== 1 ? "s" : ""}
           </p>
         </div>
       )}
@@ -102,9 +106,7 @@ export default function CurrentScheduleEditor({
 
       {/* Course grid */}
       {currentRegistrations.size === 0 ? (
-        <div className="text-xs text-gray-500 py-4 text-center">
-          No courses loaded yet
-        </div>
+        <div className="text-xs text-gray-500 py-4 text-center">No courses loaded yet</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(13rem,1fr))] gap-3 xl:grid-cols-3">
           {Array.from(currentRegistrations.keys()).map((subjectCourse) => {
@@ -136,9 +138,7 @@ export default function CurrentScheduleEditor({
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <h4 className="text-sm font-semibold text-white">
-                        {subjectCourse}
-                      </h4>
+                      <h4 className="text-sm font-semibold text-white">{subjectCourse}</h4>
                       <span className="text-xs bg-blue-900/50 text-blue-300 px-1.5 py-0.5 rounded">
                         {currentSection.sequenceNumber}
                       </span>
@@ -163,7 +163,8 @@ export default function CurrentScheduleEditor({
                 {/* Conflict warning */}
                 {hasConflict && (
                   <div className="mb-2 text-xs text-red-400 bg-red-900/20 rounded px-2 py-1">
-                    &#x274C; Conflicts with: {courseConflicts.map((c) => c.subjectCourse).join(", ")}
+                    &#x274C; Conflicts with:{" "}
+                    {courseConflicts.map((c) => c.subjectCourse).join(", ")}
                   </div>
                 )}
 
