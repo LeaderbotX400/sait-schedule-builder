@@ -4,6 +4,7 @@ import RulesPanel from "./features/rules/RulesPanel";
 import { refreshAllData } from "./hooks/useScheduleSync";
 import { describeTerm } from "./lib/terms";
 import { useStore } from "./store";
+import Button from "./ui/Button";
 import Popover from "./ui/Popover";
 
 interface Props {
@@ -68,14 +69,9 @@ export default function AppHeader({ panelOpen, onTogglePanel }: Props) {
                 align="right"
                 widthClass="w-72"
                 trigger={({ onClick, "aria-expanded": expanded }) => (
-                  <button
-                    type="button"
-                    onClick={onClick}
-                    aria-expanded={expanded}
-                    className="rounded-md border border-gray-700/80 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
-                  >
+                  <Button onClick={onClick} aria-expanded={expanded}>
                     Rules
-                  </button>
+                  </Button>
                 )}
               >
                 <RulesPanel rules={rules} onChange={setRules} />
@@ -83,51 +79,40 @@ export default function AppHeader({ panelOpen, onTogglePanel }: Props) {
             </div>
           )}
           {credentials && (
-            <button
-              type="button"
+            <Button
               onClick={() => void refreshAllData()}
               disabled={registrationsLoading}
               title="Reload data from Banner"
-              className="rounded-md border border-gray-700/80 px-2 py-1 text-gray-400 hover:text-white hover:border-gray-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="!px-2"
             >
               <span
                 className={`inline-block text-sm leading-none ${registrationsLoading ? "animate-spin" : ""}`}
               >
                 ↻
               </span>
-            </button>
+            </Button>
           )}
           {credentials && (
             <ConnectionStatus termLabel={describeTerm(term)} loading={registrationsLoading} />
           )}
-          {hasData && (
-            <button
-              type="button"
-              onClick={clearCourses}
-              className="rounded-md border border-gray-700/80 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
-            >
-              Clear
-            </button>
-          )}
+          {hasData && <Button onClick={clearCourses}>Clear</Button>}
           {activeSchedule && (
-            <button
-              type="button"
+            <Button
               onClick={() => downloadICal(activeSchedule)}
               title="Export this schedule as .ics"
-              className="rounded-md border border-gray-700/80 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
             >
               <span className="hidden sm:inline">Export </span>.ics
-            </button>
+            </Button>
           )}
           {hasData && (
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="md"
               onClick={generate}
               disabled={generationStatus.kind === "generating" || selectedCourses.size === 0}
-              className="rounded-md bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {generationStatus.kind === "generating" ? "Generating…" : "Generate"}
-            </button>
+            </Button>
           )}
         </div>
       </div>

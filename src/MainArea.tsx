@@ -5,6 +5,7 @@ import RulesPanel from "./features/rules/RulesPanel";
 import ScheduleDetail from "./features/schedule/ScheduleDetail";
 import ScheduleStrip from "./features/schedule/ScheduleStrip";
 import { useStore } from "./store";
+import Button from "./ui/Button";
 import Spinner from "./ui/Spinner";
 
 type Tab = "current" | "browse";
@@ -224,14 +225,9 @@ function GenerateInvite({
           ? "Select at least one course to generate."
           : `${selectedCount} course${selectedCount !== 1 ? "s" : ""} ready.`}
       </p>
-      <button
-        type="button"
-        onClick={onGenerate}
-        disabled={selectedCount === 0}
-        className="rounded-md bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-      >
+      <Button variant="primary" size="md" onClick={onGenerate} disabled={selectedCount === 0}>
         Generate Schedules
-      </button>
+      </Button>
     </div>
   );
 }
