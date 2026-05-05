@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { downloadICal } from "../../domain/ical";
 import { formatTime } from "../../domain/time";
 import type { Schedule, ScheduleRules, ScheduleWarning } from "../../lib/types";
-import RegistrationButton from "../registration/RegistrationButton";
 
 interface Props {
   schedule: Schedule;
@@ -241,8 +240,6 @@ export default function ScheduleDetail({ schedule }: Props) {
           })}
         </div>
       </div>
-
-      <RegistrationButton schedule={schedule} />
 
       {/* Export */}
       <div className="flex gap-2">

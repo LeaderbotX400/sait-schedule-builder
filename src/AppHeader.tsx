@@ -13,12 +13,8 @@ interface Props {
   onTogglePanel: () => void;
 }
 
-/**
- * Sticky header bar: app title, courses-panel toggle, rules popover (mobile),
- * refresh, connection status pill, clear/export/generate actions.
- */
 export default function AppHeader({ panelOpen, onTogglePanel }: Props) {
-  const credentials = useStore((s) => s.credentials);
+  const isLoggedIn = useStore((s) => s.isLoggedIn);
   const term = useStore((s) => s.term);
   const courseGroups = useStore((s) => s.courseGroups);
   const selectedCourses = useStore((s) => s.selectedCourses);
@@ -50,7 +46,7 @@ export default function AppHeader({ panelOpen, onTogglePanel }: Props) {
               : "text-gray-400 hover:text-gray-200 hover:bg-gray-800/60"
           }`}
         >
-          <StatusDot tone={credentials ? "ok" : "neutral"} />
+          <StatusDot tone={isLoggedIn ? "ok" : "neutral"} />
           Courses
           {courseGroups.size > 0 && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-300">
@@ -77,7 +73,7 @@ export default function AppHeader({ panelOpen, onTogglePanel }: Props) {
               </Popover>
             </div>
           )}
-          {credentials && (
+          {isLoggedIn && (
             <Button
               onClick={() => void refreshAllData()}
               disabled={registrationsLoading}
@@ -91,7 +87,7 @@ export default function AppHeader({ panelOpen, onTogglePanel }: Props) {
               </span>
             </Button>
           )}
-          {credentials && (
+          {isLoggedIn && (
             <ConnectionStatus termLabel={describeTerm(term)} loading={registrationsLoading} />
           )}
           {hasData && <Button onClick={clearCourses}>Clear</Button>}

@@ -19,13 +19,6 @@ export type AppState = AuthSlice &
   CurrentRegSlice &
   UiSlice;
 
-/**
- * Slices we persist to localStorage. Generated schedules + the credential
- * blob + transient UI flags are intentionally NOT persisted: regenerate
- * from inputs on every load, and never save secrets or in-flight work.
- *
- * Map and Set get serialized as arrays via partialize/merge below.
- */
 interface PersistedShape {
   rules: AppState["rules"];
   term: AppState["term"];
@@ -35,8 +28,6 @@ interface PersistedShape {
 }
 
 const persistOptions: PersistOptions<AppState, PersistedShape> = {
-  // Demo mode uses a separate key so it doesn't pollute real-mode persisted
-  // state. (And starts blank since there's nothing under that key yet.)
   name: isDemoMode() ? "sait-sb-demo-v1" : "sait-sb-v1",
   storage: createJSONStorage(() => localStorage),
   version: 1,
@@ -77,7 +68,6 @@ export const useStore = create<AppState>()(
   ),
 );
 
-/** Stable selector for the rare consumer that wants the whole store. */
 export function useAppStore<T>(selector: (s: AppState) => T): T {
   return useStore(selector);
 }

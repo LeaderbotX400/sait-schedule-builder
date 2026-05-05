@@ -100,9 +100,7 @@ export class BannerCsrfError extends BannerError {
  * service is unreachable due to network/auth issues (status 0).
  */
 export class BannerAuthRequiredError extends BannerError {
-  constructor(
-    message = "Banner returned 0. Sign in and refresh your credentials.",
-  ) {
+  constructor(message = "Banner returned 0. Sign in and refresh your credentials.") {
     super(message);
     this.name = "BannerAuthRequiredError";
   }

@@ -35,7 +35,6 @@ describe("registration.search.byCourses", () => {
     });
 
     const sdk = createBannerSdk(transport, { uniqueSessionId: "sid-1" });
-    sdk.connect({ synchronizerToken: "sync-1", uniqueSessionId: "sid-1" });
     const result = await sdk.registration.search.byCourses(["CPRG306", "CPRG307"], "202540");
 
     expect(result.perCode).toEqual([
@@ -80,7 +79,6 @@ describe("registration.search.byCourses", () => {
     });
 
     const sdk = createBannerSdk(transport, { uniqueSessionId: "sid-1" });
-    sdk.connect({ synchronizerToken: "sync-1", uniqueSessionId: "sid-1" });
     const result = await sdk.registration.search.byCourses(["CPRG306"], "202540");
 
     expect(result.perCode[0]?.error).toContain("HTTP 500");
@@ -96,7 +94,6 @@ describe("registration.search.byCourses", () => {
       body: '{"success":true,"totalCount":0,"data":[]}',
     });
     const sdk = createBannerSdk(transport, { uniqueSessionId: "sid-42" });
-    sdk.connect({ synchronizerToken: "tok", uniqueSessionId: "sid-42" });
     await sdk.registration.search.byCourse("CPRG306", "202540");
 
     const searchCall = transport.calls.find((c) => c.url.includes("/searchResults/searchResults"));

@@ -24,8 +24,3 @@ export interface BannerRequestInit {
 export interface BannerTransport {
   fetch(url: string, init?: BannerRequestInit): Promise<RawResponse>;
 }
-
-export interface BannerCredentials {
-  synchronizerToken: string;
-  uniqueSessionId: string;
-}

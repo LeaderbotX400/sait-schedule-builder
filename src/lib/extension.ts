@@ -1,90 +1,20 @@
-import type { BannerCredentials } from "../banner-sdk";
-
 /**
- * Bridge to the SAIT Schedule Builder extension.
- *
- * The app can run in two contexts:
- *   1. As the extension's own page (chrome-extension://<id>/index.html) —
- *      `chrome.runtime` is available; we sendMessage with no extension ID.
- *   2. As a regular web page on localhost or the prod host — the extension
- *      injects a content script that posts its ID via window.postMessage,
- *      and we route messages through `externally_connectable`.
+ * Bridge to the SAIT Schedule Builder extension service worker.
+ * The app always runs as the extension's own page (chrome-extension://),
+ * so chrome.runtime is always available directly.
  */
 
-export interface ExtensionResult {
+export interface BannerFetchResponse {
   ok: boolean;
-  credentials?: BannerCredentials;
+  status: number;
+  contentType: string;
+  body: string;
   error?: string;
-  message?: string;
-  loginUrl?: string;
 }
 
-let cachedExtensionId: string | null = null;
-const idWaiters: Array<(id: string) => void> = [];
-
-function isExtensionPage(): boolean {
-  // chrome.runtime.id is only set in extension pages and content scripts.
-  return (
-    typeof chrome !== "undefined" &&
-    !!chrome.runtime &&
-    !!(chrome.runtime as { id?: string }).id &&
-    location.protocol === "chrome-extension:"
-  );
-}
-
-function isMessagingAvailable(): boolean {
-  return typeof chrome !== "undefined" && !!chrome.runtime?.sendMessage;
-}
-
-if (typeof window !== "undefined") {
-  window.addEventListener("message", (e) => {
-    if (e.source !== window) return;
-    const data = e.data as { source?: string; type?: string; id?: string } | null;
-    if (!data || data.source !== "sait-ext" || data.type !== "EXT_ID" || !data.id) return;
-    cachedExtensionId = data.id;
-    while (idWaiters.length) idWaiters.shift()!(data.id);
-  });
-  // Prompt the content script to (re)send its ID in case we missed the initial message.
-  window.postMessage({ source: "sait-app", type: "REQUEST_EXT_ID" }, "*");
-}
-
-function getExtensionId(timeoutMs = 1500): Promise<string | null> {
-  if (cachedExtensionId) return Promise.resolve(cachedExtensionId);
-  if (typeof window === "undefined") return Promise.resolve(null);
-  window.postMessage({ source: "sait-app", type: "REQUEST_EXT_ID" }, "*");
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(cachedExtensionId), timeoutMs);
-    idWaiters.push((id) => {
-      clearTimeout(timer);
-      resolve(id);
-    });
-  });
-}
-
-async function send<T = ExtensionResult>(message: {
-  type: string;
-  [k: string]: unknown;
-}): Promise<T> {
-  if (!isMessagingAvailable()) {
-    return Promise.resolve({
-      ok: false,
-      error: "NO_RUNTIME",
-      message: "Browser extension is not installed or not reachable.",
-    } as T);
-  }
-
-  const extensionId = isExtensionPage() ? null : await getExtensionId();
-  if (!isExtensionPage() && !extensionId) {
-    return Promise.resolve({
-      ok: false,
-      error: "EXTENSION_NOT_DETECTED",
-      message:
-        "Schedule Builder extension not detected on this page. Install it and reload, or open the app from the extension's icon.",
-    } as T);
-  }
-
+function send<T>(message: { type: string; [k: string]: unknown }): Promise<T> {
   return new Promise<T>((resolve) => {
-    const cb = (response: T) => {
+    chrome.runtime.sendMessage(message, (response: T) => {
       const err = chrome.runtime.lastError;
       if (err) {
         resolve({
@@ -95,127 +25,8 @@ async function send<T = ExtensionResult>(message: {
         return;
       }
       resolve(response);
-    };
-    try {
-      if (extensionId) {
-        chrome.runtime.sendMessage(extensionId, message, cb);
-      } else {
-        chrome.runtime.sendMessage(message, cb);
-      }
-    } catch (e) {
-      resolve({
-        ok: false,
-        error: "SEND_FAILED",
-        message: e instanceof Error ? e.message : "Failed to message background worker",
-      } as T);
-    }
-  });
-}
-
-export function isExtensionAvailable(): boolean {
-  return isExtensionPage() || cachedExtensionId !== null;
-}
-
-export async function waitForExtension(timeoutMs = 1500): Promise<boolean> {
-  if (isExtensionPage()) return true;
-  const id = await getExtensionId(timeoutMs);
-  return !!id;
-}
-
-export function triggerLogin(): Promise<ExtensionResult> {
-  return openLoginPort("login");
-}
-
-export function forceReauth(): Promise<ExtensionResult> {
-  return openLoginPort("force-reauth");
-}
-
-/**
- * Open a long-lived port to the extension for the login flow. Ports
- * keep the MV3 service worker alive for their entire lifetime, so the
- * full SAML/B2C dance completes without the worker idling out and
- * losing its in-memory state.
- *
- * Resolves with the credentials when the SW posts them through; resolves
- * with an error if the port disconnects before any message arrives.
- */
-async function openLoginPort(name: "login" | "force-reauth"): Promise<ExtensionResult> {
-  if (!isMessagingAvailable()) {
-    return {
-      ok: false,
-      error: "NO_RUNTIME",
-      message: "Browser extension is not installed or not reachable.",
-    };
-  }
-  const extensionId = isExtensionPage() ? null : await getExtensionId();
-  if (!isExtensionPage() && !extensionId) {
-    return {
-      ok: false,
-      error: "EXTENSION_NOT_DETECTED",
-      message:
-        "Schedule Builder extension not detected on this page. Install it and reload, or open the app from the extension's icon.",
-    };
-  }
-
-  return new Promise<ExtensionResult>((resolve) => {
-    let port: chrome.runtime.Port;
-    try {
-      port = extensionId
-        ? chrome.runtime.connect(extensionId, { name })
-        : chrome.runtime.connect({ name });
-    } catch (e) {
-      resolve({
-        ok: false,
-        error: "CONNECT_FAILED",
-        message: e instanceof Error ? e.message : "Could not open port to extension",
-      });
-      return;
-    }
-
-    let resolved = false;
-    const finish = (result: ExtensionResult) => {
-      if (resolved) return;
-      resolved = true;
-      try {
-        port.disconnect();
-      } catch {
-        /* port already disconnected */
-      }
-      resolve(result);
-    };
-
-    port.onMessage.addListener((msg: ExtensionResult) => {
-      finish(msg);
-    });
-    port.onDisconnect.addListener(() => {
-      const err = chrome.runtime.lastError;
-      finish({
-        ok: false,
-        error: "DISCONNECTED",
-        message: err?.message ?? "Extension disconnected before login completed. Please try again.",
-      });
     });
   });
-}
-
-export function getCredentialsFromExtension(): Promise<ExtensionResult> {
-  return send({ type: "GET_CREDENTIALS" });
-}
-
-export function openAuthUrl(): Promise<ExtensionResult> {
-  return send({ type: "OPEN_AUTH_URL" });
-}
-
-export interface BannerFetchResponse {
-  ok: boolean;
-  status: number;
-  contentType: string;
-  body: string;
-  error?: string;
-}
-
-export function installBannerCookies(cookies: Record<string, string>): Promise<ExtensionResult> {
-  return send({ type: "SET_COOKIES", cookies });
 }
 
 export function bannerFetch(

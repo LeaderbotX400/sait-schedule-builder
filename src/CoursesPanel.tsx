@@ -12,13 +12,13 @@ interface Props {
  * AppHeader.
  */
 export default function CoursesPanel({ open }: Props) {
-  const credentials = useStore((s) => s.credentials);
+  const isLoggedIn = useStore((s) => s.isLoggedIn);
   const courseGroups = useStore((s) => s.courseGroups);
   const selectedCourses = useStore((s) => s.selectedCourses);
   const toggleCourse = useStore((s) => s.toggleCourse);
   const removeCourse = useStore((s) => s.removeCourse);
 
-  if (!open || !credentials) return null;
+  if (!open || !isLoggedIn) return null;
 
   return (
     <div className="sticky top-12 z-10 border-b border-gray-800/80 bg-gray-900/95 backdrop-blur-sm">

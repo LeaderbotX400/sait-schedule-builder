@@ -1,19 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_HOSTS } from "../config/hosts";
 import { bannerRequest } from "../core/request";
-import { SyncTokenCache } from "../core/syncToken";
 import {
+  BannerAuthRequiredError,
   BannerHttpError,
-  BannerNetworkError,
   BannerNotPermittedError,
   BannerSessionExpiredError,
 } from "../transport/errors";
 import { MockTransport } from "../transport/mock";
 
 function makeCtx() {
-  const tokens = new SyncTokenCache();
-  tokens.set("sync-1");
-  return { transport: new MockTransport(), hosts: DEFAULT_HOSTS, tokens };
+  return { transport: new MockTransport(), hosts: DEFAULT_HOSTS };
 }
 
 describe("bannerRequest", () => {
@@ -27,18 +24,6 @@ describe("bannerRequest", () => {
     });
     const result = await bannerRequest<{ hello: string }>(ctx, "https://x/foo");
     expect(result).toEqual({ hello: "world" });
-  });
-
-  it("attaches X-Synchronizer-Token from the cache", async () => {
-    const ctx = makeCtx();
-    ctx.transport.on("/foo", {
-      ok: true,
-      status: 200,
-      contentType: "application/json",
-      body: "{}",
-    });
-    await bannerRequest(ctx, "https://x/foo");
-    expect(ctx.transport.calls[0]?.headers["X-Synchronizer-Token"]).toBe("sync-1");
   });
 
   it("throws BannerNotPermittedError for SAML-gated 403", async () => {
@@ -63,7 +48,7 @@ describe("bannerRequest", () => {
     await expect(bannerRequest(ctx, "https://x/foo")).rejects.toThrow(BannerHttpError);
   });
 
-  it("throws BannerNetworkError for transport-level failures", async () => {
+  it("throws BannerAuthRequiredError when extension can't reach Banner (status 0)", async () => {
     const ctx = makeCtx();
     ctx.transport.on("/foo", {
       ok: false,
@@ -72,52 +57,18 @@ describe("bannerRequest", () => {
       body: "",
       error: "fetch failed",
     });
-    await expect(bannerRequest(ctx, "https://x/foo")).rejects.toThrow(BannerNetworkError);
+    await expect(bannerRequest(ctx, "https://x/foo")).rejects.toThrow(BannerAuthRequiredError);
   });
 
-  it("refreshes sync token and retries when the response is HTML (200)", async () => {
+  it("throws BannerSessionExpiredError when response is HTML on a JSON endpoint", async () => {
     const ctx = makeCtx();
-    let callCount = 0;
-    ctx.transport.on(/.*/, () => {
-      callCount++;
-      if (callCount === 1) {
-        // First /foo call returns HTML — token cycle landed on us.
-        return { ok: true, status: 200, contentType: "text/html", body: "<html></html>" };
-      }
-      if (callCount === 2) {
-        // Refresh fetch — registration page returns the meta tag.
-        return {
-          ok: true,
-          status: 200,
-          contentType: "text/html",
-          body: '<meta name="synchronizerToken" content="sync-2">',
-        };
-      }
-      // Retry of /foo — now succeeds.
-      return { ok: true, status: 200, contentType: "application/json", body: '{"ok":true}' };
-    });
-    const result = await bannerRequest<{ ok: boolean }>(ctx, "https://x/foo");
-    expect(result).toEqual({ ok: true });
-    expect(ctx.tokens.get()).toBe("sync-2");
-    // First call = original /foo, second = registration refresh, third = retry of /foo.
-    expect(callCount).toBe(3);
-  });
-
-  it("throws BannerSessionExpiredError if the refresh itself returns HTML without the meta tag", async () => {
-    const ctx = makeCtx();
-    let callCount = 0;
-    ctx.transport.on(/.*/, () => {
-      callCount++;
-      // /foo: HTML; refresh: HTML without meta — so cache.refresh throws.
-      return {
-        ok: true,
-        status: 200,
-        contentType: "text/html",
-        body: "<html><body>plain</body></html>",
-      };
+    ctx.transport.on("/foo", {
+      ok: true,
+      status: 200,
+      contentType: "text/html",
+      body: "<html></html>",
     });
     await expect(bannerRequest(ctx, "https://x/foo")).rejects.toThrow(BannerSessionExpiredError);
-    expect(callCount).toBe(2);
   });
 
   it("sends form-urlencoded content-type when body is set", async () => {
@@ -141,7 +92,6 @@ describe("bannerRequest", () => {
       callCount++;
       return { ok: false, status: 403, contentType: "text/html", body: "<html>nope</html>" };
     });
-    // 403 + HTML doesn't trigger looksLikeAccessDenied — falls through to BannerHttpError.
     await expect(bannerRequest(ctx, "https://x/foo")).rejects.toThrow(BannerHttpError);
     expect(callCount).toBe(1);
   });

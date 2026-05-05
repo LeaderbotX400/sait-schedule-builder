@@ -29,9 +29,9 @@ export default function CourseSearch() {
   const [loading, setLoading] = useState(false);
   const [loadingCode, setLoadingCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [results, setResults] = useState<
-    { code: string; count: number; error?: string }[] | null
-  >(null);
+  const [results, setResults] = useState<{ code: string; count: number; error?: string }[] | null>(
+    null,
+  );
 
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxId = useId();
@@ -105,10 +105,7 @@ export default function CourseSearch() {
 
     try {
       setLoadingCode(deduped[0] ?? null);
-      const searchResult = await getSdk().registration.search.byCourses(
-        deduped,
-        term,
-      );
+      const searchResult = await getSdk().registration.search.byCourses(deduped, term);
       setLoadingCode(null);
       setResults(searchResult.perCode);
 
@@ -135,13 +132,8 @@ export default function CourseSearch() {
       }
       const msg = e instanceof Error ? e.message : "Search failed";
       if (msg.includes("401") || msg.includes("403")) {
-        setError(
-          "Session expired or unauthorized. Try reconnecting to Banner.",
-        );
-      } else if (
-        msg.includes("Failed to fetch") ||
-        msg.includes("NetworkError")
-      ) {
+        setError("Session expired or unauthorized. Try reconnecting to Banner.");
+      } else if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
         setError(
           "Could not reach the Banner server. Check your internet connection and that the Vite proxy is running.",
         );
@@ -187,9 +179,7 @@ export default function CourseSearch() {
     return (
       <>
         {text.slice(0, idx)}
-        <span className="text-white font-medium">
-          {text.slice(idx, idx + query.length)}
-        </span>
+        <span className="text-white font-medium">{text.slice(idx, idx + query.length)}</span>
         {text.slice(idx + query.length)}
       </>
     );
@@ -198,9 +188,7 @@ export default function CourseSearch() {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
-          Search
-        </h3>
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500">Search</h3>
         <select
           value={term}
           onChange={(e) => {
@@ -289,14 +277,9 @@ export default function CourseSearch() {
                       : "text-gray-300 hover:bg-gray-700"
                   }`}
                 >
-                  <span className="font-mono text-xs text-gray-400 shrink-0">
-                    {s.code}
-                  </span>
+                  <span className="font-mono text-xs text-gray-400 shrink-0">{s.code}</span>
                   <span className="text-xs text-gray-500 truncate">
-                    {highlight(
-                      s.description.replace(s.code, "").trim(),
-                      inputValue.trim(),
-                    )}
+                    {highlight(s.description.replace(s.code, "").trim(), inputValue.trim())}
                   </span>
                 </li>
               ))}
@@ -327,9 +310,7 @@ export default function CourseSearch() {
                   {r.count} section{r.count !== 1 ? "s" : ""}
                 </span>
               ) : (
-                <span className="text-red-400/70">
-                  {r.error ?? "no sections found"}
-                </span>
+                <span className="text-red-400/70">{r.error ?? "no sections found"}</span>
               )}
             </div>
           ))}

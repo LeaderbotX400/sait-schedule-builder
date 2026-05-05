@@ -20,9 +20,7 @@ export class ExtensionTransport implements BannerTransport {
     // HTML responses on JSON endpoints (in core/request.ts finalize). The legacy
     // BANNER_SESSION_EXPIRED error code is kept as a safety fallback.
     if (raw.error === "BANNER_SESSION_EXPIRED") {
-      throw new BannerSessionExpiredError(
-        "Banner session expired (redirected to login).",
-      );
+      throw new BannerSessionExpiredError("Banner session expired (redirected to login).");
     }
     return raw;
   }

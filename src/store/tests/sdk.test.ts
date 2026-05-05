@@ -6,7 +6,7 @@ import { _setSdkForTesting, getSdk } from "../sdk";
 
 /**
  * The Proxy in store/sdk.ts catches BannerSessionExpiredError thrown by any
- * SDK call (top-level or nested) and dispatches markSessionExpired on the
+ * SDK call (top-level or nested) and dispatches setLoggedIn(false) on the
  * store. The error itself still propagates so callers can stop work.
  */
 
@@ -26,30 +26,30 @@ function fakeSdk(opts: { topLevelThrows?: boolean; nestedThrows?: boolean }): Ba
 }
 
 beforeEach(() => {
-  useStore.getState().clearSessionExpired();
+  useStore.getState().setLoggedIn(true);
 });
 
 afterEach(() => {
   _setSdkForTesting(null);
-  useStore.getState().clearSessionExpired();
+  useStore.getState().setLoggedIn(false);
 });
 
 describe("getSdk session-expired Proxy", () => {
-  it("flips sessionExpired and rethrows when a top-level method throws", async () => {
+  it("sets isLoggedIn=false and rethrows when a top-level method throws", async () => {
     _setSdkForTesting(fakeSdk({ topLevelThrows: true }));
     const sdk = getSdk() as unknown as { flat: () => Promise<string> };
     await expect(sdk.flat()).rejects.toBeInstanceOf(BannerSessionExpiredError);
-    expect(useStore.getState().sessionExpired).toBe(true);
+    expect(useStore.getState().isLoggedIn).toBe(false);
   });
 
-  it("flips sessionExpired when a nested namespace method throws", async () => {
+  it("sets isLoggedIn=false when a nested namespace method throws", async () => {
     _setSdkForTesting(fakeSdk({ nestedThrows: true }));
     const sdk = getSdk() as unknown as { nested: { child: () => Promise<string> } };
     await expect(sdk.nested.child()).rejects.toBeInstanceOf(BannerSessionExpiredError);
-    expect(useStore.getState().sessionExpired).toBe(true);
+    expect(useStore.getState().isLoggedIn).toBe(false);
   });
 
-  it("does not flip sessionExpired on the happy path", async () => {
+  it("does not change isLoggedIn on the happy path", async () => {
     _setSdkForTesting(fakeSdk({}));
     const sdk = getSdk() as unknown as {
       flat: () => Promise<string>;
@@ -57,6 +57,6 @@ describe("getSdk session-expired Proxy", () => {
     };
     await expect(sdk.flat()).resolves.toBe("ok");
     await expect(sdk.nested.child()).resolves.toBe("ok");
-    expect(useStore.getState().sessionExpired).toBe(false);
+    expect(useStore.getState().isLoggedIn).toBe(true);
   });
 });

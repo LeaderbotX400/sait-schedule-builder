@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { forceReauth } from "../../lib/extension";
 import { useStore } from "../../store";
-import { getSdk } from "../../store/sdk";
 import Popover from "../../ui/Popover";
 import StatusDot from "../../ui/StatusDot";
 
@@ -10,13 +8,8 @@ interface Props {
   loading?: boolean;
 }
 
-/**
- * Header pill showing connection state + a popover with session age and
- * Force-Reauth / Disconnect actions. Reads from and writes to the
- * Zustand store.
- */
 export default function ConnectionStatus({ termLabel, loading }: Props) {
-  const setCredentials = useStore((s) => s.setCredentials);
+  const setLoggedIn = useStore((s) => s.setLoggedIn);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionAge, setSessionAge] = useState(0);
@@ -35,24 +28,48 @@ export default function ConnectionStatus({ termLabel, loading }: Props) {
   const ageMin = Math.floor(sessionAge / 60);
   const ageLabel = ageMin < 1 ? "just now" : `${ageMin}m ago`;
 
-  const handleReauth = async (close: () => void) => {
+  const handleReauth = (close: () => void) => {
     setError(null);
     setBusy(true);
-    const result = await forceReauth();
-    if (!result.ok || !result.credentials) {
+    let port: chrome.runtime.Port;
+    try {
+      port = chrome.runtime.connect({ name: "force-reauth" });
+    } catch (e) {
       setBusy(false);
-      setError(result.message ?? "Reauth failed");
+      setError(e instanceof Error ? e.message : "Could not open extension port");
       return;
     }
-    const validation = await getSdk().connectAndValidate(result.credentials);
-    setBusy(false);
-    if (!validation.valid) {
-      setError(validation.error);
-      return;
-    }
-    connectedAtRef.current = Date.now();
-    setSessionAge(0);
-    setCredentials(result.credentials, validation.studentId);
+
+    let resolved = false;
+    const finish = (msg: { ok?: boolean; message?: string }) => {
+      if (resolved) return;
+      resolved = true;
+      setBusy(false);
+      if (msg.ok) {
+        connectedAtRef.current = Date.now();
+        setSessionAge(0);
+        setError(null);
+        close();
+      } else {
+        setError(msg.message ?? "Reauth failed");
+        setLoggedIn(false);
+      }
+    };
+
+    port.onMessage.addListener(finish);
+    port.onDisconnect.addListener(() => {
+      const err = chrome.runtime.lastError;
+      finish({ ok: false, message: err?.message ?? "Extension disconnected" });
+    });
+  };
+
+  const handleDisconnect = (close: () => void) => {
+    chrome.runtime.sendMessage({ type: "CLEAR_SESSION" }, () => {
+      if (chrome.runtime.lastError) {
+        /* ignore */
+      }
+    });
+    setLoggedIn(false);
     close();
   };
 
@@ -73,12 +90,8 @@ export default function ConnectionStatus({ termLabel, loading }: Props) {
         >
           <StatusDot tone={stale ? "warn" : "ok"} />
           <span className="hidden sm:inline">Connected</span>
-          {termLabel && (
-            <span className="text-emerald-400/70">· {termLabel}</span>
-          )}
-          {loading && (
-            <span className="text-emerald-400/70 italic">· Loading…</span>
-          )}
+          {termLabel && <span className="text-emerald-400/70">· {termLabel}</span>}
+          {loading && <span className="text-emerald-400/70 italic">· Loading…</span>}
         </button>
       )}
     >
@@ -86,9 +99,7 @@ export default function ConnectionStatus({ termLabel, loading }: Props) {
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-400">Session age</span>
-            <span className={stale ? "text-yellow-400" : "text-gray-200"}>
-              {ageLabel}
-            </span>
+            <span className={stale ? "text-yellow-400" : "text-gray-200"}>{ageLabel}</span>
           </div>
           {stale && (
             <p className="text-[11px] text-yellow-400">
@@ -105,10 +116,7 @@ export default function ConnectionStatus({ termLabel, loading }: Props) {
           </button>
           <button
             type="button"
-            onClick={() => {
-              setCredentials(null);
-              close();
-            }}
+            onClick={() => handleDisconnect(close)}
             className="w-full rounded-md px-2.5 py-1.5 text-xs text-gray-500 hover:text-red-400 transition-colors"
           >
             Disconnect
