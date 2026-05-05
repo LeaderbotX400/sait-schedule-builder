@@ -6,11 +6,14 @@ import manifest from "./manifest.config";
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), crx({ manifest })],
+  server: {
+    cors: true,
+  },
   build: {
     outDir: "dist",
     emptyOutDir: true,
     rollupOptions: {
-      input: { app: "app.html" },
+      input: { app: "index.html" },
     },
     sourcemap: true,
   },

@@ -6,7 +6,7 @@ const LOGIN_URL = `https://sait-sust-prd-prd1-eid-idm-wso2.sait.ca/cas-web/login
 
 // Open the extension's UI page when the toolbar icon is clicked.
 chrome.action.onClicked.addListener(async () => {
-  const url = chrome.runtime.getURL("app.html");
+  const url = chrome.runtime.getURL("index.html");
   const existing = await chrome.tabs.query({ url });
   const first = existing[0];
   if (first?.id != null) {
@@ -91,7 +91,9 @@ interface BannerFetchResponse {
   error?: string;
 }
 
-async function handleBannerFetch(req: BannerFetchRequest): Promise<BannerFetchResponse> {
+async function handleBannerFetch(
+  req: BannerFetchRequest,
+): Promise<BannerFetchResponse> {
   try {
     const init: RequestInit = {
       method: req.init?.method ?? "GET",
@@ -143,7 +145,11 @@ async function runLoginFlow(port: chrome.runtime.Port): Promise<void> {
   }
 
   if (!win?.tabs?.length || win.id == null || win.tabs[0]?.id == null) {
-    safePost(port, { ok: false, error: "NO_WINDOW", message: "Could not open login window." });
+    safePost(port, {
+      ok: false,
+      error: "NO_WINDOW",
+      message: "Could not open login window.",
+    });
     return;
   }
 
@@ -162,14 +168,19 @@ async function runLoginFlow(port: chrome.runtime.Port): Promise<void> {
     clearTimeout(timeoutId);
   };
 
-  type LoginResult = { ok: true } | { ok: false; error: string; message: string };
+  type LoginResult =
+    | { ok: true }
+    | { ok: false; error: string; message: string };
 
   const settle = (result: LoginResult) => {
     if (settled) return;
     settled = true;
     cleanup();
     // biome-ignore lint/suspicious/noConsole: SW debug logging
-    console.log("[sait-ext] settle", result.ok ? "ok" : `${result.error}: ${result.message}`);
+    console.log(
+      "[sait-ext] settle",
+      result.ok ? "ok" : `${result.error}: ${result.message}`,
+    );
     safePost(port, result);
     // Broadcast to any open app tabs so they update their isLoggedIn state.
     chrome.runtime
@@ -204,7 +215,11 @@ async function runLoginFlow(port: chrome.runtime.Port): Promise<void> {
   };
 
   // Trigger 2 — popup tab finishes navigation.
-  const onUpdated = (id: number, changeInfo: { status?: string }, _tab: chrome.tabs.Tab) => {
+  const onUpdated = (
+    id: number,
+    changeInfo: { status?: string },
+    _tab: chrome.tabs.Tab,
+  ) => {
     if (id !== tabId || changeInfo.status !== "complete") return;
     // biome-ignore lint/suspicious/noConsole: SW debug logging
     console.log("[sait-ext] popup tab complete", _tab.url);
