@@ -1,10 +1,10 @@
 import { useCallback, useState } from "react";
-import { forceReauth } from "./lib/extension";
 import CurrentScheduleEditor from "./features/current/CurrentScheduleEditor";
 import BlockoutGrid from "./features/rules/BlockoutGrid";
 import RulesPanel from "./features/rules/RulesPanel";
 import ScheduleDetail from "./features/schedule/ScheduleDetail";
 import ScheduleStrip from "./features/schedule/ScheduleStrip";
+import { forceReauth } from "./lib/extension";
 import { useStore } from "./store";
 import Button from "./ui/Button";
 import EmptyStatePrimitive from "./ui/EmptyState";
@@ -42,7 +42,9 @@ export default function MainArea() {
   return (
     <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 py-4">
       <ScheduleStripBound />
-      {currentRegistrations.size > 0 && <Tabs activeTab={activeTab} onChange={setActiveTab} />}
+      {currentRegistrations.size > 0 && (
+        <Tabs activeTab={activeTab} onChange={setActiveTab} />
+      )}
 
       {hasData ? (
         <div className="flex gap-6 items-start">
@@ -56,7 +58,10 @@ export default function MainArea() {
           <CenteredSpinner label="Loading your registered courses..." />
         ) : authRequired ? (
           <CenteredError
-            message={loadError || "Banner returned 0. Sign in and refresh your credentials."}
+            message={
+              loadError ||
+              "Banner returned 0. Sign in and refresh your credentials."
+            }
             onLogin={handleLogin}
             loginInProgress={loginInProgress}
           />
@@ -83,14 +88,26 @@ function ScheduleStripBound() {
   );
 }
 
-function Tabs({ activeTab, onChange }: { activeTab: Tab; onChange: (t: Tab) => void }) {
+function Tabs({
+  activeTab,
+  onChange,
+}: {
+  activeTab: Tab;
+  onChange: (t: Tab) => void;
+}) {
   return (
     <div className="flex gap-2 sm:gap-3 mb-4 border-b border-gray-800 overflow-x-auto">
-      <TabButton active={activeTab === "current"} onClick={() => onChange("current")}>
+      <TabButton
+        active={activeTab === "current"}
+        onClick={() => onChange("current")}
+      >
         <span className="hidden sm:inline">Current Schedule</span>
         <span className="sm:hidden">Current</span>
       </TabButton>
-      <TabButton active={activeTab === "browse"} onClick={() => onChange("browse")}>
+      <TabButton
+        active={activeTab === "browse"}
+        onClick={() => onChange("browse")}
+      >
         Planner
       </TabButton>
     </div>
@@ -111,7 +128,9 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={`px-3 sm:px-4 py-2 text-sm font-medium transition-colors shrink-0 ${
-        active ? "text-white border-b-2 border-blue-500" : "text-gray-400 hover:text-gray-300"
+        active
+          ? "text-white border-b-2 border-blue-500"
+          : "text-gray-400 hover:text-gray-300"
       }`}
     >
       {children}
@@ -149,7 +168,8 @@ function ScheduleArea({ activeTab }: { activeTab: Tab }) {
   const activeSchedule = schedules[activeScheduleIndex] ?? null;
 
   const handleBlockoutChange = useCallback(
-    (blockout: import("./domain/types").BlockoutGrid) => setRules((r) => ({ ...r, blockout })),
+    (blockout: import("./domain/types").BlockoutGrid) =>
+      setRules((r) => ({ ...r, blockout })),
     [setRules],
   );
 
@@ -194,7 +214,10 @@ function ScheduleArea({ activeTab }: { activeTab: Tab }) {
       ) : generationStatus.kind === "error" ? (
         <ErrorState message={generationStatus.message} />
       ) : (
-        <GenerateInvite selectedCount={selectedCourses.size} onGenerate={generate} />
+        <GenerateInvite
+          selectedCount={selectedCourses.size}
+          onGenerate={generate}
+        />
       )}
     </div>
   );
@@ -243,7 +266,12 @@ function GenerateInvite({
           ? "Select at least one course to generate."
           : `${selectedCount} course${selectedCount !== 1 ? "s" : ""} ready.`}
       </p>
-      <Button variant="primary" size="md" onClick={onGenerate} disabled={selectedCount === 0}>
+      <Button
+        variant="primary"
+        size="md"
+        onClick={onGenerate}
+        disabled={selectedCount === 0}
+      >
         Generate Schedules
       </Button>
     </div>
@@ -275,11 +303,18 @@ function CenteredError({
       <div className="max-w-sm text-center space-y-3">
         <p className="text-sm text-red-400">{message}</p>
         {onLogin ? (
-          <Button variant="primary" size="sm" onClick={onLogin} disabled={loginInProgress}>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onLogin}
+            disabled={loginInProgress}
+          >
             {loginInProgress ? "Opening login..." : "Open Login Window"}
           </Button>
         ) : (
-          <p className="text-xs text-gray-500">Try disconnecting and signing in again.</p>
+          <p className="text-xs text-gray-500">
+            Try disconnecting and signing in again.
+          </p>
         )}
       </div>
     </div>

@@ -27,7 +27,9 @@ export function useScheduleSync(): void {
   const rules = useStore((s) => s.rules);
   const setCourseGroups = useStore((s) => s.setCourseGroups);
   const setSelectedCourses = useStore((s) => s.setSelectedCourses);
-  const initializeCurrentRegistrations = useStore((s) => s.initializeCurrentRegistrations);
+  const initializeCurrentRegistrations = useStore(
+    (s) => s.initializeCurrentRegistrations,
+  );
   const setTerm = useStore((s) => s.setTerm);
   const setLoadError = useStore((s) => s.setLoadError);
   const setAuthRequired = useStore((s) => s.setAuthRequired);
@@ -51,19 +53,24 @@ export function useScheduleSync(): void {
         if (!terms.length) {
           throw new Error("Banner returned no terms — session may be invalid");
         }
-        const activeTerm = terms.find((t) => !SKIP_TERMS.some((s) => t.description.includes(s)));
+        const activeTerm = terms.find(
+          (t) => !SKIP_TERMS.some((s) => t.description.includes(s)),
+        );
         const termCode = activeTerm?.code;
         if (!termCode) return;
         setTerm(termCode);
 
-        const registrations = await sdk.registration.registrations.listActive(termCode);
+        const registrations =
+          await sdk.registration.registrations.listActive(termCode);
         if (cancelled) return;
 
         if (registrations.length > 0) {
           const groups = parseActiveRegistrations(registrations);
           setCourseGroups(groups);
           setSelectedCourses((prev) => {
-            const restored = new Set([...prev].filter((name) => groups.has(name)));
+            const restored = new Set(
+              [...prev].filter((name) => groups.has(name)),
+            );
             return restored.size > 0 ? restored : new Set(groups.keys());
           });
           initializeCurrentRegistrations(groups);
@@ -83,7 +90,9 @@ export function useScheduleSync(): void {
           return;
         }
         const msg = err instanceof Error ? err.message : String(err);
-        setLoadError(`Could not load your registrations: ${msg}. Try reconnecting to Banner.`);
+        setLoadError(
+          `Could not load your registrations: ${msg}. Try reconnecting to Banner.`,
+        );
       } finally {
         if (!cancelled) setRegistrationsLoading(false);
       }
@@ -129,16 +138,21 @@ export async function refreshAllData(): Promise<void> {
     if (!terms.length) {
       throw new Error("Banner returned no terms — session may be invalid");
     }
-    const activeTerm = terms.find((t) => !SKIP_TERMS.some((s) => t.description.includes(s)));
+    const activeTerm = terms.find(
+      (t) => !SKIP_TERMS.some((s) => t.description.includes(s)),
+    );
     const termCode = activeTerm?.code;
     if (termCode) {
       state.setTerm(termCode);
-      const registrations = await sdk.registration.registrations.listActive(termCode);
+      const registrations =
+        await sdk.registration.registrations.listActive(termCode);
       if (registrations.length > 0) {
         const groups = parseActiveRegistrations(registrations);
         state.setCourseGroups(groups);
         state.setSelectedCourses((prev) => {
-          const restored = new Set([...prev].filter((name) => groups.has(name)));
+          const restored = new Set(
+            [...prev].filter((name) => groups.has(name)),
+          );
           return restored.size > 0 ? restored : new Set(groups.keys());
         });
         state.initializeCurrentRegistrations(groups);
@@ -151,7 +165,9 @@ export async function refreshAllData(): Promise<void> {
       return;
     }
     const msg = err instanceof Error ? err.message : String(err);
-    state.setLoadError(`Could not refresh your registrations: ${msg}. Try reconnecting to Banner.`);
+    state.setLoadError(
+      `Could not refresh your registrations: ${msg}. Try reconnecting to Banner.`,
+    );
   } finally {
     state.setRegistrationsLoading(false);
   }

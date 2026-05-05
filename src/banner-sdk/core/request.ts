@@ -1,13 +1,17 @@
 import type { BannerHostConfig } from "../config/hosts";
 import {
-  BannerAuthRequiredError,
-  BannerHttpError,
-  BannerNetworkError,
-  BannerNotPermittedError,
-  BannerSessionExpiredError,
-  looksLikeAccessDenied,
+    BannerAuthRequiredError,
+    BannerHttpError,
+    BannerNetworkError,
+    BannerNotPermittedError,
+    BannerSessionExpiredError,
+    looksLikeAccessDenied,
 } from "../transport/errors";
-import type { BannerRequestInit, BannerTransport, RawResponse } from "../transport/types";
+import type {
+    BannerRequestInit,
+    BannerTransport,
+    RawResponse,
+} from "../transport/types";
 import { bannerHeaders } from "./headers";
 import { parseJsonOrThrow } from "./json";
 import type { SyncTokenCache } from "./syncToken";
@@ -41,7 +45,9 @@ export async function bannerRequest<T>(
 ): Promise<T> {
   const headers = bannerHeaders({
     syncToken: ctx.tokens.get(),
-    ...(init.body ? { contentType: "application/x-www-form-urlencoded; charset=UTF-8" } : {}),
+    ...(init.body
+      ? { contentType: "application/x-www-form-urlencoded; charset=UTF-8" }
+      : {}),
     extra: init.headers ?? {},
   });
 
@@ -58,8 +64,14 @@ export async function bannerRequest<T>(
   // Refresh token and retry once. If refresh itself throws, propagate.
   if (raw.ok && raw.contentType.includes("text/html")) {
     await ctx.tokens.refresh(ctx.transport, ctx.hosts);
-    const retryHeaders = { ...headers, "X-Synchronizer-Token": ctx.tokens.get() ?? "" };
-    const retryInit: BannerRequestInit = { method: init.method ?? "GET", headers: retryHeaders };
+    const retryHeaders = {
+      ...headers,
+      "X-Synchronizer-Token": ctx.tokens.get() ?? "",
+    };
+    const retryInit: BannerRequestInit = {
+      method: init.method ?? "GET",
+      headers: retryHeaders,
+    };
     if (init.body !== undefined) retryInit.body = init.body;
     raw = await ctx.transport.fetch(url, retryInit);
   }
@@ -77,7 +89,8 @@ function finalize<T>(raw: RawResponse): T {
     throw new BannerNetworkError(raw.error);
   }
   if (!raw.ok) throw new BannerHttpError(raw.status, raw.body);
-  if (raw.contentType.includes("text/html")) throw new BannerSessionExpiredError();
+  if (raw.contentType.includes("text/html"))
+    throw new BannerSessionExpiredError();
   return parseJsonOrThrow<T>(raw);
 }
 
@@ -94,7 +107,9 @@ export async function bannerRequestRaw(
 ): Promise<RawResponse> {
   const headers = bannerHeaders({
     syncToken: ctx.tokens.get(),
-    ...(init.body ? { contentType: "application/x-www-form-urlencoded; charset=UTF-8" } : {}),
+    ...(init.body
+      ? { contentType: "application/x-www-form-urlencoded; charset=UTF-8" }
+      : {}),
     extra: init.headers ?? {},
   });
 
