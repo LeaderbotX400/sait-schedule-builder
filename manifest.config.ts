@@ -5,8 +5,7 @@ export default defineManifest({
   manifest_version: 3,
   name: "SAIT Schedule Builder",
   version: pkg.version,
-  description:
-    "Build your ideal class schedule from SAIT's Banner registration system.",
+  description: "Build your ideal class schedule from SAIT's Banner registration system.",
   permissions: ["cookies", "tabs", "storage"],
   host_permissions: ["https://*.sait.ca/*"],
   background: {
@@ -22,11 +21,7 @@ export default defineManifest({
   },
   web_accessible_resources: [
     {
-      resources: [
-        "index.html",
-        "extension/icon48.png",
-        "extension/icon128.png",
-      ],
+      resources: ["index.html", "extension/icon48.png", "extension/icon128.png"],
       matches: ["<all_urls>"],
     },
   ],
@@ -39,6 +34,20 @@ export default defineManifest({
       "https://*.sait-scheduler.pages.dev/*",
     ],
   },
+  content_scripts: [
+    {
+      matches: [
+        "http://localhost/*",
+        "http://localhost:*/*",
+        "http://127.0.0.1/*",
+        "http://127.0.0.1:*/*",
+        "https://*.sait-scheduler.pages.dev/*",
+      ],
+      js: ["extension/inject.ts"],
+      run_at: "document_start",
+      all_frames: false,
+    },
+  ],
 });
 
 // import { defineManifest } from "@crxjs/vite-plugin";
