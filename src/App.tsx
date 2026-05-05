@@ -20,7 +20,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
-      <AppHeader panelOpen={panelOpen} onTogglePanel={() => setPanelOpen((v) => !v)} />
+      <AppHeader
+        panelOpen={panelOpen}
+        onTogglePanel={() => setPanelOpen((v) => !v)}
+      />
       <CoursesPanel open={panelOpen} />
       <MainArea />
     </div>

@@ -5,6 +5,8 @@ export function useAuth(): void {
   const setLoggedIn = useStore((s) => s.setLoggedIn);
 
   useEffect(() => {
+    if (typeof chrome === "undefined" || !chrome.runtime) return;
+
     // Check login state on mount.
     chrome.runtime.sendMessage(
       { type: "CHECK_LOGIN" },
