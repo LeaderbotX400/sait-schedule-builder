@@ -61,9 +61,15 @@ export function useAuth(): void {
     (async () => {
       const result = await forceReauth();
       if (cancelled) return;
+      console.log("[sait-app] forceReauth result", {
+        ok: result.ok,
+        error: result.error,
+        hasCreds: !!result.credentials,
+      });
       clearSessionExpired();
       if (!result.ok || !result.credentials) return;
       const validation = await getSdk().connectAndValidate(result.credentials);
+      console.log("[sait-app] connectAndValidate result", validation);
       if (cancelled || !validation.valid) return;
       setCredentials(result.credentials, validation.studentId);
     })();

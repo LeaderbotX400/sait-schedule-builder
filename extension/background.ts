@@ -8,6 +8,10 @@ const BANNER_DOMAIN = "sait-sust-prd-prd1-ban-ss-ssag6.sait.ca";
 // const PERSONAL_INFO_URL =
 //   "https://sait-sust-prd-prd1-ban-ss-ssag2.sait.ca/BannerGeneralSsb/ssb/personalInformation#/personalInformationMain";
 const LOGIN_URL = `https://sait-sust-prd-prd1-eid-idm-wso2.sait.ca/cas-web/login?TARGET=https%3A%2F%2Fsait-sust-prd-prd1-ban-ss-ssag6.sait.ca%2FStudentRegistrationSsb%2Flogin%2Fcas`;
+// Directly hits ssag6 with the user's existing JSESSIONID; the response HTML
+// carries the synchronizerToken meta. Going through LOGIN_URL instead lands on
+// an Azure B2C JS-redirect page that fetch() can't unwrap.
+const REGISTRATION_URL = `https://sait-sust-prd-prd1-ban-ss-ssag6.sait.ca/StudentRegistrationSsb/ssb/registration`;
 
 // All Banner hosts that may hold an authenticated session — clear cookies on
 // every reauth so the user can't be left half-logged-in across subdomains.
@@ -133,10 +137,25 @@ async function handleBannerFetch(req: BannerFetchRequest): Promise<BannerFetchRe
     const init: RequestInit = {
       method: req.init?.method ?? "GET",
       credentials: "include",
+      // When Banner's session has expired, ssag2/ssag6 reply with a 302 to
+      // b2clogin.com. Following that redirect from a chrome-extension origin
+      // dies on CORS (b2clogin sends no Access-Control-Allow-Origin). Manual
+      // redirect mode hands us back an opaqueredirect we can classify as a
+      // session-expired signal instead of throwing.
+      redirect: "manual",
     };
     if (req.init?.headers) init.headers = req.init.headers;
     if (req.init?.body !== undefined) init.body = req.init.body;
     const res = await fetch(req.url, init);
+    if (res.type === "opaqueredirect") {
+      return {
+        ok: false,
+        status: 0,
+        contentType: "",
+        body: "",
+        error: "BANNER_SESSION_EXPIRED",
+      };
+    }
     const body = await res.text();
     return {
       ok: res.ok,
@@ -367,6 +386,17 @@ async function runLoginFlow(port: chrome.runtime.Port): Promise<void> {
     const creds = await handleGetCredentials();
     console.log("[sait-ext] tryCapture", source, creds.ok ? "ok" : `fail: ${creds.error}`);
     if (!creds.ok) return;
+    // DIAG: dump JSESSIONID presence on each Banner host right before we
+    // declare success. If ssag2/ssag1 are empty here, the session-expired
+    // false positive on validateLogin is the ssag2-not-primed case.
+    const cookieDump = await Promise.all(
+      BANNER_HOSTS.map(async (host) => {
+        const cs = await chrome.cookies.getAll({ domain: host });
+        const j = cs.find((c) => c.name === "JSESSIONID");
+        return `${host.split(".")[0]?.split("-").pop()}=${j ? "set" : "MISSING"}`;
+      }),
+    );
+    console.log("[sait-ext] capture cookies", source, cookieDump.join(" "));
     chrome.windows.remove(winId).catch(() => {});
     settle(creds);
   };
@@ -479,7 +509,16 @@ async function handleOpenAuthUrl(): Promise<
  * existing session; no manual Cookie header needed.
  */
 async function fetchSyncToken(): Promise<string | null> {
-  const res = await fetch(LOGIN_URL, { credentials: "include" });
+  // Same redirect:"manual" guard as handleBannerFetch: if the registration
+  // page itself 302s to b2clogin during expiry, an opaqueredirect lets us
+  // bail out instead of crashing on CORS. Returning null here matches the
+  // existing "no token available" contract; the next BANNER_FETCH will
+  // surface the session-expired error through the proper channel.
+  const res = await fetch(REGISTRATION_URL, {
+    credentials: "include",
+    redirect: "manual",
+  });
+  if (res.type === "opaqueredirect") return null;
 
   const syncHeader = res.headers.get("X-Synchronizer-Token");
   if (syncHeader) return syncHeader;

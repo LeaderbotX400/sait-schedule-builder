@@ -2,7 +2,7 @@ import { type BannerHostConfig, ssag2Url } from "../../config/hosts";
 import { bannerHeaders } from "../../core/headers";
 import { parseJsonOrThrow } from "../../core/json";
 import type { SyncTokenCache } from "../../core/syncToken";
-import { BannerNetworkError } from "../../transport/errors";
+import { BannerNetworkError, BannerSessionExpiredError } from "../../transport/errors";
 import type { BannerTransport } from "../../transport/types";
 import type { BannerIdResponse } from "./types";
 
@@ -34,6 +34,14 @@ export async function validateLogin(
       headers: bannerHeaders({ syncToken: tokens?.get() ?? null }),
     });
   } catch (e) {
+    if (e instanceof BannerSessionExpiredError) {
+      console.log("[sait-app] validateLogin: ssag2 returned opaqueredirect (session-expired path)");
+      return {
+        valid: false,
+        reason: "NOT_LOGGED_IN",
+        error: "Session has expired — please reconnect.",
+      };
+    }
     return {
       valid: false,
       reason: "NETWORK",
