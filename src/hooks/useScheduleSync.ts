@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { BannerAuthRequiredError } from "../banner-sdk";
 import { parseActiveRegistrations } from "../domain/parser";
 import { useStore } from "../store";
 import { getSdk } from "../store/sdk";
@@ -29,6 +30,7 @@ export function useScheduleSync(): void {
   const initializeCurrentRegistrations = useStore((s) => s.initializeCurrentRegistrations);
   const setTerm = useStore((s) => s.setTerm);
   const setLoadError = useStore((s) => s.setLoadError);
+  const setAuthRequired = useStore((s) => s.setAuthRequired);
   const setRegistrationsLoading = useStore((s) => s.setRegistrationsLoading);
   const generate = useStore((s) => s.generate);
 
@@ -71,6 +73,11 @@ export function useScheduleSync(): void {
         }
       } catch (err) {
         if (cancelled) return;
+        if (err instanceof BannerAuthRequiredError) {
+          setLoadError(err.message);
+          setAuthRequired(true);
+          return;
+        }
         if (!isRetry) {
           setTimeout(() => void doFetch(true), 1500);
           return;
@@ -93,6 +100,7 @@ export function useScheduleSync(): void {
     initializeCurrentRegistrations,
     setTerm,
     setLoadError,
+    setAuthRequired,
     setRegistrationsLoading,
   ]);
 
@@ -137,6 +145,11 @@ export async function refreshAllData(): Promise<void> {
       }
     }
   } catch (err) {
+    if (err instanceof BannerAuthRequiredError) {
+      state.setLoadError(err.message);
+      state.setAuthRequired(true);
+      return;
+    }
     const msg = err instanceof Error ? err.message : String(err);
     state.setLoadError(`Could not refresh your registrations: ${msg}. Try reconnecting to Banner.`);
   } finally {

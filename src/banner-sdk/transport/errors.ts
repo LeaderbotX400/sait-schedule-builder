@@ -91,6 +91,23 @@ export class BannerCsrfError extends BannerError {
   }
 }
 
+/**
+ * The extension couldn't reach Banner, likely because credentials are missing
+ * or expired. The user needs to log in via the extension popup to refresh
+ * their cookies.
+ *
+ * Typical triggers: extension lost the JSESSIONID cookie, or the Banner
+ * service is unreachable due to network/auth issues (status 0).
+ */
+export class BannerAuthRequiredError extends BannerError {
+  constructor(
+    message = "Banner returned 0. Sign in and refresh your credentials.",
+  ) {
+    super(message);
+    this.name = "BannerAuthRequiredError";
+  }
+}
+
 export function isBannerError(e: unknown): e is BannerError {
   return e instanceof BannerError;
 }

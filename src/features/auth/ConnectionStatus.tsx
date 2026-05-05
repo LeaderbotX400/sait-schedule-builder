@@ -73,8 +73,12 @@ export default function ConnectionStatus({ termLabel, loading }: Props) {
         >
           <StatusDot tone={stale ? "warn" : "ok"} />
           <span className="hidden sm:inline">Connected</span>
-          {termLabel && <span className="text-emerald-400/70">· {termLabel}</span>}
-          {loading && <span className="text-emerald-400/70 italic">· Loading…</span>}
+          {termLabel && (
+            <span className="text-emerald-400/70">· {termLabel}</span>
+          )}
+          {loading && (
+            <span className="text-emerald-400/70 italic">· Loading…</span>
+          )}
         </button>
       )}
     >
@@ -82,7 +86,9 @@ export default function ConnectionStatus({ termLabel, loading }: Props) {
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-400">Session age</span>
-            <span className={stale ? "text-yellow-400" : "text-gray-200"}>{ageLabel}</span>
+            <span className={stale ? "text-yellow-400" : "text-gray-200"}>
+              {ageLabel}
+            </span>
           </div>
           {stale && (
             <p className="text-[11px] text-yellow-400">

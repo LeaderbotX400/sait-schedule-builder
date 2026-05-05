@@ -3,7 +3,7 @@ import { forceReauth } from "../lib/extension";
 import { useStore } from "../store";
 import { getSdk } from "../store/sdk";
 
-const REVALIDATION_INTERVAL_MS = 5 * 60 * 1000;
+const REVALIDATION_INTERVAL_MS = 500 * 60 * 1000;
 
 /**
  * Side-effect hook for the auth feature: GPA/notices auto-fetch, background
@@ -54,11 +54,15 @@ export function useAuth(): void {
     };
   }, [credentials, studentId, markSessionExpired, setCredentials]);
 
-  // Auto-reauth when the poll flags the session as expired.
+  // Auto-reauth when the poll (or SDK proxy) flags the session as expired.
+  // reauthInProgress in the store keeps App.tsx on the main screen while the
+  // popup is open; credentials are already null (markSessionExpired cleared them),
+  // so no zombie Banner requests are made during the reauth window.
   useEffect(() => {
     if (!sessionExpired) return;
     let cancelled = false;
     (async () => {
+      console.log("[sait-app] sessionExpired: starting silent reauth");
       const result = await forceReauth();
       if (cancelled) return;
       console.log("[sait-app] forceReauth result", {
@@ -66,11 +70,35 @@ export function useAuth(): void {
         error: result.error,
         hasCreds: !!result.credentials,
       });
-      clearSessionExpired();
-      if (!result.ok || !result.credentials) return;
+      if (!result.ok || !result.credentials) {
+        // Reauth popup failed or was cancelled — show sign-in.
+        // clearSessionExpired() before setCredentials(null): no await follows,
+        // so the dep-change-induced cleanup firing cancelled=true doesn't matter.
+        clearSessionExpired();
+        setCredentials(null); // clears reauthInProgress → App.tsx shows SignInScreen
+        return;
+      }
+      // connectAndValidate calls session.applyCredentials(creds) then validateLogin.
+      // clearSessionExpired() must NOT be called before this await: it changes the
+      // sessionExpired dep, fires cleanup (cancelled=true), and would prevent
+      // setCredentials from ever being reached.
       const validation = await getSdk().connectAndValidate(result.credentials);
       console.log("[sait-app] connectAndValidate result", validation);
-      if (cancelled || !validation.valid) return;
+      if (cancelled) {
+        // Component unmounted while connectAndValidate was in flight.
+        // applyCredentials already ran inside connectAndValidate — undo it.
+        getSdk().disconnect();
+        return;
+        // reauthInProgress stays true; on remount, sessionExpired:true re-fires
+        // this effect and a new forceReauth() will complete the flow.
+      }
+      if (!validation.valid) {
+        clearSessionExpired();
+        setCredentials(null); // clears reauthInProgress → App.tsx shows SignInScreen
+        return;
+      }
+      // Success: setCredentials(creds) sets sessionExpired:false + reauthInProgress:false
+      // in one atomic update — no separate clearSessionExpired() needed.
       setCredentials(result.credentials, validation.studentId);
     })();
     return () => {

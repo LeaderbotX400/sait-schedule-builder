@@ -2,7 +2,10 @@ import { type BannerHostConfig, ssag2Url } from "../../config/hosts";
 import { bannerHeaders } from "../../core/headers";
 import { parseJsonOrThrow } from "../../core/json";
 import type { SyncTokenCache } from "../../core/syncToken";
-import { BannerNetworkError, BannerSessionExpiredError } from "../../transport/errors";
+import {
+  BannerNetworkError,
+  BannerSessionExpiredError,
+} from "../../transport/errors";
 import type { BannerTransport } from "../../transport/types";
 import type { BannerIdResponse } from "./types";
 
@@ -30,12 +33,17 @@ export async function validateLogin(
 ): Promise<LoginValidation> {
   let raw: Awaited<ReturnType<BannerTransport["fetch"]>>;
   try {
-    raw = await transport.fetch(ssag2Url(hosts, "/ssb/PersonalInformationDetails/getBannerId"), {
-      headers: bannerHeaders({ syncToken: tokens?.get() ?? null }),
-    });
+    raw = await transport.fetch(
+      ssag2Url(hosts, "/ssb/PersonalInformationDetails/getBannerId"),
+      {
+        headers: bannerHeaders({ syncToken: tokens?.get() ?? null }),
+      },
+    );
   } catch (e) {
     if (e instanceof BannerSessionExpiredError) {
-      console.log("[sait-app] validateLogin: ssag2 returned opaqueredirect (session-expired path)");
+      console.log(
+        "[sait-app] validateLogin: session expired (HTML response or redirect to login)",
+      );
       return {
         valid: false,
         reason: "NOT_LOGGED_IN",
@@ -45,12 +53,19 @@ export async function validateLogin(
     return {
       valid: false,
       reason: "NETWORK",
-      error: e instanceof BannerNetworkError ? e.message : `Could not reach Banner: ${String(e)}`,
+      error:
+        e instanceof BannerNetworkError
+          ? e.message
+          : `Could not reach Banner: ${String(e)}`,
     };
   }
 
   if (raw.error) {
-    return { valid: false, reason: "NETWORK", error: `Could not reach Banner: ${raw.error}` };
+    return {
+      valid: false,
+      reason: "NETWORK",
+      error: `Could not reach Banner: ${raw.error}`,
+    };
   }
   if (!raw.ok) {
     return {
@@ -66,7 +81,8 @@ export async function validateLogin(
     return {
       valid: false,
       reason: "NOT_LOGGED_IN",
-      error: "Session has expired — Banner redirected to login. Please refresh your credentials.",
+      error:
+        "Session has expired — Banner redirected to login. Please refresh your credentials.",
     };
   }
   let body: BannerIdResponse;
@@ -84,7 +100,8 @@ export async function validateLogin(
     return {
       valid: false,
       reason: "NOT_LOGGED_IN",
-      error: "You're not signed in to SAIT Banner. Sign in and refresh your credentials.",
+      error:
+        "You're not signed in to SAIT Banner. Sign in and refresh your credentials.",
     };
   }
   return { valid: true, studentId: String(bannerId) };

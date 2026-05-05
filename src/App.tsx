@@ -23,9 +23,10 @@ export default function App() {
   useScheduleSync();
 
   const credentials = useStore((s) => s.credentials);
+  const reauthInProgress = useStore((s) => s.reauthInProgress);
   const [panelOpen, setPanelOpen] = useState(true);
 
-  if (!credentials) return <SignInScreen />;
+  if (!credentials && !reauthInProgress) return <SignInScreen />;
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">

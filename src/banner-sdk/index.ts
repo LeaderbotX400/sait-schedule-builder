@@ -8,6 +8,7 @@ export { type BannerHostConfig, DEFAULT_HOSTS } from "./config/hosts";
 export { type BannerSdk, type BannerSdkOptions, createBannerSdk } from "./facade";
 export { DirectTransport } from "./transport/direct";
 export {
+  BannerAuthRequiredError,
   BannerCsrfError,
   BannerError,
   BannerHttpError,

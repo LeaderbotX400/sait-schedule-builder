@@ -15,13 +15,14 @@ import type { BannerRequestInit, BannerTransport, RawResponse } from "./types";
 export class ExtensionTransport implements BannerTransport {
   async fetch(url: string, init?: BannerRequestInit): Promise<RawResponse> {
     const raw = await bannerFetch(url, init);
-    // The extension service worker uses `redirect: "manual"` to avoid CORS on
-    // cross-origin auth redirects (b2clogin.com). When it sees an opaque
-    // redirect it returns this sentinel; surface it as a session-expired
-    // error so the UI prompts reauth instead of leaking through as a generic
-    // network failure.
+    // The extension service worker uses redirect:"manual" to avoid CORS errors on
+    // cross-origin redirects (e.g., b2clogin.com). Session expiry is detected via
+    // HTML responses on JSON endpoints (in core/request.ts finalize). The legacy
+    // BANNER_SESSION_EXPIRED error code is kept as a safety fallback.
     if (raw.error === "BANNER_SESSION_EXPIRED") {
-      throw new BannerSessionExpiredError("Banner session expired (redirected to login).");
+      throw new BannerSessionExpiredError(
+        "Banner session expired (redirected to login).",
+      );
     }
     return raw;
   }

@@ -1,5 +1,6 @@
 import type { BannerHostConfig } from "../config/hosts";
 import {
+  BannerAuthRequiredError,
   BannerHttpError,
   BannerNetworkError,
   BannerNotPermittedError,
@@ -67,7 +68,14 @@ export async function bannerRequest<T>(
 }
 
 function finalize<T>(raw: RawResponse): T {
-  if (raw.error) throw new BannerNetworkError(raw.error);
+  if (raw.error) {
+    // Status 0 with an error typically means the extension couldn't reach Banner
+    // or fetch failed — usually due to missing/invalid credentials.
+    if (raw.status === 0) {
+      throw new BannerAuthRequiredError();
+    }
+    throw new BannerNetworkError(raw.error);
+  }
   if (!raw.ok) throw new BannerHttpError(raw.status, raw.body);
   if (raw.contentType.includes("text/html")) throw new BannerSessionExpiredError();
   return parseJsonOrThrow<T>(raw);

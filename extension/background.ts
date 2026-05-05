@@ -132,28 +132,32 @@ interface BannerFetchResponse {
   error?: string;
 }
 
-async function handleBannerFetch(req: BannerFetchRequest): Promise<BannerFetchResponse> {
+async function handleBannerFetch(
+  req: BannerFetchRequest,
+): Promise<BannerFetchResponse> {
   try {
     const init: RequestInit = {
       method: req.init?.method ?? "GET",
       credentials: "include",
-      // When Banner's session has expired, ssag2/ssag6 reply with a 302 to
-      // b2clogin.com. Following that redirect from a chrome-extension origin
-      // dies on CORS (b2clogin sends no Access-Control-Allow-Origin). Manual
-      // redirect mode hands us back an opaqueredirect we can classify as a
-      // session-expired signal instead of throwing.
+      // Use manual redirect mode to avoid CORS errors on cross-origin redirects
+      // (e.g., redirects to b2clogin.com during auth). When a redirect is
+      // detected, we return empty so polling can retry after the popup completes
+      // the auth flow. The popup window itself handles redirects fine because
+      // it's a regular browser tab.
       redirect: "manual",
     };
     if (req.init?.headers) init.headers = req.init.headers;
     if (req.init?.body !== undefined) init.body = req.init.body;
     const res = await fetch(req.url, init);
     if (res.type === "opaqueredirect") {
+      // Redirect detected - likely due to session expiry or ongoing auth.
+      // Return empty response to allow polling to continue. The popup window
+      // handles the redirect naturally; we'll retry after the popup completes auth.
       return {
         ok: false,
         status: 0,
         contentType: "",
         body: "",
-        error: "BANNER_SESSION_EXPIRED",
       };
     }
     const body = await res.text();
@@ -208,7 +212,8 @@ async function handleGetCredentials(): Promise<CredentialResult> {
       return {
         ok: false,
         error: "MISSING_SESSION",
-        message: "JSESSIONID cookie not found. Your Banner session may have expired.",
+        message:
+          "JSESSIONID cookie not found. Your Banner session may have expired.",
         loginUrl: LOGIN_URL,
       };
     }
@@ -243,7 +248,10 @@ async function handleGetCredentials(): Promise<CredentialResult> {
     return {
       ok: false,
       error: "UNKNOWN",
-      message: err instanceof Error ? err.message : "Unknown error reading credentials",
+      message:
+        err instanceof Error
+          ? err.message
+          : "Unknown error reading credentials",
     };
   }
 }
@@ -257,7 +265,9 @@ async function handleGetCredentials(): Promise<CredentialResult> {
 async function handleSetCookies(
   cookies: Record<string, string>,
 ): Promise<{ ok: boolean; message?: string }> {
-  const entries = Object.entries(cookies).filter(([, v]) => typeof v === "string" && v.length > 0);
+  const entries = Object.entries(cookies).filter(
+    ([, v]) => typeof v === "string" && v.length > 0,
+  );
   if (entries.length === 0) {
     return { ok: false, message: "No cookies provided" };
   }
@@ -344,7 +354,13 @@ async function runLoginFlow(port: chrome.runtime.Port): Promise<void> {
     console.error("[sait-ext] windows.create failed", e);
   }
 
-  if (!win || !win.tabs || win.tabs.length === 0 || win.id == null || win.tabs[0]?.id == null) {
+  if (
+    !win ||
+    !win.tabs ||
+    win.tabs.length === 0 ||
+    win.id == null ||
+    win.tabs[0]?.id == null
+  ) {
     safePost(port, {
       ok: false,
       error: "NO_WINDOW",
@@ -372,7 +388,10 @@ async function runLoginFlow(port: chrome.runtime.Port): Promise<void> {
     if (settled) return;
     settled = true;
     cleanup();
-    console.log("[sait-ext] settle", result.ok ? "ok" : `${result.error}: ${result.message}`);
+    console.log(
+      "[sait-ext] settle",
+      result.ok ? "ok" : `${result.error}: ${result.message}`,
+    );
     safePost(port, result);
     try {
       port.disconnect();
@@ -384,7 +403,11 @@ async function runLoginFlow(port: chrome.runtime.Port): Promise<void> {
   const tryCapture = async (source: string): Promise<void> => {
     if (settled) return;
     const creds = await handleGetCredentials();
-    console.log("[sait-ext] tryCapture", source, creds.ok ? "ok" : `fail: ${creds.error}`);
+    console.log(
+      "[sait-ext] tryCapture",
+      source,
+      creds.ok ? "ok" : `fail: ${creds.error}`,
+    );
     if (!creds.ok) return;
     // DIAG: dump JSESSIONID presence on each Banner host right before we
     // declare success. If ssag2/ssag1 are empty here, the session-expired
@@ -412,7 +435,10 @@ async function runLoginFlow(port: chrome.runtime.Port): Promise<void> {
   };
 
   // Trigger 2 — content script reports the sync token.
-  const onMessage = (message: unknown, sender: chrome.runtime.MessageSender) => {
+  const onMessage = (
+    message: unknown,
+    sender: chrome.runtime.MessageSender,
+  ) => {
     if (sender.tab?.id !== tabId) return;
     const m = message as { type?: string };
     if (m?.type !== "SYNC_TOKEN_FOUND") return;
@@ -423,7 +449,11 @@ async function runLoginFlow(port: chrome.runtime.Port): Promise<void> {
   };
 
   // Trigger 3 — popup tab finishes navigation.
-  const onUpdated = (id: number, changeInfo: { status?: string }, _tab: chrome.tabs.Tab) => {
+  const onUpdated = (
+    id: number,
+    changeInfo: { status?: string },
+    _tab: chrome.tabs.Tab,
+  ) => {
     if (id !== tabId || changeInfo.status !== "complete") return;
     console.log("[sait-ext] popup tab complete", _tab.url);
     setTimeout(() => void tryCapture("tab-complete"), 2000);
@@ -489,17 +519,20 @@ async function handleOpenAuthUrl(): Promise<
   { ok: true } | { ok: false; error: string; message: string }
 > {
   return new Promise((resolve) => {
-    chrome.windows.create({ url: LOGIN_URL, type: "popup", width: 520, height: 680 }, (win) => {
-      if (!win) {
-        resolve({
-          ok: false,
-          error: "NO_WINDOW",
-          message: "Could not open auth window.",
-        });
-        return;
-      }
-      resolve({ ok: true });
-    });
+    chrome.windows.create(
+      { url: LOGIN_URL, type: "popup", width: 520, height: 680 },
+      (win) => {
+        if (!win) {
+          resolve({
+            ok: false,
+            error: "NO_WINDOW",
+            message: "Could not open auth window.",
+          });
+          return;
+        }
+        resolve({ ok: true });
+      },
+    );
   });
 }
 
@@ -507,27 +540,33 @@ async function handleOpenAuthUrl(): Promise<
  * Fetch the synchronizer token by loading the Banner registration page.
  * Cookies are attached automatically because of host_permissions + the user's
  * existing session; no manual Cookie header needed.
+ *
+ * Uses redirect:"manual" to avoid CORS errors on cross-origin redirects.
+ * When a redirect is detected (popup still authenticating), returns null
+ * to let the login flow's polling retry after the popup completes auth.
  */
 async function fetchSyncToken(): Promise<string | null> {
-  // Same redirect:"manual" guard as handleBannerFetch: if the registration
-  // page itself 302s to b2clogin during expiry, an opaqueredirect lets us
-  // bail out instead of crashing on CORS. Returning null here matches the
-  // existing "no token available" contract; the next BANNER_FETCH will
-  // surface the session-expired error through the proper channel.
   const res = await fetch(REGISTRATION_URL, {
     credentials: "include",
     redirect: "manual",
   });
+
+  // If the registration page redirects (e.g., to login due to expired session),
+  // return null and let polling retry after the popup auth flow completes.
   if (res.type === "opaqueredirect") return null;
 
   const syncHeader = res.headers.get("X-Synchronizer-Token");
   if (syncHeader) return syncHeader;
 
   const html = await res.text();
-  const metaMatch = html.match(/name=["']synchronizerToken["']\s+content=["']([^"']+)["']/);
+  const metaMatch = html.match(
+    /name=["']synchronizerToken["']\s+content=["']([^"']+)["']/,
+  );
   if (metaMatch?.[1]) return metaMatch[1];
 
-  const jsMatch = html.match(/synchronizerToken["']?\s*[:=]\s*["']([a-f0-9-]+)["']/i);
+  const jsMatch = html.match(
+    /synchronizerToken["']?\s*[:=]\s*["']([a-f0-9-]+)["']/i,
+  );
   if (jsMatch?.[1]) return jsMatch[1];
 
   return null;

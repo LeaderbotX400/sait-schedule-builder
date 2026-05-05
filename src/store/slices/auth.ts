@@ -18,6 +18,8 @@ export interface AuthSlice {
   credentials: BannerCredentials | null;
   studentId: string | null;
   sessionExpired: boolean;
+  /** True while the reauth popup is open, so App.tsx keeps the main screen visible. */
+  reauthInProgress: boolean;
   gpa: GpaResponse | null;
   registrationNotices: RegistrationNoticesResponse | null;
 
@@ -35,6 +37,7 @@ export const createAuthSlice: StateCreator<AuthSlice, [], [], AuthSlice> = (set,
   credentials: null,
   studentId: null,
   sessionExpired: false,
+  reauthInProgress: false,
   gpa: null,
   registrationNotices: null,
 
@@ -45,6 +48,7 @@ export const createAuthSlice: StateCreator<AuthSlice, [], [], AuthSlice> = (set,
         credentials: creds,
         studentId: studentId ?? null,
         sessionExpired: false,
+        reauthInProgress: false,
       });
     } else {
       getSdk().disconnect();
@@ -53,6 +57,7 @@ export const createAuthSlice: StateCreator<AuthSlice, [], [], AuthSlice> = (set,
         studentId: null,
         gpa: null,
         registrationNotices: null,
+        reauthInProgress: false,
       });
     }
   },
@@ -68,6 +73,7 @@ export const createAuthSlice: StateCreator<AuthSlice, [], [], AuthSlice> = (set,
       gpa: null,
       registrationNotices: null,
       sessionExpired: true,
+      reauthInProgress: true,
     });
   },
 

@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { forceReauth } from "./lib/extension";
 import CurrentScheduleEditor from "./features/current/CurrentScheduleEditor";
 import BlockoutGrid from "./features/rules/BlockoutGrid";
 import RulesPanel from "./features/rules/RulesPanel";
@@ -17,12 +18,24 @@ type Tab = "current" | "browse";
  */
 export default function MainArea() {
   const [activeTab, setActiveTab] = useState<Tab>("current");
+  const [loginInProgress, setLoginInProgress] = useState(false);
 
   const courseGroups = useStore((s) => s.courseGroups);
   const currentRegistrations = useStore((s) => s.currentRegistrations);
   const credentials = useStore((s) => s.credentials);
   const registrationsLoading = useStore((s) => s.registrationsLoading);
   const loadError = useStore((s) => s.loadError);
+  const authRequired = useStore((s) => s.authRequired);
+  const setAuthRequired = useStore((s) => s.setAuthRequired);
+
+  const handleLogin = useCallback(async () => {
+    setLoginInProgress(true);
+    const result = await forceReauth();
+    setLoginInProgress(false);
+    if (result.ok) {
+      setAuthRequired(false);
+    }
+  }, [setAuthRequired]);
 
   const hasData = courseGroups.size > 0;
 
@@ -41,6 +54,12 @@ export default function MainArea() {
       ) : credentials ? (
         registrationsLoading ? (
           <CenteredSpinner label="Loading your registered courses..." />
+        ) : authRequired ? (
+          <CenteredError
+            message={loadError || "Banner returned 0. Sign in and refresh your credentials."}
+            onLogin={handleLogin}
+            loginInProgress={loginInProgress}
+          />
         ) : loadError ? (
           <CenteredError message={loadError} />
         ) : (
@@ -242,12 +261,26 @@ function CenteredSpinner({ label }: { label: string }) {
   );
 }
 
-function CenteredError({ message }: { message: string }) {
+function CenteredError({
+  message,
+  onLogin,
+  loginInProgress,
+}: {
+  message: string;
+  onLogin?: () => void;
+  loginInProgress?: boolean;
+}) {
   return (
     <div className="flex items-center justify-center h-64">
-      <div className="max-w-sm text-center space-y-2">
+      <div className="max-w-sm text-center space-y-3">
         <p className="text-sm text-red-400">{message}</p>
-        <p className="text-xs text-gray-500">Try disconnecting and signing in again.</p>
+        {onLogin ? (
+          <Button variant="primary" size="sm" onClick={onLogin} disabled={loginInProgress}>
+            {loginInProgress ? "Opening login..." : "Open Login Window"}
+          </Button>
+        ) : (
+          <p className="text-xs text-gray-500">Try disconnecting and signing in again.</p>
+        )}
       </div>
     </div>
   );
