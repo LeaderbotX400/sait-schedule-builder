@@ -43,7 +43,7 @@ src/
   CoursesPanel.tsx  #   main area, sign-in screen) — pulled in by App.tsx
   MainArea.tsx
   SignInScreen.tsx
-  App.tsx           # 36-line layout shell; mounts side-effect hooks +
+  App.tsx           # layout shell; mounts side-effect hooks +
                     #   composes the four shell pieces
 extension/
   background.ts     # service worker — credential capture + cookie mgmt
@@ -58,25 +58,25 @@ Pluggable HTTP transport (`ExtensionTransport`, `DirectTransport`,
 `MockTransport`), a `SyncTokenCache` + `RegistrationSession` that owns
 the term-priming dance, and typed clients per Banner app:
 
-  * `apps/registration/` — class search + section details (14 endpoints)
-    + cart (stage / submit / batch) + active-registrations list +
+- `apps/registration/` — class search + section details (14 endpoints)
+  - cart (stage / submit / batch) + active-registrations list +
     notice banner. Hits `ssag6.sait.ca/StudentRegistrationSsb/`.
-  * `apps/general/` — `getBannerId` (the login-validation chokepoint),
-    personal-info endpoints (10), lookup lists (9). Hits
-    `ssag2.sait.ca/BannerGeneralSsb/`.
-  * `apps/selfService/` — student profile (GPA, registration notices,
-    registered-course list, curriculum HTML), holds count. Hits
-    `ssag1.sait.ca/StudentSelfService/`.
+- `apps/general/` — `getBannerId` (the login-validation chokepoint),
+  personal-info endpoints (10), lookup lists (9). Hits
+  `ssag2.sait.ca/BannerGeneralSsb/`.
+- `apps/selfService/` — student profile (GPA, registration notices,
+  registered-course list, curriculum HTML), holds count. Hits
+  `ssag1.sait.ca/StudentSelfService/`.
 
 `core/request.ts` is the single chokepoint. It branches on the verified
 ssag6 status taxonomy:
 
-  * 403 + small `{"error":"access denied"}` JSON → `BannerNotPermittedError`
-    (the endpoint is gated by a fresh-SAML check XHR can't satisfy)
-  * 200 + `text/html` → refresh sync token via `SyncTokenCache.refresh`
-    + retry once (Banner SAML cycle landed on the XHR)
-  * non-2xx → `BannerHttpError`
-  * network failure → `BannerNetworkError`
+- 403 + small `{"error":"access denied"}` JSON → `BannerNotPermittedError`
+  (the endpoint is gated by a fresh-SAML check XHR can't satisfy)
+- 200 + `text/html` → refresh sync token via `SyncTokenCache.refresh`
+  - retry once (Banner SAML cycle landed on the XHR)
+- non-2xx → `BannerHttpError`
+- network failure → `BannerNetworkError`
 
 The extension is a thin shim: it captures cookies + sync token and
 forwards `BANNER_FETCH` messages. Session validation, retry, and term
@@ -94,18 +94,18 @@ Tests live in `src/domain/tests/` (vitest).
 
 Zustand store with eight slices:
 
-  * `auth` — credentials, studentId, gpa, registrationNotices,
-    sessionExpired
-  * `term` — selectedTerm
-  * `courses` — courseGroups (Map<subjectCourse, CourseSection[]>),
-    loadBannerResponse, clearCourses
-  * `selection` — selectedCourses (Set<subjectCourse>)
-  * `rules` — ScheduleRules + setRules
-  * `schedules` — generated schedules + activeIndex + generationStatus
-    + generate() (with the explainEmpty error helper)
-  * `currentReg` — currentRegistrations, sectionOverrides,
-    includedCourses, swapSection, getCurrentSchedule
-  * `ui` — loadError, registrationsLoading
+- `auth` — credentials, studentId, gpa, registrationNotices,
+  sessionExpired
+- `term` — selectedTerm
+- `courses` — courseGroups (Map<subjectCourse, CourseSection[]>),
+  loadBannerResponse, clearCourses
+- `selection` — selectedCourses (Set<subjectCourse>)
+- `rules` — ScheduleRules + setRules
+- `schedules` — generated schedules + activeIndex + generationStatus
+  - generate() (with the explainEmpty error helper)
+- `currentReg` — currentRegistrations, sectionOverrides,
+  includedCourses, swapSection, getCurrentSchedule
+- `ui` — loadError, registrationsLoading
 
 The SDK is constructed once per page load via `src/store/sdk.ts`'s
 `getSdk()` singleton. The `auth` slice's `setCredentials` action
@@ -122,7 +122,8 @@ Zustand `persist` middleware mirrors `rules`, `term`, `selectedCourses`,
 `sectionOverrides`, and `includedCourses` to `localStorage` under
 `sait-sb-v1`. Map and Set are serialized as arrays via `partialize`
 and rebuilt via `merge`. Generated schedules + the credentials blob
-+ transient UI flags are intentionally NOT persisted.
+
+- transient UI flags are intentionally NOT persisted.
 
 To clear local prefs: `localStorage.removeItem("sait-sb-v1")`.
 
@@ -140,12 +141,14 @@ To clear local prefs: `localStorage.removeItem("sait-sb-v1")`.
 
 ### Testing
 
-`pnpm test:run` runs vitest. 48 tests today across:
+`pnpm test:run` runs vitest. 62 tests today across:
 
-  * `src/domain/tests/` — scheduler, scoring, conflicts, time, parser
-  * `src/banner-sdk/tests/` — request chokepoint (retry / error
-    classification), search byCourses, registration registerCrns
-  * `src/features/auth/tests/parseHeaders.test.ts` — manual-paste header parser
+- `src/domain/tests/` — scheduler, scoring, conflicts, time, parser
+- `src/banner-sdk/tests/` — request chokepoint (retry / error
+  classification), search byCourses, registration registerCrns,
+  identity / session-validation
+- `src/store/tests/sdk.test.ts` — SDK singleton wiring
+- `src/features/auth/tests/parseHeaders.test.ts` — manual-paste header parser
 
 `MockTransport` (`src/banner-sdk/transport/mock.ts`) records every
 call and returns canned responses; pass it to `createBannerSdk` to
