@@ -23,4 +23,11 @@ export interface BannerRequestInit {
 
 export interface BannerTransport {
   fetch(url: string, init?: BannerRequestInit): Promise<RawResponse>;
+  /**
+   * Optional host-priming hook. Triggers a credentialed, follow-redirect GET
+   * against a host root so Banner's CAS/SAML bounce can mint per-host
+   * JSESSIONID + NLB cookies. No-op or absent on transports that don't need it
+   * (DirectTransport, MockTransport).
+   */
+  prime?(url: string): Promise<void>;
 }

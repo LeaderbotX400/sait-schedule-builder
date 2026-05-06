@@ -35,3 +35,17 @@ export function bannerFetch(
 ): Promise<BannerFetchResponse> {
   return send<BannerFetchResponse>({ type: "BANNER_FETCH", url, init });
 }
+
+export interface BannerPrimeResponse {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Asks the SW to issue a credentialed, follow-redirect GET to a host root so
+ * Banner's CAS/SAML bounce can mint per-host JSESSIONID + NLB cookies. Used to
+ * bootstrap ssag1/ssag2 sessions; ssag6 is primed by the login popup.
+ */
+export function bannerPrime(url: string): Promise<BannerPrimeResponse> {
+  return send<BannerPrimeResponse>({ type: "BANNER_PRIME", url });
+}

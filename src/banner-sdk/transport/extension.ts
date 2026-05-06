@@ -1,4 +1,4 @@
-import { bannerFetch } from "../../lib/extension";
+import { bannerFetch, bannerPrime } from "../../lib/extension";
 import { BannerSessionExpiredError } from "./errors";
 import type { BannerRequestInit, BannerTransport, RawResponse } from "./types";
 
@@ -23,5 +23,11 @@ export class ExtensionTransport implements BannerTransport {
       throw new BannerSessionExpiredError("Banner session expired (redirected to login).");
     }
     return raw;
+  }
+
+  async prime(url: string): Promise<void> {
+    // Best-effort: if priming fails, the subsequent real fetch will surface
+    // the actual error. No need to throw or log here.
+    await bannerPrime(url);
   }
 }

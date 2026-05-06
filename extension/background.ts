@@ -57,6 +57,10 @@ function routeMessage(message: unknown, sendResponse: SendResponse): boolean {
     case "BANNER_FETCH":
       handleBannerFetch(message as BannerFetchRequest).then(sendResponse);
       return true;
+
+    case "BANNER_PRIME":
+      handleBannerPrime(message as BannerPrimeRequest).then(sendResponse);
+      return true;
   }
   return false;
 }
@@ -119,6 +123,41 @@ async function handleBannerFetch(req: BannerFetchRequest): Promise<BannerFetchRe
       body: "",
       error: e instanceof Error ? e.message : "Network error",
     };
+  }
+}
+
+interface BannerPrimeRequest {
+  type: "BANNER_PRIME";
+  url: string;
+}
+
+interface BannerPrimeResponse {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Bootstraps a per-host Banner session by following the CAS/SAML bounce.
+ * Distinct from BANNER_FETCH because:
+ *   - redirect: "follow" (not "manual") — we WANT the IdP round-trip to
+ *     complete so the host mints its JSESSIONID + NLB cookies.
+ *   - body is discarded — only the Set-Cookie side effects matter.
+ *   - no headers are forwarded; this isn't an XHR-style call.
+ * Best-effort: if the priming fetch fails, the caller's real request will
+ * surface the actual error.
+ */
+async function handleBannerPrime(req: BannerPrimeRequest): Promise<BannerPrimeResponse> {
+  try {
+    const res = await fetch(req.url, {
+      method: "GET",
+      credentials: "include",
+      redirect: "follow",
+    });
+    // Drain the body to release the connection; we don't care about content.
+    await res.text().catch(() => "");
+    return { ok: res.ok || res.status > 0 };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Prime failed" };
   }
 }
 
