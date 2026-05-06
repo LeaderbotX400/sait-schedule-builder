@@ -10,8 +10,7 @@ export default function GpaChip() {
   const value = gpa?.overallGpa;
   if (value == null) return null;
 
-  const formatted =
-    typeof value === "number" ? value.toFixed(2) : String(value);
+  const formatted = typeof value === "number" ? value.toFixed(2) : String(value);
 
   return (
     <span

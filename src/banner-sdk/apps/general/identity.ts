@@ -29,10 +29,13 @@ export async function validateLogin(
   transport: BannerTransport,
   hosts: BannerHostConfig,
 ): Promise<LoginValidation> {
-  const temp = await fetch("https://sait-sust-prd-prd1-eid-idm-wso2.sait.ca/cas-web/login?TARGET=https%3A%2F%2Fsait-sust-prd-prd1-ban-ss-ssag1.sait.ca%2FStudentSelfService%2Flogin%2Fcas", {
-    method: "GET",
-    credentials: "include",
-  });
+  const temp = await fetch(
+    "https://sait-sust-prd-prd1-eid-idm-wso2.sait.ca/cas-web/login?TARGET=https%3A%2F%2Fsait-sust-prd-prd1-ban-ss-ssag1.sait.ca%2FStudentSelfService%2Flogin%2Fcas",
+    {
+      method: "GET",
+      credentials: "include",
+    },
+  );
 
   console.log("CAS login page response:", temp);
   const url = ssag2Url(hosts, "/ssb/PersonalInformationDetails/getBannerId");
