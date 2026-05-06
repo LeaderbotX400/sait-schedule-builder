@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useAuth } from "./auth";
 import CurrentScheduleEditor from "./features/current/CurrentScheduleEditor";
 import BlockoutGrid from "./features/rules/BlockoutGrid";
 import RulesPanel from "./features/rules/RulesPanel";
@@ -16,15 +17,15 @@ export default function MainArea() {
 
   const courseGroups = useStore((s) => s.courseGroups);
   const currentRegistrations = useStore((s) => s.currentRegistrations);
-  const isLoggedIn = useStore((s) => s.isLoggedIn);
+  const { status, reauth } = useAuth();
+  const isLoggedIn = status === "authenticated";
   const registrationsLoading = useStore((s) => s.registrationsLoading);
   const loadError = useStore((s) => s.loadError);
   const authRequired = useStore((s) => s.authRequired);
-  const setLoggedIn = useStore((s) => s.setLoggedIn);
 
   const handleReauth = useCallback(() => {
-    setLoggedIn(false);
-  }, [setLoggedIn]);
+    void reauth();
+  }, [reauth]);
 
   const hasData = courseGroups.size > 0;
 

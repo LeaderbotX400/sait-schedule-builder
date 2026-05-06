@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, type PersistOptions, persist } from "zustand/middleware";
 import { isDemoMode } from "../demo";
-import { type AuthSlice, createAuthSlice } from "./slices/auth";
 import { type CoursesSlice, createCoursesSlice } from "./slices/courses";
 import { type CurrentRegSlice, createCurrentRegSlice } from "./slices/currentReg";
 import { createRulesSlice, type RulesSlice } from "./slices/rules";
@@ -10,8 +9,7 @@ import { createSelectionSlice, type SelectionSlice } from "./slices/selection";
 import { createTermSlice, type TermSlice } from "./slices/term";
 import { createUiSlice, type UiSlice } from "./slices/ui";
 
-export type AppState = AuthSlice &
-  TermSlice &
+export type AppState = TermSlice &
   CoursesSlice &
   SelectionSlice &
   RulesSlice &
@@ -55,7 +53,6 @@ const persistOptions: PersistOptions<AppState, PersistedShape> = {
 export const useStore = create<AppState>()(
   persist(
     (...args) => ({
-      ...createAuthSlice(...args),
       ...createTermSlice(...args),
       ...createCoursesSlice(...args),
       ...createSelectionSlice(...args),

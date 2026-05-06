@@ -1,3 +1,4 @@
+import { useAuth } from "./auth";
 import CourseSearch from "./features/search/CourseSearch";
 import CourseSelector from "./features/selection/CourseSelector";
 import { useStore } from "./store";
@@ -12,7 +13,7 @@ interface Props {
  * AppHeader.
  */
 export default function CoursesPanel({ open }: Props) {
-  const isLoggedIn = useStore((s) => s.isLoggedIn);
+  const isLoggedIn = useAuth().status === "authenticated";
   const courseGroups = useStore((s) => s.courseGroups);
   const selectedCourses = useStore((s) => s.selectedCourses);
   const toggleCourse = useStore((s) => s.toggleCourse);

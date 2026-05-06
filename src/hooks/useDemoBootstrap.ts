@@ -1,14 +1,13 @@
 import { useEffect } from "react";
+import { getAuthService, useAuthState } from "../auth";
 import { isDemoMode } from "../demo";
-import { useStore } from "../store";
 
 export function useDemoBootstrap(): void {
-  const isLoggedIn = useStore((s) => s.isLoggedIn);
-  const setLoggedIn = useStore((s) => s.setLoggedIn);
+  const status = useAuthState((s) => s.status);
 
   useEffect(() => {
     if (!isDemoMode()) return;
-    if (isLoggedIn) return;
-    setLoggedIn(true);
-  }, [isLoggedIn, setLoggedIn]);
+    if (status === "authenticated") return;
+    void getAuthService().login();
+  }, [status]);
 }

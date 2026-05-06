@@ -1,3 +1,4 @@
+import { useAuth } from "./auth";
 import { downloadICal } from "./domain/ical";
 import ConnectionStatus from "./features/auth/ConnectionStatus";
 import RulesPanel from "./features/rules/RulesPanel";
@@ -14,7 +15,7 @@ interface Props {
 }
 
 export default function AppHeader({ panelOpen, onTogglePanel }: Props) {
-  const isLoggedIn = useStore((s) => s.isLoggedIn);
+  const isLoggedIn = useAuth().status === "authenticated";
   const term = useStore((s) => s.term);
   const courseGroups = useStore((s) => s.courseGroups);
   const selectedCourses = useStore((s) => s.selectedCourses);

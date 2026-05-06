@@ -1,13 +1,13 @@
 import { useEffect } from "react";
+import { getSdk, useAuthState } from "../auth";
 import { BannerAuthRequiredError } from "../banner-sdk";
 import { parseActiveRegistrations } from "../domain/parser";
 import { useStore } from "../store";
-import { getSdk } from "../store/sdk";
 
 const SKIP_TERMS = ["(View Only)", "Non-Credit", "Apprentice", "(View only)"];
 
 export function useScheduleSync(): void {
-  const isLoggedIn = useStore((s) => s.isLoggedIn);
+  const isLoggedIn = useAuthState((s) => s.status === "authenticated");
   const courseGroups = useStore((s) => s.courseGroups);
   const selectedCourses = useStore((s) => s.selectedCourses);
   const rules = useStore((s) => s.rules);
@@ -98,7 +98,7 @@ export function useScheduleSync(): void {
 
 export async function refreshAllData(): Promise<void> {
   const state = useStore.getState();
-  if (!state.isLoggedIn) return;
+  if (useAuthState.getState().status !== "authenticated") return;
 
   state.setRegistrationsLoading(true);
   state.setLoadError(null);
