@@ -1,5 +1,11 @@
 # SAIT Schedule Builder
 
+This is a vibe-coded slop project made to provide a better user experience to SAIT's official "Banner" system by Eulician.
+
+I really liked how some other universities provided you a way to just: select some courses, set some rules (start time, days off, etc) and would automatically generate you some schedule options. This aims to implement simmilar features completely in your own browser.
+
+--
+
 Client-side React/TypeScript SPA that pulls course sections from SAIT's
 Banner registration system and generates non-conflicting schedule
 combinations ranked by quality. Ships with a Manifest v3 chrome
@@ -23,19 +29,19 @@ pnpm build              # outputs dist/ — load that as an unpacked
 
 ## Scripts
 
-| Command | What it does |
-|---------|---|
-| `pnpm dev` | Vite dev server (`--host`, port 5173) |
-| `pnpm build` | `tsc -b && vite build` |
-| `pnpm preview` | Preview the production build |
-| `pnpm typecheck` | `tsc -b --noEmit` |
-| `pnpm test` | `vitest` watch mode |
-| `pnpm test:run` | `vitest run` (CI-safe; passes with no tests) |
-| `pnpm test:ui` | vitest in `@vitest/ui` |
-| `pnpm lint` | `biome check` |
-| `pnpm format` | `biome format --write` |
-| `pnpm fix` | `biome check --write` |
-| `pnpm check` | full pipeline: typecheck + lint + tests + build |
+| Command          | What it does                                    |
+| ---------------- | ----------------------------------------------- |
+| `pnpm dev`       | Vite dev server (`--host`, port 5173)           |
+| `pnpm build`     | `tsc -b && vite build`                          |
+| `pnpm preview`   | Preview the production build                    |
+| `pnpm typecheck` | `tsc -b --noEmit`                               |
+| `pnpm test`      | `vitest` watch mode                             |
+| `pnpm test:run`  | `vitest run` (CI-safe; passes with no tests)    |
+| `pnpm test:ui`   | vitest in `@vitest/ui`                          |
+| `pnpm lint`      | `biome check`                                   |
+| `pnpm format`    | `biome format --write`                          |
+| `pnpm fix`       | `biome check --write`                           |
+| `pnpm check`     | full pipeline: typecheck + lint + tests + build |
 
 Pre-commit runs biome via simple-git-hooks + lint-staged.
 
