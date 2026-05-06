@@ -44,7 +44,10 @@ export function createDemoTransport(): MockTransport {
   t.on("/PersonalInformationDetails/getBannerId", json({ bannerId: "000123456" }));
 
   // ── SelfService: profile / holds ────────────────────────────────────
-  t.on("/studentProfile/viewGPAHoursList", json({ cumulativeGpa: 3.85, cumulativeHours: 42 }));
+  t.on(
+    "/studentProfile/viewGPAHoursList",
+    json({ overallGpa: "3.85", overallHours: 42, gpas: [] }),
+  );
   t.on(
     "/studentProfile/viewRegistrationNotices",
     json({

@@ -1,8 +1,16 @@
+export interface GpaEntry {
+  gpa?: number | string;
+  hours?: number | string;
+  hoursAttempted?: number | string;
+  levelDesc?: string;
+  typeDesc?: string;
+  [k: string]: unknown;
+}
+
 export interface GpaResponse {
-  cumulativeGpa?: number | string;
-  cumulativeHours?: number | string;
-  termGpa?: number | string;
-  termHours?: number | string;
+  overallGpa?: number | string;
+  overallHours?: number | string;
+  gpas?: GpaEntry[];
   [k: string]: unknown;
 }
 

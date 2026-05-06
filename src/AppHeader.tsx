@@ -4,6 +4,7 @@ import ConnectionStatus from "./features/auth/ConnectionStatus";
 import RulesPanel from "./features/rules/RulesPanel";
 import { refreshAllData } from "./hooks/useScheduleSync";
 import { describeTerm } from "./lib/terms";
+import { GpaChip } from "./profile";
 import { useStore } from "./store";
 import Button from "./ui/Button";
 import Popover from "./ui/Popover";
@@ -88,6 +89,7 @@ export default function AppHeader({ panelOpen, onTogglePanel }: Props) {
               </span>
             </Button>
           )}
+          {isLoggedIn && <GpaChip />}
           {isLoggedIn && (
             <ConnectionStatus termLabel={describeTerm(term)} loading={registrationsLoading} />
           )}
