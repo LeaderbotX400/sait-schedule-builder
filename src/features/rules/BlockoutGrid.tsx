@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getExpandedMeetings } from "../../domain/scheduler";
 import { formatHour, formatTime, timeToMinutes } from "../../domain/time";
 import type {
@@ -49,6 +49,56 @@ const HARD_BLOCKED_STYLE: React.CSSProperties = {
   backgroundColor: "rgba(0,0,0,0.32)",
 };
 
+interface DayCellsProps {
+  day: DayOfWeek;
+  hours: number[];
+  dayBlockout: Record<number, BlockoutCell> | undefined;
+  isHardBlocked: (day: DayOfWeek, hour: number) => boolean;
+  onMouseDown: (day: DayOfWeek, hour: number) => void;
+  onMouseEnter: (day: DayOfWeek, hour: number) => void;
+}
+
+const DayCells = React.memo(function DayCells({
+  day,
+  hours,
+  dayBlockout,
+  isHardBlocked,
+  onMouseDown,
+  onMouseEnter,
+}: DayCellsProps) {
+  return (
+    <>
+      {hours.map((h, i) => {
+        const hardBlocked = isHardBlocked(day, h);
+        const cell = dayBlockout?.[h] ?? "neutral";
+        return (
+          <div
+            key={`cell-${h}`}
+            className={`absolute w-full border-b border-gray-800/30 ${
+              hardBlocked
+                ? ""
+                : cell === "preferred"
+                  ? "bg-emerald-500/[.22]"
+                  : cell === "blocked"
+                    ? "bg-red-500/[.22]"
+                    : ""
+            }`}
+            style={{
+              top: i * HOUR_HEIGHT,
+              height: HOUR_HEIGHT,
+              zIndex: 0,
+              ...(hardBlocked ? HARD_BLOCKED_STYLE : {}),
+              cursor: hardBlocked ? "not-allowed" : "crosshair",
+            }}
+            onMouseDown={() => onMouseDown(day, h)}
+            onMouseEnter={() => onMouseEnter(day, h)}
+          />
+        );
+      })}
+    </>
+  );
+});
+
 function fitBadgeStyle(score: number): string {
   if (score >= 80) return "bg-emerald-900/60 text-emerald-300 border border-emerald-700/60";
   if (score >= 60) return "bg-amber-900/60 text-amber-300 border border-amber-700/60";
@@ -68,6 +118,10 @@ export default function BlockoutGrid({
   const [paintMode, setPaintMode] = useState<BlockoutCell>("preferred");
   const [isPainting, setIsPainting] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
+  const blockoutRef = useRef(blockout);
+  useLayoutEffect(() => {
+    blockoutRef.current = blockout;
+  });
 
   const winStartHour = useMemo(
     () => Math.floor(parseInt(rules.earliestStart, 10) / 100),
@@ -175,11 +229,11 @@ export default function BlockoutGrid({
   const paint = useCallback(
     (day: DayOfWeek, hour: number) => {
       if (isHardBlocked(day, hour)) return;
-      const next = { ...blockout };
+      const next = { ...blockoutRef.current };
       next[day] = { ...next[day], [hour]: paintMode };
       onBlockoutChange(next);
     },
-    [blockout, onBlockoutChange, paintMode, isHardBlocked],
+    [onBlockoutChange, paintMode, isHardBlocked],
   );
 
   const handleMouseDown = useCallback(
@@ -308,34 +362,14 @@ export default function BlockoutGrid({
                   className="relative border-l border-gray-800/40"
                   style={{ height: totalHeight }}
                 >
-                  {hours.map((h, i) => {
-                    const hardBlocked = isHardBlocked(day, h);
-                    const cell = blockout[day]?.[h] ?? "neutral";
-
-                    return (
-                      <div
-                        key={`cell-${h}`}
-                        className={`absolute w-full border-b border-gray-800/30 ${
-                          hardBlocked
-                            ? ""
-                            : cell === "preferred"
-                              ? "bg-emerald-500/[.22]"
-                              : cell === "blocked"
-                                ? "bg-red-500/[.22]"
-                                : ""
-                        }`}
-                        style={{
-                          top: i * HOUR_HEIGHT,
-                          height: HOUR_HEIGHT,
-                          zIndex: 0,
-                          ...(hardBlocked ? HARD_BLOCKED_STYLE : {}),
-                          cursor: hardBlocked ? "not-allowed" : "crosshair",
-                        }}
-                        onMouseDown={() => handleMouseDown(day, h)}
-                        onMouseEnter={() => handleMouseEnter(day, h)}
-                      />
-                    );
-                  })}
+                  <DayCells
+                    day={day}
+                    hours={hours}
+                    dayBlockout={blockout[day]}
+                    isHardBlocked={isHardBlocked}
+                    onMouseDown={handleMouseDown}
+                    onMouseEnter={handleMouseEnter}
+                  />
 
                   {/* Ghost (alternative) sections — possible options not chosen */}
                   {(dayGhosts.get(day) ?? []).map(({ course, meeting }, idx) => {

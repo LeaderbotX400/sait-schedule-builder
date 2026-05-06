@@ -160,10 +160,6 @@ function ScheduleArea({ activeTab }: { activeTab: Tab }) {
     );
   }
 
-  if (generationStatus.kind === "generating") {
-    return <CenteredSpinner label="Generating schedules..." />;
-  }
-
   return (
     <div className="space-y-4">
       <BlockoutGrid
@@ -176,7 +172,9 @@ function ScheduleArea({ activeTab }: { activeTab: Tab }) {
         courseGroups={courseGroups}
         selectedCourses={selectedCourses}
       />
-      {activeSchedule ? (
+      {generationStatus.kind === "generating" ? (
+        <CenteredSpinner label="Generating schedules..." />
+      ) : activeSchedule ? (
         <ScheduleDetail schedule={activeSchedule} rules={rules} />
       ) : generationStatus.kind === "empty" ? (
         <EmptyState reason={generationStatus.reason} />

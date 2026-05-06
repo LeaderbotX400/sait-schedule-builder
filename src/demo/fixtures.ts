@@ -51,7 +51,15 @@ interface DemoSection {
   title: string;
   instructor: string;
   meetings: Array<{
-    days: { mon?: boolean; tue?: boolean; wed?: boolean; thu?: boolean; fri?: boolean };
+    days: {
+      mon?: boolean;
+      tue?: boolean;
+      wed?: boolean;
+      thu?: boolean;
+      fri?: boolean;
+      sat?: boolean;
+      sun?: boolean;
+    };
     start: string; // HHMM
     end: string;
     building: string;
@@ -64,6 +72,7 @@ interface DemoSection {
 }
 
 const DEMO_CATALOG: DemoSection[] = [
+  // ── CPRG306 – Database Programming ────────────────────────────────────
   {
     subject: "CPRG",
     courseNumber: "306",
@@ -94,6 +103,7 @@ const DEMO_CATALOG: DemoSection[] = [
     enrollment: 30,
     capacity: 30,
   },
+  // ── CPRG307 – Web Development 2 ───────────────────────────────────────
   {
     subject: "CPRG",
     courseNumber: "307",
@@ -109,6 +119,90 @@ const DEMO_CATALOG: DemoSection[] = [
     enrollment: 22,
     capacity: 30,
   },
+  {
+    subject: "CPRG",
+    courseNumber: "307",
+    sequence: "B",
+    crn: "40401",
+    title: "Web Development 2",
+    instructor: "Prof. Michael Lee",
+    meetings: [
+      { days: { mon: true }, start: "1300", end: "1550", building: "AT", room: "104" },
+      { days: { wed: true }, start: "0800", end: "0950", building: "AT", room: "104" },
+    ],
+    seats: 15,
+    enrollment: 15,
+    capacity: 30,
+  },
+  // ── CPRG310 – Programming Principles ─────────────────────────────────
+  {
+    subject: "CPRG",
+    courseNumber: "310",
+    sequence: "A",
+    crn: "40420",
+    title: "Programming Principles",
+    instructor: "Dr. Alan Park",
+    meetings: [
+      { days: { mon: true }, start: "0900", end: "1050", building: "MA", room: "114" },
+      { days: { wed: true }, start: "0900", end: "1150", building: "MA", room: "114" },
+    ],
+    seats: 10,
+    enrollment: 20,
+    capacity: 30,
+  },
+  {
+    subject: "CPRG",
+    courseNumber: "310",
+    sequence: "B",
+    crn: "40421",
+    title: "Programming Principles",
+    instructor: "Dr. Alan Park",
+    meetings: [
+      { days: { tue: true }, start: "1600", end: "1750", building: "MA", room: "114" },
+      { days: { thu: true }, start: "1600", end: "1850", building: "MA", room: "114" },
+    ],
+    seats: 18,
+    enrollment: 12,
+    capacity: 30,
+  },
+  // ── CPRG315 – Data Structures & Algorithms ────────────────────────────
+  {
+    subject: "CPRG",
+    courseNumber: "315",
+    sequence: "A",
+    crn: "40440",
+    title: "Data Structures and Algorithms",
+    instructor: "Prof. Priya Nair",
+    meetings: [
+      { days: { tue: true }, start: "1000", end: "1150", building: "MA", room: "225" },
+      { days: { thu: true }, start: "1000", end: "1250", building: "MA", room: "225" },
+    ],
+    seats: 6,
+    enrollment: 24,
+    capacity: 30,
+  },
+  {
+    subject: "CPRG",
+    courseNumber: "315",
+    sequence: "B",
+    crn: "40441",
+    title: "Data Structures and Algorithms",
+    instructor: "Prof. Priya Nair",
+    meetings: [
+      {
+        days: { fri: true },
+        start: "1000",
+        end: "1550",
+        building: "AT",
+        room: "208",
+        online: true,
+      },
+    ],
+    seats: 20,
+    enrollment: 10,
+    capacity: 30,
+  },
+  // ── EMTD400 – Emerging Trends ─────────────────────────────────────────
   {
     subject: "EMTD",
     courseNumber: "400",
@@ -138,6 +232,109 @@ const DEMO_CATALOG: DemoSection[] = [
         end: "1750",
         building: "AT",
         room: "208",
+        online: true,
+      },
+    ],
+    seats: 25,
+    enrollment: 5,
+    capacity: 30,
+  },
+  // ── MATH220 – Applied Mathematics ─────────────────────────────────────
+  {
+    subject: "MATH",
+    courseNumber: "220",
+    sequence: "A",
+    crn: "41100",
+    title: "Applied Mathematics for Technology",
+    instructor: "Dr. Fatima Malik",
+    meetings: [
+      { days: { mon: true }, start: "0800", end: "0850", building: "MA", room: "402" },
+      { days: { wed: true }, start: "0800", end: "0850", building: "MA", room: "402" },
+      { days: { fri: true }, start: "0800", end: "0850", building: "MA", room: "402" },
+    ],
+    seats: 5,
+    enrollment: 25,
+    capacity: 30,
+  },
+  {
+    subject: "MATH",
+    courseNumber: "220",
+    sequence: "B",
+    crn: "41101",
+    title: "Applied Mathematics for Technology",
+    instructor: "Prof. James Okafor",
+    meetings: [
+      { days: { tue: true }, start: "1100", end: "1150", building: "MA", room: "402" },
+      { days: { thu: true }, start: "1100", end: "1250", building: "MA", room: "402" },
+    ],
+    seats: 14,
+    enrollment: 16,
+    capacity: 30,
+  },
+  // ── COMM250 – Technical Communication ────────────────────────────────
+  {
+    subject: "COMM",
+    courseNumber: "250",
+    sequence: "A",
+    crn: "41200",
+    title: "Technical Communication",
+    instructor: "Ms. Rachel Torres",
+    meetings: [{ days: { tue: true }, start: "1300", end: "1450", building: "AT", room: "312" }],
+    seats: 22,
+    enrollment: 8,
+    capacity: 30,
+  },
+  {
+    subject: "COMM",
+    courseNumber: "250",
+    sequence: "B",
+    crn: "41201",
+    title: "Technical Communication",
+    instructor: "Ms. Rachel Torres",
+    meetings: [
+      {
+        days: { wed: true },
+        start: "1800",
+        end: "1950",
+        building: "AT",
+        room: "312",
+        online: true,
+      },
+    ],
+    seats: 30,
+    enrollment: 0,
+    capacity: 30,
+  },
+  // ── PROJ300 – Project Management ──────────────────────────────────────
+  {
+    subject: "PROJ",
+    courseNumber: "300",
+    sequence: "A",
+    crn: "41300",
+    title: "IT Project Management",
+    instructor: "Prof. Kevin Walsh",
+    meetings: [
+      { days: { mon: true }, start: "1500", end: "1650", building: "MA", room: "201" },
+      { days: { thu: true }, start: "1500", end: "1650", building: "MA", room: "201" },
+    ],
+    seats: 9,
+    enrollment: 21,
+    capacity: 30,
+  },
+  {
+    subject: "PROJ",
+    courseNumber: "300",
+    sequence: "B",
+    crn: "41301",
+    title: "IT Project Management",
+    instructor: "Prof. Kevin Walsh",
+    meetings: [
+      {
+        days: { sat: true },
+        start: "0900",
+        end: "1250",
+        building: "MA",
+        room: "201",
         online: true,
       },
     ],
@@ -255,6 +452,9 @@ function subjectDescription(subject: string): string {
     {
       CPRG: "Computer Programming",
       EMTD: "Emerging Tech Design",
+      MATH: "Mathematics",
+      COMM: "Communications",
+      PROJ: "Project Management",
     }[subject] ?? subject
   );
 }
@@ -271,13 +471,11 @@ export function searchResultsFor(courseCode: string) {
   };
 }
 
+// Pre-registered in the "currently enrolled" courses panel: CPRG306-A, EMTD400-A, CPRG307-A
+const [cprg306a, , cprg307a, , , , , , emtd400a] = DEMO_CATALOG;
 export const DEMO_ACTIVE_REGISTRATIONS = {
   data: {
-    registrations: [
-      activeReg(DEMO_CATALOG[0]!),
-      activeReg(DEMO_CATALOG[3]!),
-      activeReg(DEMO_CATALOG[2]!),
-    ],
+    registrations: [activeReg(cprg306a!), activeReg(emtd400a!), activeReg(cprg307a!)],
   },
 };
 
@@ -315,5 +513,9 @@ export const DEMO_SUBJECT_SUGGESTIONS = [
   { code: "CPRG306", description: "CPRG306 - Database Programming" },
   { code: "CPRG307", description: "CPRG307 - Web Development 2" },
   { code: "CPRG310", description: "CPRG310 - Programming Principles" },
+  { code: "CPRG315", description: "CPRG315 - Data Structures and Algorithms" },
   { code: "EMTD400", description: "EMTD400 - Emerging Trends in Software Development" },
+  { code: "MATH220", description: "MATH220 - Applied Mathematics for Technology" },
+  { code: "COMM250", description: "COMM250 - Technical Communication" },
+  { code: "PROJ300", description: "PROJ300 - IT Project Management" },
 ];

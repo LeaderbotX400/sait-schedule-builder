@@ -10,7 +10,6 @@ export function useScheduleSync(): void {
   const isLoggedIn = useAuthState((s) => s.status === "authenticated");
   const courseGroups = useStore((s) => s.courseGroups);
   const selectedCourses = useStore((s) => s.selectedCourses);
-  const rules = useStore((s) => s.rules);
   const setCourseGroups = useStore((s) => s.setCourseGroups);
   const setSelectedCourses = useStore((s) => s.setSelectedCourses);
   const initializeCurrentRegistrations = useStore((s) => s.initializeCurrentRegistrations);
@@ -18,10 +17,12 @@ export function useScheduleSync(): void {
   const setLoadError = useStore((s) => s.setLoadError);
   const setAuthRequired = useStore((s) => s.setAuthRequired);
   const setRegistrationsLoading = useStore((s) => s.setRegistrationsLoading);
+  const rules = useStore((s) => s.rules);
   const generate = useStore((s) => s.generate);
 
   useEffect(() => {
     if (!isLoggedIn) return;
+
     let cancelled = false;
 
     const doFetch = async (isRetry: boolean): Promise<void> => {
