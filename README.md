@@ -4,7 +4,7 @@ This is a vibe-coded slop project made to provide a better user experience to SA
 
 I really liked how some other universities provided you a way to just: select some courses, set some rules (start time, days off, etc) and would automatically generate you some schedule options. This aims to implement simmilar features completely in your own browser.
 
---
+---
 
 Client-side React/TypeScript SPA that pulls course sections from SAIT's
 Banner registration system and generates non-conflicting schedule
