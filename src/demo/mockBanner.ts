@@ -40,6 +40,28 @@ export function createDemoTransport(): MockTransport {
     return json(DEMO_SUBJECT_SUGGESTIONS.filter((s) => s.code.includes(q)));
   });
 
+  // ── General app: identity ───────────────────────────────────────────
+  t.on("/PersonalInformationDetails/getBannerId", json({ bannerId: "000123456" }));
+
+  // ── SelfService: profile / holds ────────────────────────────────────
+  t.on("/studentProfile/viewGPAHoursList", json({ cumulativeGpa: 3.85, cumulativeHours: 42 }));
+  t.on(
+    "/studentProfile/viewRegistrationNotices",
+    json({
+      registrationStatus: { eligible: true },
+      notices: [],
+      timeTickets: [{ start: "2026-04-01T09:00:00", end: "2026-04-30T23:59:59" }],
+    }),
+  );
+  t.on("/studentProfile/viewRegisteredCourseList", json({ data: [] }));
+  t.on("/studentProfile/renderCurriculumTemplate", {
+    ok: true,
+    status: 200,
+    contentType: "text/html",
+    body: "<div>Demo curriculum</div>",
+  });
+  t.on("/studentHolds/getHoldsCountCacheHolds", json({ count: 0 }));
+
   // ── Other lookup endpoints ──────────────────────────────────────────
   for (const lookup of [
     "get_subject",
