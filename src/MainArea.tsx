@@ -74,7 +74,7 @@ function ScheduleStripBound() {
 
 function Tabs({ activeTab, onChange }: { activeTab: Tab; onChange: (t: Tab) => void }) {
   return (
-    <div className="flex gap-2 sm:gap-3 mb-4 border-b border-gray-800 overflow-x-auto">
+    <div className="flex gap-2 sm:gap-3 mb-4 border-b border-edge overflow-x-auto">
       <TabButton active={activeTab === "current"} onClick={() => onChange("current")}>
         <span className="hidden sm:inline">Current Schedule</span>
         <span className="sm:hidden">Current</span>
@@ -100,7 +100,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={`px-3 sm:px-4 py-2 text-sm font-medium transition-colors shrink-0 ${
-        active ? "text-white border-b-2 border-blue-500" : "text-gray-400 hover:text-gray-300"
+        active ? "text-fg border-b-2 border-indicator" : "text-fg-muted hover:text-fg"
       }`}
     >
       {children}
@@ -113,7 +113,7 @@ function RulesSidebar() {
   const setRules = useStore((s) => s.setRules);
   return (
     <div className="hidden lg:block w-52 shrink-0">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2">
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-fg-faint mb-2">
         Rules
       </p>
       <RulesPanel rules={rules} onChange={setRules} />
@@ -207,7 +207,7 @@ function ErrorState({ message }: { message: string }) {
       description={
         <>
           <span className="block">{message}</span>
-          <span className="block text-xs text-gray-600 mt-2">
+          <span className="block text-xs text-fg-faint mt-2">
             Try adjusting your rules or course selection, then generate again.
           </span>
         </>
@@ -225,7 +225,7 @@ function GenerateInvite({
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-      <p className="text-sm text-gray-400">
+      <p className="text-sm text-fg-muted">
         {selectedCount === 0
           ? "Select at least one course to generate."
           : `${selectedCount} course${selectedCount !== 1 ? "s" : ""} ready.`}
@@ -241,8 +241,8 @@ function CenteredSpinner({ label }: { label: string }) {
   return (
     <div className="flex items-center justify-center h-64">
       <div className="text-center">
-        <Spinner size="lg" color="text-blue-500" />
-        <p className="mt-3 text-sm text-gray-400">{label}</p>
+        <Spinner size="lg" color="text-primary" />
+        <p className="mt-3 text-sm text-fg-muted">{label}</p>
       </div>
     </div>
   );
@@ -252,13 +252,13 @@ function CenteredError({ message, onReauth }: { message: string; onReauth?: () =
   return (
     <div className="flex items-center justify-center h-64">
       <div className="max-w-sm text-center space-y-3">
-        <p className="text-sm text-red-400">{message}</p>
+        <p className="text-sm text-destructive">{message}</p>
         {onReauth ? (
           <Button variant="primary" size="sm" onClick={onReauth}>
             Sign in again
           </Button>
         ) : (
-          <p className="text-xs text-gray-500">Try disconnecting and signing in again.</p>
+          <p className="text-xs text-fg-faint">Try disconnecting and signing in again.</p>
         )}
       </div>
     </div>
@@ -268,7 +268,7 @@ function CenteredError({ message, onReauth }: { message: string; onReauth?: () =
 function CenteredHint({ message }: { message: string }) {
   return (
     <div className="flex items-center justify-center h-64">
-      <p className="text-sm text-gray-500">{message}</p>
+      <p className="text-sm text-fg-faint">{message}</p>
     </div>
   );
 }

@@ -8,10 +8,10 @@ interface Props {
 }
 
 function scoreBadgeColor(score: number): string {
-  if (score >= 80) return "bg-emerald-600";
-  if (score >= 60) return "bg-yellow-600";
-  if (score >= 40) return "bg-orange-600";
-  return "bg-red-600";
+  if (score >= 80) return "bg-success";
+  if (score >= 60) return "bg-warning";
+  if (score >= 40) return "bg-caution";
+  return "bg-destructive";
 }
 
 function scoreLabel(score: number): string {
@@ -55,41 +55,39 @@ function ScoreBreakdown({ s }: { s: Schedule }) {
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between">
-        <span className="text-xs text-gray-400">Schedule #{s.id}</span>
+        <span className="text-xs text-fg-muted">Schedule #{s.id}</span>
         <div className="flex items-baseline gap-1">
           <span
             className={`text-2xl font-bold ${scoreBadgeColor(s.qualityScore)} bg-clip-text text-transparent`}
           >
             {s.qualityScore}
           </span>
-          <span className="text-[11px] text-gray-500">/ 100</span>
+          <span className="text-[11px] text-fg-faint">/ 100</span>
         </div>
       </div>
-      <p className="text-[11px] text-gray-500">{scoreLabel(s.qualityScore)}</p>
+      <p className="text-[11px] text-fg-faint">{scoreLabel(s.qualityScore)}</p>
 
-      <div className="border-t border-gray-800 pt-2 space-y-1">
+      <div className="border-t border-edge pt-2 space-y-1">
         {rows.map((r) => (
           <div key={r.label} className="flex items-center justify-between text-[11px]">
-            <span className={r.dim ? "text-gray-500" : "text-gray-400"}>{r.label}</span>
-            <span className={r.dim ? "text-gray-500" : "text-gray-200 tabular-nums"}>
-              {r.value}
-            </span>
+            <span className={r.dim ? "text-fg-faint" : "text-fg-muted"}>{r.label}</span>
+            <span className={r.dim ? "text-fg-faint" : "text-fg tabular-nums"}>{r.value}</span>
           </div>
         ))}
       </div>
 
       {s.warnings.length > 0 && (
-        <div className="border-t border-gray-800 pt-2 space-y-1">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">
+        <div className="border-t border-edge pt-2 space-y-1">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-fg-faint">
             {s.warnings.length} warning{s.warnings.length !== 1 ? "s" : ""}
           </p>
           {s.warnings.slice(0, 4).map((w, i) => (
-            <p key={i} className="text-[11px] text-yellow-400/90 leading-snug">
+            <p key={i} className="text-[11px] text-warning/90 leading-snug">
               · {w.message}
             </p>
           ))}
           {s.warnings.length > 4 && (
-            <p className="text-[10px] text-gray-500">
+            <p className="text-[10px] text-fg-faint">
               + {s.warnings.length - 4} more in details below
             </p>
           )}
@@ -106,11 +104,11 @@ export default function ScheduleStrip({ schedules, activeIndex, onSelect }: Prop
   const nextDisabled = activeIndex === schedules.length - 1;
 
   return (
-    <div className="flex items-center gap-3 mb-5 bg-gray-900/60 rounded-xl border border-gray-800/80 px-4 py-2.5">
+    <div className="flex items-center gap-3 mb-5 bg-surface/60 rounded-xl border border-edge px-4 py-2.5">
       <button
         onClick={() => onSelect(Math.max(0, activeIndex - 1))}
         disabled={prevDisabled}
-        className="rounded-md bg-gray-800 border border-gray-700/60 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 disabled:opacity-30 transition-colors shrink-0"
+        className="rounded-md bg-input border border-edge-subtle px-2.5 py-1 text-xs text-fg-muted hover:text-fg hover:border-edge-hover disabled:opacity-30 transition-colors shrink-0"
       >
         ← Prev
       </button>
@@ -142,13 +140,13 @@ export default function ScheduleStrip({ schedules, activeIndex, onSelect }: Prop
           </Popover>
         ))}
       </div>
-      <span className="text-xs text-gray-500 shrink-0 tabular-nums">
+      <span className="text-xs text-fg-faint shrink-0 tabular-nums">
         {activeIndex + 1} / {schedules.length}
       </span>
       <button
         onClick={() => onSelect(Math.min(schedules.length - 1, activeIndex + 1))}
         disabled={nextDisabled}
-        className="rounded-md bg-gray-800 border border-gray-700/60 px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:border-gray-500 disabled:opacity-30 transition-colors shrink-0"
+        className="rounded-md bg-input border border-edge-subtle px-2.5 py-1 text-xs text-fg-muted hover:text-fg hover:border-edge-hover disabled:opacity-30 transition-colors shrink-0"
       >
         Next →
       </button>

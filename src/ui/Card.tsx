@@ -27,7 +27,7 @@ export default function Card({
 }: Props) {
   return (
     <div
-      className={`rounded-xl border border-gray-800/80 bg-gray-900/60 shadow-lg ${SIZE[size]} ${padding} ${className ?? ""}`}
+      className={`rounded-xl border border-edge bg-surface/60 shadow-lg ${SIZE[size]} ${padding} ${className ?? ""}`}
       {...rest}
     >
       {children}

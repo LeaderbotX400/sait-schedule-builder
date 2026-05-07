@@ -2,6 +2,7 @@ import { useAuth } from "./auth";
 import { downloadICal } from "./domain/ical";
 import ConnectionStatus from "./features/auth/ConnectionStatus";
 import RulesPanel from "./features/rules/RulesPanel";
+import ThemePicker from "./features/theme/ThemePicker";
 import { refreshAllData } from "./hooks/useScheduleSync";
 import { describeTerm } from "./lib/terms";
 import { GpaChip } from "./profile";
@@ -33,9 +34,9 @@ export default function AppHeader({ panelOpen, onTogglePanel }: Props) {
   const activeSchedule = schedules[activeScheduleIndex] ?? null;
 
   return (
-    <header className="border-b border-gray-800/80 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-20">
+    <header className="border-b border-edge bg-surface/80 backdrop-blur-sm sticky top-0 z-20">
       <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 min-h-12 flex flex-wrap items-center gap-x-3 gap-y-1.5 py-1.5">
-        <h1 className="text-sm font-semibold text-gray-100 shrink-0 tracking-tight">
+        <h1 className="text-sm font-semibold text-fg shrink-0 tracking-tight">
           SAIT <span className="hidden sm:inline">Schedule </span>Builder
         </h1>
 
@@ -43,15 +44,13 @@ export default function AppHeader({ panelOpen, onTogglePanel }: Props) {
           type="button"
           onClick={onTogglePanel}
           className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-            panelOpen
-              ? "bg-gray-800 text-white"
-              : "text-gray-400 hover:text-gray-200 hover:bg-gray-800/60"
+            panelOpen ? "bg-input text-fg" : "text-fg-muted hover:text-fg hover:bg-input/60"
           }`}
         >
           <StatusDot tone={isLoggedIn ? "ok" : "neutral"} />
           Courses
           {courseGroups.size > 0 && (
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-300">
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-surface-hover text-fg-muted">
               {courseGroups.size}
             </span>
           )}
@@ -112,6 +111,7 @@ export default function AppHeader({ panelOpen, onTogglePanel }: Props) {
               {generationStatus.kind === "generating" ? "Generating…" : "Generate"}
             </Button>
           )}
+          <ThemePicker />
         </div>
       </div>
     </header>

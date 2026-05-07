@@ -18,7 +18,7 @@ function meetingSummary(m: MeetingBlock): string {
 function ChevronIcon({ open }: { open: boolean }) {
   return (
     <svg
-      className={`w-3 h-3 text-gray-500 transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+      className={`w-3 h-3 text-fg-faint transition-transform duration-150 ${open ? "rotate-180" : ""}`}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -49,7 +49,7 @@ export default function CourseSelector({
 
   return (
     <div className="space-y-2">
-      <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+      <h3 className="text-xs font-semibold uppercase tracking-widest text-fg-faint">
         Courses ({courseGroups.size})
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
@@ -65,8 +65,8 @@ export default function CourseSelector({
               key={name}
               className={`rounded-md border text-xs transition-colors ${
                 selected
-                  ? "bg-blue-900/40 border-blue-700"
-                  : "bg-gray-800/50 border-gray-700/50 opacity-60 hover:opacity-100"
+                  ? "bg-tint-primary/70 border-tint-primary-bd"
+                  : "bg-input/50 border-edge-subtle opacity-60 hover:opacity-100"
               }`}
             >
               <div className="flex items-center gap-2 px-2 py-1.5">
@@ -74,7 +74,7 @@ export default function CourseSelector({
                   type="checkbox"
                   checked={selected}
                   onChange={() => onToggle(name)}
-                  className="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 shrink-0"
+                  className="rounded border-edge-hover bg-surface-hover text-primary focus:ring-ring focus:ring-offset-0 shrink-0"
                 />
                 <button
                   type="button"
@@ -82,17 +82,17 @@ export default function CourseSelector({
                   className="flex-1 min-w-0 text-left"
                 >
                   <div className="flex items-baseline gap-1.5 min-w-0">
-                    <span className="font-mono font-semibold text-white shrink-0">{name}</span>
-                    <span className="text-gray-400 truncate flex-1 min-w-0">{title}</span>
+                    <span className="font-mono font-semibold text-fg shrink-0">{name}</span>
+                    <span className="text-fg-muted truncate flex-1 min-w-0">{title}</span>
                   </div>
-                  <div className="text-[11px] text-gray-500 truncate">
+                  <div className="text-[11px] text-fg-faint truncate">
                     {sectionCount} sec · {totalSeats} seats
                   </div>
                 </button>
                 <button
                   type="button"
                   onClick={() => toggleExpanded(name)}
-                  className="shrink-0 rounded p-1 hover:bg-gray-700/60 transition-colors"
+                  className="shrink-0 rounded p-1 hover:bg-surface-hover/60 transition-colors"
                   aria-label={isOpen ? "Collapse sections" : "Expand sections"}
                   aria-expanded={isOpen}
                 >
@@ -104,7 +104,7 @@ export default function CourseSelector({
                     e.stopPropagation();
                     onRemove(name);
                   }}
-                  className="shrink-0 rounded p-1 text-gray-500 hover:text-red-400 hover:bg-gray-700/60 transition-colors"
+                  className="shrink-0 rounded p-1 text-fg-faint hover:text-destructive hover:bg-surface-hover/60 transition-colors"
                   aria-label={`Remove ${name}`}
                   title={`Remove ${name}`}
                 >
@@ -121,15 +121,15 @@ export default function CourseSelector({
                 </button>
               </div>
               {isOpen && (
-                <div className="px-2 pb-2 pt-1 border-t border-gray-700/40 space-y-1">
+                <div className="px-2 pb-2 pt-1 border-t border-edge-subtle space-y-1">
                   {sections.map((s) => (
                     <div key={s.identifier} className="text-[11px] leading-snug">
                       <div className="flex items-baseline gap-1.5 flex-wrap">
-                        <span className="font-mono text-gray-300">{s.identifier}</span>
-                        <span className="text-gray-500 tabular-nums">CRN {s.crn}</span>
-                        {s.instructor && <span className="text-gray-500">· {s.instructor}</span>}
+                        <span className="font-mono text-fg-muted">{s.identifier}</span>
+                        <span className="text-fg-faint tabular-nums">CRN {s.crn}</span>
+                        {s.instructor && <span className="text-fg-faint">· {s.instructor}</span>}
                       </div>
-                      <div className="text-gray-400">
+                      <div className="text-fg-muted">
                         {s.meetings.length === 0 ? "—" : s.meetings.map(meetingSummary).join(", ")}
                       </div>
                     </div>

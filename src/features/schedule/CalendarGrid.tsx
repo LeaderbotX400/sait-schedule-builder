@@ -8,6 +8,7 @@ import type {
   MeetingBlock,
   Schedule,
 } from "../../lib/types";
+import { getThemeMode, useTheme } from "../../theme/useTheme";
 import {
   buildColorMap,
   buildWarnedCourseIds,
@@ -56,11 +57,11 @@ function EventTooltip({
     Math.min(rawLeft, containerWidth - TOOLTIP_WIDTH - TOOLTIP_PADDING),
   );
 
-  const seatsColor = course.seatsAvailable > 0 ? "text-emerald-400" : "text-red-400";
+  const seatsColor = course.seatsAvailable > 0 ? "text-success" : "text-destructive";
 
   return (
     <div
-      className="absolute z-50 pointer-events-none rounded-lg border border-gray-700 bg-gray-900/95 shadow-xl backdrop-blur-sm p-2.5"
+      className="absolute z-50 pointer-events-none rounded-lg border border-edge bg-surface/95 shadow-xl backdrop-blur-sm p-2.5"
       style={{ top, left, width: TOOLTIP_WIDTH }}
     >
       {/* Arrow */}
@@ -72,61 +73,59 @@ function EventTooltip({
                 bottom: -ARROW_SIZE,
                 left: event.blockCenterX - left - ARROW_SIZE,
                 borderWidth: `${ARROW_SIZE}px ${ARROW_SIZE}px 0`,
-                borderTopColor: "rgb(55 65 81)",
+                borderTopColor: "var(--color-edge)",
               }
             : {
                 top: -ARROW_SIZE,
                 left: event.blockCenterX - left - ARROW_SIZE,
                 borderWidth: `0 ${ARROW_SIZE}px ${ARROW_SIZE}px`,
-                borderBottomColor: "rgb(55 65 81)",
+                borderBottomColor: "var(--color-edge)",
               }
         }
       />
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
-        <span className="font-mono font-semibold text-sm text-white leading-tight">
+        <span className="font-mono font-semibold text-sm text-fg leading-tight">
           {course.identifier}
         </span>
-        <span className="text-[10px] text-gray-500 font-mono shrink-0 mt-0.5">
+        <span className="text-[10px] text-fg-faint font-mono shrink-0 mt-0.5">
           CRN {course.crn}
         </span>
       </div>
-      <div className="text-xs text-gray-300 mt-0.5 leading-snug">{course.title}</div>
+      <div className="text-xs text-fg-muted mt-0.5 leading-snug">{course.title}</div>
 
-      <div className="border-t border-gray-700/60 my-1.5" />
+      <div className="border-t border-edge-subtle my-1.5" />
 
       {/* Time */}
-      <div className="flex items-center gap-1.5 text-xs text-gray-200">
-        <span className="text-gray-500 text-[10px]">⏱</span>
+      <div className="flex items-center gap-1.5 text-xs text-fg">
+        <span className="text-fg-faint text-[10px]">⏱</span>
         {formatTime(meeting.startTime)} – {formatTime(meeting.endTime)}
       </div>
       {/* Location */}
-      <div className="flex items-center gap-1.5 text-xs text-gray-200 mt-0.5">
-        <span className="text-gray-500 text-[10px]">📍</span>
+      <div className="flex items-center gap-1.5 text-xs text-fg mt-0.5">
+        <span className="text-fg-faint text-[10px]">📍</span>
         {meeting.isOnline ? "Online" : `${meeting.building} ${meeting.room}`}
       </div>
       {/* Instructor */}
-      <div className="text-xs text-gray-400 mt-0.5 truncate">{course.instructor}</div>
+      <div className="text-xs text-fg-muted mt-0.5 truncate">{course.instructor}</div>
 
-      <div className="border-t border-gray-700/60 my-1.5" />
+      <div className="border-t border-edge-subtle my-1.5" />
 
       {/* Bottom metadata */}
       <div className="grid grid-cols-3 gap-x-2">
         <div>
-          <div className="text-[9px] text-gray-500 uppercase tracking-wide">Method</div>
-          <div className="text-xs text-gray-200 font-medium truncate">
-            {course.instructionalMethod}
-          </div>
+          <div className="text-[9px] text-fg-faint uppercase tracking-wide">Method</div>
+          <div className="text-xs text-fg font-medium truncate">{course.instructionalMethod}</div>
         </div>
         <div>
-          <div className="text-[9px] text-gray-500 uppercase tracking-wide">Seats</div>
+          <div className="text-[9px] text-fg-faint uppercase tracking-wide">Seats</div>
           <div className={`text-xs font-medium ${seatsColor}`}>
             {course.seatsAvailable}/{course.maximumEnrollment}
           </div>
         </div>
         <div>
-          <div className="text-[9px] text-gray-500 uppercase tracking-wide">Credits</div>
-          <div className="text-xs text-gray-200 font-medium">{course.creditHours ?? "—"}</div>
+          <div className="text-[9px] text-fg-faint uppercase tracking-wide">Credits</div>
+          <div className="text-xs text-fg font-medium">{course.creditHours ?? "—"}</div>
         </div>
       </div>
     </div>
@@ -136,6 +135,7 @@ function EventTooltip({
 export default function CalendarGrid({ schedule, blockout }: Props) {
   const [hoveredEvent, setHoveredEvent] = useState<HoveredEvent | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const themeMode = getThemeMode(useTheme((s) => s.resolved));
 
   const expanded = getExpandedMeetings(schedule);
 
@@ -195,7 +195,7 @@ export default function CalendarGrid({ schedule, blockout }: Props) {
             {hours.map((h, i) => (
               <div
                 key={h}
-                className="absolute right-1 text-xs text-gray-500"
+                className="absolute right-1 text-xs text-fg-faint"
                 style={{ top: i * HOUR_HEIGHT }}
               >
                 {formatTime(h * 100)}
@@ -207,10 +207,10 @@ export default function CalendarGrid({ schedule, blockout }: Props) {
         {/* Day columns */}
         {displayDays.map((day) => (
           <div key={day} className="flex-1 min-w-[100px]">
-            <div className="h-8 flex items-center justify-center text-sm font-medium text-gray-300 border-b border-gray-700">
+            <div className="h-8 flex items-center justify-center text-sm font-medium text-fg-muted border-b border-edge">
               {day}
             </div>
-            <div className="relative border-l border-gray-800/50" style={{ height: totalHeight }}>
+            <div className="relative border-l border-edge-subtle" style={{ height: totalHeight }}>
               {/* Blockout shading */}
               {blockout &&
                 hours.map((h, i) => {
@@ -220,7 +220,7 @@ export default function CalendarGrid({ schedule, blockout }: Props) {
                     <div
                       key={`bo-${h}`}
                       className={`absolute w-full ${
-                        cell === "preferred" ? "bg-emerald-500/8" : "bg-red-500/8"
+                        cell === "preferred" ? "bg-success/8" : "bg-destructive/8"
                       }`}
                       style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
                     />
@@ -231,7 +231,7 @@ export default function CalendarGrid({ schedule, blockout }: Props) {
               {hours.map((_, i) => (
                 <div
                   key={i}
-                  className="absolute w-full border-b border-gray-800/50"
+                  className="absolute w-full border-b border-edge-subtle"
                   style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
                 />
               ))}
@@ -242,7 +242,8 @@ export default function CalendarGrid({ schedule, blockout }: Props) {
                 const endMin = timeToMinutes(meeting.endTime) - gridStartMinutes;
                 const top = (startMin / 60) * HOUR_HEIGHT;
                 const height = ((endMin - startMin) / 60) * HOUR_HEIGHT;
-                const color = colorMap.get(course.identifier) ?? COURSE_COLORS[0];
+                const colorSlot = colorMap.get(course.identifier) ?? COURSE_COLORS[0]!;
+                const color = themeMode === "light" ? colorSlot.light : colorSlot.dark;
 
                 // Check if this specific block has a warning
                 const blockKey = `${course.identifier}|${day}|${meeting.startTime}`;
@@ -273,7 +274,7 @@ export default function CalendarGrid({ schedule, blockout }: Props) {
                     <div className="flex items-center gap-1">
                       {isWarned && (
                         <span
-                          className="text-[10px] text-red-400 shrink-0"
+                          className="text-[10px] text-destructive shrink-0"
                           title="This class has a scheduling issue"
                         >
                           &#x26A0;
@@ -286,12 +287,12 @@ export default function CalendarGrid({ schedule, blockout }: Props) {
                       </span>
                     </div>
                     {height > 35 && (
-                      <div className="text-[10px] text-gray-400 truncate leading-tight">
+                      <div className="text-[10px] text-fg-muted truncate leading-tight">
                         {meeting.building} {meeting.room}
                       </div>
                     )}
                     {height > 50 && (
-                      <div className="text-[10px] text-gray-500 truncate leading-tight">
+                      <div className="text-[10px] text-fg-faint truncate leading-tight">
                         {formatTime(meeting.startTime)}-{formatTime(meeting.endTime)}
                       </div>
                     )}

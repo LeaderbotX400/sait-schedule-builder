@@ -26,7 +26,7 @@ export default function App() {
   if (status !== "authenticated") return <SignInScreen />;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
+    <div className="min-h-screen bg-page text-fg">
       <AppHeader panelOpen={panelOpen} onTogglePanel={() => setPanelOpen((v) => !v)} />
       <CoursesPanel open={panelOpen} />
       <MainArea />

@@ -10,7 +10,7 @@ describe("BannerHttpError", () => {
 
   it("extracts errorMessage from a Banner Grails error page", () => {
     const body =
-      '<!DOCTYPE html><html><head>' +
+      "<!DOCTYPE html><html><head>" +
       '<meta name="errorCode" content="404"/>' +
       '<meta name="errorMessage" content="Sorry, This page is not available."/>' +
       "</head><body></body></html>";
@@ -23,9 +23,7 @@ describe("BannerHttpError", () => {
     const body =
       '<meta name="errorMessage" content="Cannot get property &#39;primaryCurriculum&#39; on null object"/>';
     const err = new BannerHttpError(500, body);
-    expect(err.bannerMessage).toBe(
-      "Cannot get property 'primaryCurriculum' on null object",
-    );
+    expect(err.bannerMessage).toBe("Cannot get property 'primaryCurriculum' on null object");
   });
 
   it("stays null when body is empty", () => {

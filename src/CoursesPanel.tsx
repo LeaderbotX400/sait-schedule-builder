@@ -22,7 +22,7 @@ export default function CoursesPanel({ open }: Props) {
   if (!open || !isLoggedIn) return null;
 
   return (
-    <div className="sticky top-12 z-10 border-b border-gray-800/80 bg-gray-900/95 backdrop-blur-sm">
+    <div className="sticky top-12 z-10 border-b border-edge bg-surface/95 backdrop-blur-sm">
       <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 py-3">
         <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
           <div className="sm:w-72 sm:shrink-0">
@@ -30,7 +30,7 @@ export default function CoursesPanel({ open }: Props) {
           </div>
 
           {courseGroups.size > 0 && (
-            <div className="flex-1 min-w-0 sm:border-l border-gray-800/60 sm:pl-6">
+            <div className="flex-1 min-w-0 sm:border-l border-edge-subtle sm:pl-6">
               <CourseSelector
                 courseGroups={courseGroups}
                 selectedCourses={selectedCourses}

@@ -11,6 +11,7 @@ import type {
   ScheduleRules,
 } from "../../lib/types";
 import { createEmptyBlockout, GRID_HOURS, WEEKDAYS } from "../../lib/types";
+import { getThemeMode, useTheme } from "../../theme/useTheme";
 import {
   buildColorMap,
   buildWarnedCourseIds,
@@ -74,13 +75,13 @@ const DayCells = React.memo(function DayCells({
         return (
           <div
             key={`cell-${h}`}
-            className={`absolute w-full border-b border-gray-800/30 ${
+            className={`absolute w-full border-b border-edge-subtle ${
               hardBlocked
                 ? ""
                 : cell === "preferred"
-                  ? "bg-emerald-500/[.22]"
+                  ? "bg-success/20"
                   : cell === "blocked"
-                    ? "bg-red-500/[.22]"
+                    ? "bg-destructive/20"
                     : ""
             }`}
             style={{
@@ -100,9 +101,9 @@ const DayCells = React.memo(function DayCells({
 });
 
 function fitBadgeStyle(score: number): string {
-  if (score >= 80) return "bg-emerald-900/60 text-emerald-300 border border-emerald-700/60";
-  if (score >= 60) return "bg-amber-900/60 text-amber-300 border border-amber-700/60";
-  return "bg-red-900/60 text-red-300 border border-red-700/60";
+  if (score >= 80) return "bg-tint-success text-tint-success-fg border border-tint-success-bd";
+  if (score >= 60) return "bg-tint-caution text-tint-caution-fg border border-tint-caution-bd";
+  return "bg-tint-danger text-tint-danger-fg border border-tint-danger-bd";
 }
 
 export default function BlockoutGrid({
@@ -199,6 +200,7 @@ export default function BlockoutGrid({
     () => [...new Set(schedule?.courses.map((c) => c.identifier) ?? [])],
     [schedule],
   );
+  const themeMode = getThemeMode(useTheme((s) => s.resolved));
   const colorMap = useMemo(() => buildColorMap(courseIds), [courseIds]);
   const warningKeys = useMemo(() => buildWarningKeys(schedule?.warnings ?? []), [schedule]);
   const warnedCourseIds = useMemo(() => buildWarnedCourseIds(schedule?.warnings ?? []), [schedule]);
@@ -255,23 +257,23 @@ export default function BlockoutGrid({
   const handleMouseUp = useCallback(() => setIsPainting(false), []);
 
   return (
-    <div className="rounded-xl bg-gray-900/60 border border-gray-800/80 overflow-hidden">
+    <div className="rounded-xl bg-surface/60 border border-edge overflow-hidden">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-800/80 bg-gray-900/40 flex-wrap gap-y-2">
+      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-edge bg-surface/40 flex-wrap gap-y-2">
         {/* Paint mode segmented control */}
-        <div className="flex rounded-lg overflow-hidden border border-gray-700/60 text-xs font-medium shrink-0">
+        <div className="flex rounded-lg overflow-hidden border border-edge-subtle text-xs font-medium shrink-0">
           {PAINT_MODES.map((mode, i) => (
             <button
               key={mode.value}
               onClick={() => setPaintMode(mode.value)}
-              className={`px-3 py-1.5 transition-colors ${i > 0 ? "border-l border-gray-700/60" : ""} ${
+              className={`px-3 py-1.5 transition-colors ${i > 0 ? "border-l border-edge-subtle" : ""} ${
                 paintMode === mode.value
                   ? mode.value === "preferred"
-                    ? "bg-emerald-700 text-white"
+                    ? "bg-success text-success-fg"
                     : mode.value === "blocked"
-                      ? "bg-red-700 text-white"
-                      : "bg-gray-600 text-white"
-                  : "bg-gray-800/80 text-gray-400 hover:text-gray-200 hover:bg-gray-700/60"
+                      ? "bg-destructive text-destructive-fg"
+                      : "bg-fg-faint text-page"
+                  : "bg-input/80 text-fg-muted hover:text-fg hover:bg-surface-hover/60"
               }`}
             >
               {mode.label}
@@ -281,7 +283,7 @@ export default function BlockoutGrid({
 
         <button
           onClick={() => onBlockoutChange(createEmptyBlockout())}
-          className="text-xs text-gray-500 hover:text-gray-300 transition-colors shrink-0"
+          className="text-xs text-fg-faint hover:text-fg-muted transition-colors shrink-0"
         >
           Clear
         </button>
@@ -290,7 +292,7 @@ export default function BlockoutGrid({
 
         {/* Shape influence slider */}
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-gray-500 hidden sm:block">Shape influence</span>
+          <span className="text-xs text-fg-faint hidden sm:block">Shape influence</span>
           <input
             type="range"
             min={0}
@@ -298,9 +300,9 @@ export default function BlockoutGrid({
             step={5}
             value={blockoutWeight}
             onChange={(e) => onBlockoutWeightChange(parseInt(e.target.value, 10))}
-            className="w-20 accent-blue-500"
+            className="w-20 accent-primary"
           />
-          <span className="text-xs font-medium text-gray-300 tabular-nums w-8">
+          <span className="text-xs font-medium text-fg-muted tabular-nums w-8">
             {blockoutWeight}%
           </span>
         </div>
@@ -331,7 +333,7 @@ export default function BlockoutGrid({
               {hours.map((h, i) => (
                 <div
                   key={h}
-                  className="absolute right-2 text-[10px] text-gray-500 leading-none"
+                  className="absolute right-2 text-[10px] text-fg-faint leading-none"
                   style={{ top: i * HOUR_HEIGHT - 6 }}
                 >
                   {formatHour(h)}
@@ -347,19 +349,19 @@ export default function BlockoutGrid({
               <div key={day} className="flex-1 min-w-[80px]">
                 {/* Column header */}
                 <div
-                  className={`h-8 flex flex-col items-center justify-center border-b border-gray-700/60 ${
+                  className={`h-8 flex flex-col items-center justify-center border-b border-edge-subtle ${
                     isDayHardBlocked ? "opacity-40" : ""
                   }`}
                 >
-                  <span className="text-xs font-medium text-gray-300">{day}</span>
+                  <span className="text-xs font-medium text-fg-muted">{day}</span>
                   {hardBlockedDays.has(day) && (
-                    <span className="text-[8px] text-red-400 leading-none">day off</span>
+                    <span className="text-[8px] text-destructive leading-none">day off</span>
                   )}
                 </div>
 
                 {/* Cell + event layer */}
                 <div
-                  className="relative border-l border-gray-800/40"
+                  className="relative border-l border-edge-subtle"
                   style={{ height: totalHeight }}
                 >
                   <DayCells
@@ -380,15 +382,15 @@ export default function BlockoutGrid({
                     return (
                       <div
                         key={`ghost-${course.crn}-${day}-${meeting.startTime}-${idx}`}
-                        className="absolute left-0.5 right-0.5 bg-gray-700/25 border border-dashed border-gray-500/50 rounded-r-md overflow-hidden flex flex-col justify-center px-1.5"
+                        className="absolute left-0.5 right-0.5 bg-surface-hover/25 border border-dashed border-edge-hover/50 rounded-r-md overflow-hidden flex flex-col justify-center px-1.5"
                         style={{ top, height, zIndex: 1, pointerEvents: "none" }}
                         title={`Alternative: ${course.identifier} - ${course.title}\n${course.instructor}\n${meeting.building} ${meeting.room}\n${formatTime(meeting.startTime)} - ${formatTime(meeting.endTime)}`}
                       >
-                        <span className="text-[10px] font-medium text-gray-400 truncate leading-tight italic">
+                        <span className="text-[10px] font-medium text-fg-muted truncate leading-tight italic">
                           {course.identifier}
                         </span>
                         {height > 35 && (
-                          <div className="text-[9px] text-gray-500 truncate leading-tight">
+                          <div className="text-[9px] text-fg-faint truncate leading-tight">
                             {formatTime(meeting.startTime)}–{formatTime(meeting.endTime)}
                           </div>
                         )}
@@ -403,7 +405,8 @@ export default function BlockoutGrid({
                       const endMin = timeToMinutes(meeting.endTime) - gridStartMinutes;
                       const top = (startMin / 60) * HOUR_HEIGHT;
                       const height = ((endMin - startMin) / 60) * HOUR_HEIGHT;
-                      const color = colorMap.get(course.identifier) ?? COURSE_COLORS[0];
+                      const colorSlot = colorMap.get(course.identifier) ?? COURSE_COLORS[0]!;
+                      const color = themeMode === "light" ? colorSlot.light : colorSlot.dark;
 
                       const blockKey = `${course.identifier}|${day}|${meeting.startTime}`;
                       const isWarned =
@@ -418,7 +421,9 @@ export default function BlockoutGrid({
                         >
                           <div className="flex items-center gap-1">
                             {isWarned && (
-                              <span className="text-[10px] text-red-400 shrink-0">&#x26A0;</span>
+                              <span className="text-[10px] text-destructive shrink-0">
+                                &#x26A0;
+                              </span>
                             )}
                             <span
                               className={`text-xs font-semibold ${color.text} truncate leading-tight`}
@@ -427,12 +432,12 @@ export default function BlockoutGrid({
                             </span>
                           </div>
                           {height > 35 && (
-                            <div className="text-[10px] text-gray-400 truncate leading-tight">
+                            <div className="text-[10px] text-fg-muted truncate leading-tight">
                               {meeting.building} {meeting.room}
                             </div>
                           )}
                           {height > 50 && (
-                            <div className="text-[10px] text-gray-500 truncate leading-tight">
+                            <div className="text-[10px] text-fg-faint truncate leading-tight">
                               {formatTime(meeting.startTime)}–{formatTime(meeting.endTime)}
                             </div>
                           )}
@@ -447,13 +452,13 @@ export default function BlockoutGrid({
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-800/60 text-[10px] text-gray-600">
+      <div className="flex items-center gap-4 px-4 py-2 border-t border-edge-subtle text-[10px] text-fg-faint">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm bg-emerald-500/[.22] border border-emerald-600/40" />
+          <span className="inline-block w-3 h-3 rounded-sm bg-success/20 border border-success/40" />
           Preferred
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm bg-red-500/[.22] border border-red-600/40" />
+          <span className="inline-block w-3 h-3 rounded-sm bg-destructive/20 border border-destructive/40" />
           Blocked
         </span>
         <span className="flex items-center gap-1.5">
@@ -469,7 +474,7 @@ export default function BlockoutGrid({
         </span>
         {ghosts.length > 0 && (
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm bg-gray-700/40 border border-dashed border-gray-500/60" />
+            <span className="inline-block w-3 h-3 rounded-sm bg-surface-hover/40 border border-dashed border-edge-hover/60" />
             Alternative section
           </span>
         )}

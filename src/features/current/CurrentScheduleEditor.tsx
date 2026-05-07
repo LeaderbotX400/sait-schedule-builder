@@ -68,14 +68,14 @@ export default function CurrentScheduleEditor({
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-fg-faint">
         {includedCourses.size} course{includedCourses.size !== 1 ? "s" : ""} selected
       </p>
 
       {/* Conflicts warning */}
       {conflicts.size > 0 && (
-        <div className="rounded-lg bg-red-900/20 border border-red-800/50 px-3 py-2">
-          <p className="text-xs text-red-400">
+        <div className="rounded-lg bg-tint-danger border border-tint-danger-bd px-3 py-2">
+          <p className="text-xs text-tint-danger-fg">
             &#x26A0;&#xFE0F; {conflicts.size} course{conflicts.size !== 1 ? "s" : ""} has scheduling
             conflict{conflicts.size !== 1 ? "s" : ""}
           </p>
@@ -83,7 +83,7 @@ export default function CurrentScheduleEditor({
       )}
 
       {/* Calendar */}
-      <div className="rounded-lg bg-gray-800/50 border border-gray-700 p-3">
+      <div className="rounded-lg bg-input/50 border border-edge p-3">
         <CalendarGrid
           schedule={{
             id: 0,
@@ -106,7 +106,7 @@ export default function CurrentScheduleEditor({
 
       {/* Course grid */}
       {currentRegistrations.size === 0 ? (
-        <div className="text-xs text-gray-500 py-4 text-center">No courses loaded yet</div>
+        <div className="text-xs text-fg-faint py-4 text-center">No courses loaded yet</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(13rem,1fr))] gap-3 xl:grid-cols-3">
           {Array.from(currentRegistrations.keys()).map((subjectCourse) => {
@@ -128,22 +128,22 @@ export default function CurrentScheduleEditor({
                 key={subjectCourse}
                 className={`rounded-lg border p-3 transition-colors ${
                   hasConflict
-                    ? "bg-red-900/20 border-red-800/50"
+                    ? "bg-tint-danger border-tint-danger-bd"
                     : isIncluded
-                      ? "bg-gray-800 border-gray-700 hover:border-gray-600"
-                      : "bg-gray-900/50 border-gray-700 opacity-60"
+                      ? "bg-input border-edge hover:border-edge-hover"
+                      : "bg-surface/50 border-edge opacity-60"
                 }`}
               >
                 {/* Course header */}
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <h4 className="text-sm font-semibold text-white">{subjectCourse}</h4>
-                      <span className="text-xs bg-blue-900/50 text-blue-300 px-1.5 py-0.5 rounded">
+                      <h4 className="text-sm font-semibold text-fg">{subjectCourse}</h4>
+                      <span className="text-xs bg-tint-primary text-tint-primary-fg px-1.5 py-0.5 rounded">
                         {currentSection.sequenceNumber}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-400 mt-0.5 truncate">{currentSection.title}</p>
+                    <p className="text-xs text-fg-muted mt-0.5 truncate">{currentSection.title}</p>
                   </div>
                   <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
                     <input
@@ -156,13 +156,13 @@ export default function CurrentScheduleEditor({
                 </div>
 
                 {/* Meeting info */}
-                <div className="text-xs text-gray-400 mb-2">
+                <div className="text-xs text-fg-muted mb-2">
                   {formatMeetingTime(currentSection)}
                 </div>
 
                 {/* Conflict warning */}
                 {hasConflict && (
-                  <div className="mb-2 text-xs text-red-400 bg-red-900/20 rounded px-2 py-1">
+                  <div className="mb-2 text-xs text-tint-danger-fg bg-tint-danger rounded px-2 py-1">
                     &#x274C; Conflicts with:{" "}
                     {courseConflicts.map((c) => c.subjectCourse).join(", ")}
                   </div>
@@ -172,7 +172,7 @@ export default function CurrentScheduleEditor({
                 <select
                   value={sectionOverrides.get(subjectCourse) || currentSection.identifier}
                   onChange={(e) => handleSwapSection(subjectCourse, e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300 hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                  className="w-full bg-surface border border-edge rounded px-2 py-1 text-xs text-fg-muted hover:border-edge-hover focus:border-ring focus:outline-none"
                 >
                   {courseGroups.get(subjectCourse)?.map((section) => (
                     <option key={section.identifier} value={section.identifier}>

@@ -6,11 +6,11 @@ interface Props {
 }
 
 const COLOR: Record<Tone, string> = {
-  neutral: "bg-gray-500",
-  ok: "bg-emerald-400",
-  warn: "bg-yellow-400",
-  danger: "bg-red-400",
-  info: "bg-blue-400",
+  neutral: "bg-fg-faint",
+  ok: "bg-success",
+  warn: "bg-warning",
+  danger: "bg-destructive",
+  info: "bg-primary",
 };
 
 /**

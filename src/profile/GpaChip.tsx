@@ -9,7 +9,7 @@ export default function GpaChip() {
 
   if (busy && !gpa) {
     return (
-      <span className={`${CHIP} bg-gray-800/60 text-gray-500`}>
+      <span className={`${CHIP} bg-input/60 text-fg-faint`}>
         <span className="text-[10px] uppercase tracking-wide">GPA</span>
         <span>…</span>
       </span>
@@ -20,9 +20,9 @@ export default function GpaChip() {
   if (value == null) {
     if (error) {
       return (
-        <span className={`${CHIP} bg-gray-800`} title={error}>
-          <span className="text-[10px] uppercase tracking-wide text-gray-500">GPA</span>
-          <span className="font-semibold text-amber-400">⚠</span>
+        <span className={`${CHIP} bg-input`} title={error}>
+          <span className="text-[10px] uppercase tracking-wide text-fg-faint">GPA</span>
+          <span className="font-semibold text-caution">⚠</span>
         </span>
       );
     }
@@ -32,9 +32,9 @@ export default function GpaChip() {
   const formatted = typeof value === "number" ? value.toFixed(2) : String(value);
 
   return (
-    <span className={`${CHIP} bg-gray-800 text-gray-300`} title="Cumulative GPA">
-      <span className="text-[10px] uppercase tracking-wide text-gray-500">GPA</span>
-      <span className="font-semibold text-gray-100">{formatted}</span>
+    <span className={`${CHIP} bg-input text-fg-muted`} title="Cumulative GPA">
+      <span className="text-[10px] uppercase tracking-wide text-fg-faint">GPA</span>
+      <span className="font-semibold text-fg">{formatted}</span>
     </span>
   );
 }

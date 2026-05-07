@@ -15,15 +15,15 @@ interface Props {
 }
 
 const ICON_BG: Record<Tone, string> = {
-  neutral: "bg-gray-900/40 border border-gray-800 text-gray-400",
-  warn: "bg-yellow-900/30 border border-yellow-800 text-yellow-300",
-  danger: "bg-red-900/30 border border-red-800 text-red-300",
+  neutral: "bg-surface/40 border border-edge text-fg-muted",
+  warn: "bg-tint-warning border border-tint-warning-bd text-tint-warning-fg",
+  danger: "bg-tint-danger border border-tint-danger-bd text-tint-danger-fg",
 };
 
 const DESC_COLOR: Record<Tone, string> = {
-  neutral: "text-gray-400",
-  warn: "text-gray-400",
-  danger: "text-red-400",
+  neutral: "text-fg-muted",
+  warn: "text-fg-muted",
+  danger: "text-destructive",
 };
 
 /**
@@ -43,7 +43,7 @@ export default function EmptyState({ icon, title, description, action, tone = "n
             <span className="text-lg">{icon}</span>
           </div>
         )}
-        <h2 className="text-base font-semibold text-white">{title}</h2>
+        <h2 className="text-base font-semibold text-fg">{title}</h2>
         {description && <p className={`text-sm ${DESC_COLOR[tone]}`}>{description}</p>}
         {action && <div className="pt-1">{action}</div>}
       </div>

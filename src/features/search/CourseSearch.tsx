@@ -179,7 +179,7 @@ export default function CourseSearch() {
     return (
       <>
         {text.slice(0, idx)}
-        <span className="text-white font-medium">{text.slice(idx, idx + query.length)}</span>
+        <span className="text-fg font-medium">{text.slice(idx, idx + query.length)}</span>
         {text.slice(idx + query.length)}
       </>
     );
@@ -188,7 +188,7 @@ export default function CourseSearch() {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500">Search</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-fg-faint">Search</h3>
         <select
           value={term}
           onChange={(e) => {
@@ -197,7 +197,7 @@ export default function CourseSearch() {
             setSuggestions([]);
             setShowSuggestions(false);
           }}
-          className="rounded-md bg-gray-800 border border-gray-700 px-2 py-0.5 text-xs text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="rounded-md bg-input border border-edge px-2 py-0.5 text-xs text-fg focus:outline-none focus:ring-2 focus:ring-ring"
         >
           {TERM_OPTIONS.map((t) => (
             <option key={t.code} value={t.code}>
@@ -210,13 +210,13 @@ export default function CourseSearch() {
       <div>
         <div className="relative">
           <div
-            className="min-h-[2.5rem] w-full rounded-lg bg-gray-800 border border-gray-700 px-2 py-1.5 flex flex-wrap gap-1.5 items-center cursor-text focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent"
+            className="min-h-[2.5rem] w-full rounded-lg bg-input border border-edge px-2 py-1.5 flex flex-wrap gap-1.5 items-center cursor-text focus-within:ring-2 focus-within:ring-ring focus-within:border-transparent"
             onClick={() => inputRef.current?.focus()}
           >
             {tags.map((tag) => (
               <span
                 key={tag}
-                className="inline-flex items-center gap-1 rounded bg-blue-900/60 border border-blue-700 px-2 py-0.5 text-xs font-mono text-blue-200"
+                className="inline-flex items-center gap-1 rounded bg-tint-primary border border-tint-primary-bd px-2 py-0.5 text-xs font-mono text-tint-primary-fg"
               >
                 {tag}
                 <button
@@ -225,7 +225,7 @@ export default function CourseSearch() {
                     e.stopPropagation();
                     removeTag(tag);
                   }}
-                  className="text-blue-400 hover:text-white leading-none"
+                  className="text-primary hover:text-fg leading-none"
                   aria-label={`Remove ${tag}`}
                 >
                   &times;
@@ -244,7 +244,7 @@ export default function CourseSearch() {
               onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
               onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
               placeholder={tags.length === 0 ? "CPRG306, CPRG307…" : ""}
-              className="flex-1 min-w-[8rem] bg-transparent text-sm text-gray-200 placeholder-gray-600 font-mono outline-none"
+              className="flex-1 min-w-[8rem] bg-transparent text-sm text-fg placeholder-fg-faint font-mono outline-none"
               autoComplete="off"
               spellCheck={false}
               role="combobox"
@@ -261,7 +261,7 @@ export default function CourseSearch() {
             <ul
               id={listboxId}
               role="listbox"
-              className="absolute z-20 mt-1 w-full rounded-lg bg-gray-800 border border-gray-700 shadow-lg overflow-hidden"
+              className="absolute z-20 mt-1 w-full rounded-lg bg-input border border-edge shadow-lg overflow-hidden"
             >
               {suggestions.map((s, i) => (
                 <li
@@ -273,12 +273,12 @@ export default function CourseSearch() {
                   onMouseEnter={() => setSuggestionIndex(i)}
                   className={`px-3 py-2 text-sm cursor-pointer flex items-baseline gap-2 ${
                     i === suggestionIndex
-                      ? "bg-blue-700/40 text-gray-100"
-                      : "text-gray-300 hover:bg-gray-700"
+                      ? "bg-primary/40 text-fg"
+                      : "text-fg-muted hover:bg-surface-hover"
                   }`}
                 >
-                  <span className="font-mono text-xs text-gray-400 shrink-0">{s.code}</span>
-                  <span className="text-xs text-gray-500 truncate">
+                  <span className="font-mono text-xs text-fg-muted shrink-0">{s.code}</span>
+                  <span className="text-xs text-fg-faint truncate">
                     {highlight(s.description.replace(s.code, "").trim(), inputValue.trim())}
                   </span>
                 </li>
@@ -289,28 +289,28 @@ export default function CourseSearch() {
       </div>
 
       {error && (
-        <div className="rounded-lg bg-red-900/30 border border-red-800 px-3 py-2 text-xs text-red-400">
+        <div className="rounded-lg bg-tint-danger border border-tint-danger-bd px-3 py-2 text-xs text-tint-danger-fg">
           {error}
         </div>
       )}
 
       {/* Per-code results breakdown */}
       {results && (
-        <div className="rounded-lg bg-gray-800/50 border border-gray-700 px-3 py-2 space-y-0.5">
+        <div className="rounded-lg bg-input/50 border border-edge px-3 py-2 space-y-0.5">
           {results.map((r) => (
             <div key={r.code} className="flex items-center gap-2 text-xs">
               {r.count > 0 ? (
-                <span className="text-emerald-400">&#x2713;</span>
+                <span className="text-success">&#x2713;</span>
               ) : (
-                <span className="text-red-400">&#x2717;</span>
+                <span className="text-destructive">&#x2717;</span>
               )}
-              <span className="font-mono text-gray-300">{r.code}</span>
+              <span className="font-mono text-fg-muted">{r.code}</span>
               {r.count > 0 ? (
-                <span className="text-gray-500">
+                <span className="text-fg-faint">
                   {r.count} section{r.count !== 1 ? "s" : ""}
                 </span>
               ) : (
-                <span className="text-red-400/70">{r.error ?? "no sections found"}</span>
+                <span className="text-destructive/70">{r.error ?? "no sections found"}</span>
               )}
             </div>
           ))}
@@ -321,11 +321,11 @@ export default function CourseSearch() {
         type="button"
         onClick={handleSearch}
         disabled={loading || (tags.length === 0 && !inputValue.trim())}
-        className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        className="w-full rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       >
         {loading ? (
           <span className="flex items-center justify-center gap-2">
-            <Spinner size="md" color="text-white" />
+            <Spinner size="md" color="text-primary-fg" />
             {loadingCode ? `Fetching ${loadingCode}…` : "Searching…"}
           </span>
         ) : (
