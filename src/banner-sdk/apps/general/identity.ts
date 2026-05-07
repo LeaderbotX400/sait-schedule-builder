@@ -16,7 +16,11 @@ const log = createLogger("identity");
 
 export type LoginValidation =
   | { valid: true; studentId: string }
-  | { valid: false; reason: "NETWORK" | "NOT_LOGGED_IN" | "MALFORMED"; error: string };
+  | {
+      valid: false;
+      reason: "NETWORK" | "NOT_LOGGED_IN" | "MALFORMED";
+      error: string;
+    };
 
 /**
  * Single source of truth for "is the user logged in?" + the chokepoint
@@ -73,9 +77,20 @@ export async function validateLogin(
     throw new BannerNotPermittedError(url, raw);
   }
   if (raw.error) {
-    return { valid: false, reason: "NETWORK", error: `Could not reach Banner: ${raw.error}` };
+    return {
+      valid: false,
+      reason: "NETWORK",
+      error: `Could not reach Banner: ${raw.error}`,
+    };
   }
   if (!raw.ok) {
+    chrome.tabs.create({ url, active: false }, (win) => {
+      if (!win) return;
+      setTimeout(() => {
+        chrome.tabs.remove(win.id!);
+      }, 200);
+    });
+
     return {
       valid: false,
       reason: "NOT_LOGGED_IN",
