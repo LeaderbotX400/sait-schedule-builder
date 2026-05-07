@@ -1,6 +1,8 @@
+import { createLogger } from "../../lib/logger";
 import type { BannerHostConfig } from "../config/hosts";
 import {
   BannerAuthRequiredError,
+  BannerError,
   BannerHttpError,
   BannerNetworkError,
   BannerNotPermittedError,
@@ -10,6 +12,8 @@ import {
 import type { BannerRequestInit, BannerTransport, RawResponse } from "../transport/types";
 import { bannerHeaders } from "./headers";
 import { parseJsonOrThrow } from "./json";
+
+const log = createLogger("banner-sdk");
 
 interface RequestContext {
   transport: BannerTransport;
@@ -29,13 +33,21 @@ export async function bannerRequest<T>(
   const callInit: BannerRequestInit = { method: init.method ?? "GET", headers };
   if (init.body !== undefined) callInit.body = init.body;
 
-  const raw = await ctx.transport.fetch(url, callInit);
+  const start = performance.now();
+  const tag = `${callInit.method} ${shortPath(url)}`;
+  try {
+    const raw = await ctx.transport.fetch(url, callInit);
 
-  if (raw.status === 403 && looksLikeAccessDenied(raw)) {
-    throw new BannerNotPermittedError(url, raw);
+    if (raw.status === 403 && looksLikeAccessDenied(raw)) {
+      throw new BannerNotPermittedError(url, raw);
+    }
+    const result = finalize<T>(raw);
+    log.debug(`${tag} → ${raw.status} (${ms(start)}ms)`);
+    return result;
+  } catch (err) {
+    logRequestFailure(tag, ms(start), err);
+    throw err;
   }
-
-  return finalize<T>(raw);
 }
 
 function finalize<T>(raw: RawResponse): T {
@@ -63,11 +75,41 @@ export async function bannerRequestRaw(
   const callInit: BannerRequestInit = { method: init.method ?? "GET", headers };
   if (init.body !== undefined) callInit.body = init.body;
 
-  const raw = await ctx.transport.fetch(url, callInit);
+  const start = performance.now();
+  const tag = `${callInit.method} ${shortPath(url)} (raw)`;
+  try {
+    const raw = await ctx.transport.fetch(url, callInit);
 
-  if (raw.status === 403 && looksLikeAccessDenied(raw)) {
-    throw new BannerNotPermittedError(url, raw);
+    if (raw.status === 403 && looksLikeAccessDenied(raw)) {
+      throw new BannerNotPermittedError(url, raw);
+    }
+    if (raw.error) throw new BannerNetworkError(raw.error);
+    log.debug(`${tag} → ${raw.status} (${ms(start)}ms)`);
+    return raw;
+  } catch (err) {
+    logRequestFailure(tag, ms(start), err);
+    throw err;
   }
-  if (raw.error) throw new BannerNetworkError(raw.error);
-  return raw;
+}
+
+function ms(start: number): number {
+  return Math.round(performance.now() - start);
+}
+
+/** Strip the host + Banner app prefix so logs aren't dominated by URL noise. */
+function shortPath(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.pathname + (u.search || "");
+  } catch {
+    return url;
+  }
+}
+
+function logRequestFailure(tag: string, elapsedMs: number, err: unknown): void {
+  if (err instanceof BannerError) {
+    log.warn(`${tag} → ${err.name}: ${err.message} (${elapsedMs}ms)`);
+  } else {
+    log.error(`${tag} → unexpected error (${elapsedMs}ms)`, err);
+  }
 }

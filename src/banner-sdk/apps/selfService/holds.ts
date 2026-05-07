@@ -1,7 +1,10 @@
+import { createLogger } from "../../../lib/logger";
 import { type BannerHostConfig, ssag1Url } from "../../config/hosts";
 import { bannerRequest } from "../../core/request";
 import type { BannerTransport } from "../../transport/types";
 import type { HoldsCount } from "./types";
+
+const log = createLogger("holds");
 
 export function createHoldsClient(transport: BannerTransport, hosts: BannerHostConfig) {
   const ctx = { transport, hosts };
@@ -15,7 +18,10 @@ export function createHoldsClient(transport: BannerTransport, hosts: BannerHostC
             `/studentHolds/getHoldsCountCacheHolds?studentId=${encodeURIComponent(studentId)}`,
           ),
         );
-      } catch {
+      } catch (err) {
+        log.warn(
+          `getHoldsCount(${studentId}) failed — ${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`,
+        );
         return null;
       }
     },

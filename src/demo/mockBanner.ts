@@ -44,6 +44,14 @@ export function createDemoTransport(): MockTransport {
   t.on("/PersonalInformationDetails/getBannerId", json({ bannerId: "000123456" }));
 
   // ── SelfService: profile / holds ────────────────────────────────────
+  // Shell page primes the server-side `primaryCurriculum` session attribute
+  // that the JSON endpoints below depend on.
+  t.on("/ssb/studentProfile/studentProfile", {
+    ok: true,
+    status: 200,
+    contentType: "text/html",
+    body: "<html></html>",
+  });
   t.on(
     "/studentProfile/viewGPAHoursList",
     json({ overallGpa: "3.85", overallHours: 42, gpas: [] }),

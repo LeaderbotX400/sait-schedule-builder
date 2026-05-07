@@ -75,12 +75,38 @@ export class BannerNetworkError extends BannerError {
 export class BannerHttpError extends BannerError {
   readonly status: number;
   readonly body: string;
+  /** The human-readable error pulled from Banner's HTML error page, if present. */
+  readonly bannerMessage: string | null;
   constructor(status: number, body: string) {
-    super(`Banner returned HTTP ${status}.`);
+    const bannerMessage = extractBannerErrorMessage(body);
+    super(
+      bannerMessage
+        ? `Banner returned HTTP ${status}: ${bannerMessage}`
+        : `Banner returned HTTP ${status}.`,
+    );
     this.name = "BannerHttpError";
     this.status = status;
     this.body = body;
+    this.bannerMessage = bannerMessage;
   }
+}
+
+/**
+ * Banner's Grails error pages embed the human-readable message in
+ * `<meta name="errorMessage" content="..."/>`. Pull it out so the SDK
+ * surfaces "Sorry, This page is not available." instead of "HTTP 404."
+ */
+function extractBannerErrorMessage(body: string): string | null {
+  if (!body) return null;
+  const match = body.match(/<meta\s+name="errorMessage"\s+content="([^"]+)"/i);
+  const raw = match?.[1];
+  if (!raw) return null;
+  return raw
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
 }
 
 /** A request failed CSRF validation (sync token mismatch). Rare. */

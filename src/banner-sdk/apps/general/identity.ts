@@ -1,3 +1,4 @@
+import { createLogger } from "../../../lib/logger";
 import { type BannerHostConfig, ssag2Url } from "../../config/hosts";
 import { bannerHeaders } from "../../core/headers";
 import { parseJsonOrThrow } from "../../core/json";
@@ -10,6 +11,8 @@ import {
 } from "../../transport/errors";
 import type { BannerTransport } from "../../transport/types";
 import type { BannerIdResponse } from "./types";
+
+const log = createLogger("identity");
 
 export type LoginValidation =
   | { valid: true; studentId: string }
@@ -29,15 +32,17 @@ export async function validateLogin(
   transport: BannerTransport,
   hosts: BannerHostConfig,
 ): Promise<LoginValidation> {
-  const temp = await fetch(
+  // Touch the CAS gateway with the user's existing SSO cookies before hitting
+  // ssag2. SAIT's IdP needs a fresh redirect cycle to mint a per-host session.
+  const casResponse = await fetch(
     "https://sait-sust-prd-prd1-eid-idm-wso2.sait.ca/cas-web/login?TARGET=https%3A%2F%2Fsait-sust-prd-prd1-ban-ss-ssag1.sait.ca%2FStudentSelfService%2Flogin%2Fcas",
     {
       method: "GET",
       credentials: "include",
     },
   );
+  log.debug(`CAS warmup → ${casResponse.status} ${casResponse.statusText}`);
 
-  console.log("CAS login page response:", temp);
   const url = ssag2Url(hosts, "/ssb/PersonalInformationDetails/getBannerId");
   let raw: Awaited<ReturnType<BannerTransport["fetch"]>>;
   try {

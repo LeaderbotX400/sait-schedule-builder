@@ -28,15 +28,18 @@ export function createBannerSdk(transport: BannerTransport, opts: BannerSdkOptio
   const selfServiceTransport = primedTransport(transport, primer, `${hosts.selfService}/`);
   const generalTransport = primedTransport(transport, primer, `${hosts.general}/`);
 
+  const selfService = createSelfServiceClient(selfServiceTransport, hosts);
+
   return {
     session,
     disconnect: (): void => {
       session.invalidate();
       primer.reset();
+      selfService.invalidate();
     },
     registration: createRegistrationClient(session),
     general: createGeneralClient(generalTransport, hosts),
-    selfService: createSelfServiceClient(selfServiceTransport, hosts),
+    selfService,
   };
 }
 
