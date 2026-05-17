@@ -1,14 +1,15 @@
 # SAIT Schedule Builder
 
-This is a vibe-coded slop project made to provide a better user experience to SAIT's official "Banner" system by Eulician.
+> [!IMPORTANT]
+> This is a vibe-coded slop project made to provide a better user experience to SAIT's official "Banner" system by Eulician.
 
-I really liked how some other universities provided you a way to just: select some courses, set some rules (start time, days off, etc) and would automatically generate you some schedule options. This aims to implement simmilar features completely in your own browser.
+I really liked how some other universities provided you with a way to just select some courses. Set some rules (start time, days off, etc), and it would automatically generate some schedule options for you. This aims to implement similar features completely in your own browser.
 
 ---
 
 Client-side React/TypeScript SPA that pulls course sections from SAIT's
-Banner registration system and generates non-conflicting schedule
-combinations ranked by quality. Ships with a Manifest v3 chrome
+Banner registration system generates a non-conflicting schedule
+combinations ranked by quality. Ships with a Manifest v3 Chrome
 extension that captures Banner credentials so the app can talk to the
 authenticated APIs without a server.
 
