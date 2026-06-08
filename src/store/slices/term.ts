@@ -3,6 +3,7 @@ import { TERM_OPTIONS, type TermOption } from "../../lib/terms";
 import type { CoursesSlice } from "./courses";
 import type { CurrentRegSlice } from "./currentReg";
 import type { SchedulesSlice } from "./schedules";
+import type { SelectionSlice } from "./selection";
 import type { UiSlice } from "./ui";
 
 const DEFAULT_TERM = "202540"; // Spring 2026 — replaced live by registration.terms.list
@@ -16,11 +17,11 @@ export interface TermSlice {
    */
   termOptions: TermOption[];
   /**
-   * Switch the active term. Course data is per-term ephemeral state (search
-   * results, current registrations, generated schedules), so we wipe it on
-   * change and let useScheduleSync reload for the new term. Persisted user
-   * preferences (rules, selectedCourses, includedCourses, sectionOverrides)
-   * stay — they're cross-term choices.
+   * Switch the active term. All per-term state wipes — including the
+   * selection sets, because a `subjectCourse` key has no meaning across
+   * terms (sections differ, prereqs differ, the course may not even
+   * exist next semester). Only `rules` survives, since those are real
+   * cross-term preferences.
    */
   setTerm: (term: string) => void;
   /** Replace the term picker options (live terms unioned with the static fallback). */
@@ -28,7 +29,7 @@ export interface TermSlice {
 }
 
 export const createTermSlice: StateCreator<
-  TermSlice & CoursesSlice & CurrentRegSlice & SchedulesSlice & UiSlice,
+  TermSlice & CoursesSlice & CurrentRegSlice & SchedulesSlice & SelectionSlice & UiSlice,
   [],
   [],
   TermSlice
@@ -46,6 +47,9 @@ export const createTermSlice: StateCreator<
         generationStatus: { kind: "idle" } as const,
         currentRegistrations: new Map(),
         loadError: null,
+        selectedCourses: new Set(),
+        sectionOverrides: new Map(),
+        includedCourses: new Set(),
       };
     }),
   setTermOptions: (options) => set({ termOptions: options }),
