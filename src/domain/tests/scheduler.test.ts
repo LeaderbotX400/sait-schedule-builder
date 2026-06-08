@@ -143,3 +143,54 @@ describe("generateSchedules", () => {
     expect(generateSchedules(groups, { rules, limit: 2 })).toHaveLength(2);
   });
 });
+
+describe("sectionPrefixes filter", () => {
+  it("allows everything when sectionPrefixes is empty", () => {
+    const groups = new Map([["CPRG306", [section("CPRG306-FVA"), section("CPRG306-SDA")]]]);
+    const result = generateSchedules(groups, { rules: { ...rules, sectionPrefixes: "" } });
+    expect(result).toHaveLength(2);
+  });
+
+  it("keeps only sections whose sequenceNumber starts with the prefix", () => {
+    const groups = new Map([
+      [
+        "CPRG306",
+        [
+          section("CPRG306-FVA"),
+          section("CPRG306-FVB"),
+          section("CPRG306-SDA"),
+          section("CPRG306-IDA"),
+        ],
+      ],
+    ]);
+    const result = generateSchedules(groups, { rules: { ...rules, sectionPrefixes: "FV" } });
+    expect(result).toHaveLength(2);
+    expect(result.map((s) => s.courses[0]?.sequenceNumber).sort()).toEqual(["FVA", "FVB"]);
+  });
+
+  it("accepts multiple comma-separated prefixes", () => {
+    const groups = new Map([
+      ["CPRG306", [section("CPRG306-FVA"), section("CPRG306-SDA"), section("CPRG306-IDA")]],
+    ]);
+    const result = generateSchedules(groups, { rules: { ...rules, sectionPrefixes: "FV, SD" } });
+    expect(result.map((s) => s.courses[0]?.sequenceNumber).sort()).toEqual(["FVA", "SDA"]);
+  });
+
+  it("matches case-insensitively", () => {
+    const groups = new Map([["CPRG306", [section("CPRG306-FVA"), section("CPRG306-SDA")]]]);
+    const result = generateSchedules(groups, { rules: { ...rules, sectionPrefixes: "fv" } });
+    expect(result).toHaveLength(1);
+    expect(result[0]?.courses[0]?.sequenceNumber).toBe("FVA");
+  });
+
+  it("drops a course entirely when no section matches the prefix", () => {
+    const groups = new Map([
+      ["CPRG306", [section("CPRG306-FVA")]],
+      ["CPRG307", [section("CPRG307-SDA")]],
+    ]);
+    const result = generateSchedules(groups, { rules: { ...rules, sectionPrefixes: "FV" } });
+    expect(result.every((s) => s.omittedCourses.some((o) => o.subjectCourse === "CPRG307"))).toBe(
+      true,
+    );
+  });
+});
