@@ -8,25 +8,13 @@ interface Props {
   layout?: "vertical" | "horizontal";
 }
 
-const DAYS: DayOfWeek[] = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+const DAYS: DayOfWeek[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-const TIME_OPTIONS = [
-  "0700",
-  "0800",
-  "0900",
-  "1000",
-  "1100",
-  "1200",
-  "1300",
-  "1400",
-  "1500",
-  "1600",
-  "1700",
-  "1800",
-  "1900",
-  "2000",
-  "2100",
-];
+const TIME_OPTIONS = Array.from({ length: 19 }, (_, i) => {
+  // 06:00 through 24:00 in hourly steps.
+  const hour = (i + 6).toString().padStart(2, "0");
+  return `${hour}00`;
+});
 
 function SectionHeading({ label }: { label: string }) {
   return (
@@ -133,19 +121,25 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
 
   const daysOffControls = (
     <div className="flex gap-1">
-      {DAYS.map((day) => (
-        <button
-          key={day}
-          onClick={() => toggleFreeDay(day)}
-          className={`flex-1 rounded-md px-1 py-1.5 text-xs font-medium transition-colors ${
-            rules.freeDays.includes(day)
-              ? "bg-destructive/90 text-destructive-fg border border-destructive shadow-sm"
-              : "bg-input text-fg-muted border border-edge hover:border-edge-hover hover:text-fg"
-          }`}
-        >
-          {day}
-        </button>
-      ))}
+      {DAYS.map((day) => {
+        const isOff = rules.freeDays.includes(day);
+        return (
+          <button
+            key={day}
+            type="button"
+            onClick={() => toggleFreeDay(day)}
+            aria-pressed={isOff}
+            aria-label={`${day} ${isOff ? "off" : "on"} — toggle to ${isOff ? "include" : "exclude"} this day`}
+            className={`flex-1 rounded-md px-1 py-1.5 text-xs font-medium transition-colors ${
+              isOff
+                ? "bg-destructive/90 text-destructive-fg border border-destructive shadow-sm"
+                : "bg-input text-fg-muted border border-edge hover:border-edge-hover hover:text-fg"
+            }`}
+          >
+            {day}
+          </button>
+        );
+      })}
     </div>
   );
 
@@ -158,6 +152,9 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
           max={7}
           value={rules.maxOnCampusDays}
           onChange={(e) => update("maxOnCampusDays", parseInt(e.target.value, 10))}
+          aria-label="Max campus days per week"
+          aria-valuetext={`${rules.maxOnCampusDays} day${rules.maxOnCampusDays === 1 ? "" : "s"}`}
+          title="Penalize schedules that require coming to campus on more than this many days per week."
           className="w-full accent-primary"
         />
       </SliderRow>
@@ -172,10 +169,18 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
           step={15}
           value={rules.minTravelGapMinutes}
           onChange={(e) => update("minTravelGapMinutes", parseInt(e.target.value, 10))}
+          aria-label="Minimum travel gap between campus and online sessions"
+          aria-valuetext={
+            rules.minTravelGapMinutes === 0 ? "off" : `${rules.minTravelGapMinutes} minutes`
+          }
+          title="Minimum minutes between an on-campus class and an online class. Set to 0 to allow back-to-back. Schedules with shorter gaps are penalized."
           className="w-full accent-primary"
         />
       </SliderRow>
-      <label className="flex items-center gap-2.5 text-sm text-fg-muted cursor-pointer rounded-md py-1 hover:text-fg transition-colors">
+      <label
+        className="flex items-center gap-2.5 text-sm text-fg-muted cursor-pointer rounded-md py-1 hover:text-fg transition-colors"
+        title="Bonus for schedules where campus days are consecutive (e.g. Mon/Tue/Wed) instead of scattered (Mon/Wed/Fri)."
+      >
         <input
           type="checkbox"
           checked={rules.preferClusteredCampusDays}
@@ -200,27 +205,60 @@ export default function RulesPanel({ rules, onChange, layout = "vertical" }: Pro
           step={30}
           value={rules.maxGapBetweenClasses}
           onChange={(e) => update("maxGapBetweenClasses", parseInt(e.target.value, 10))}
+          aria-label="Maximum gap between consecutive classes"
+          aria-valuetext={
+            rules.maxGapBetweenClasses === 0
+              ? "off — gaps allowed"
+              : `${rules.maxGapBetweenClasses} minutes`
+          }
+          title="Penalize schedules with gaps longer than this between classes on the same day. Set to 0 to ignore gap length."
           className="w-full accent-primary"
         />
       </SliderRow>
-      <label className="flex items-center gap-2.5 text-sm text-fg-muted cursor-pointer rounded-md py-1 hover:text-fg transition-colors">
+      <label
+        className="flex items-center gap-2.5 text-sm text-fg-muted cursor-pointer rounded-md py-1 hover:text-fg transition-colors"
+        title="If every section combination has a time conflict, fall back to schedules that drop one or more selected courses (clearly marked as omitted)."
+      >
         <input
           type="checkbox"
           checked={rules.allowPartialSchedules}
           onChange={(e) => update("allowPartialSchedules", e.target.checked)}
           className="rounded border-edge-hover bg-surface-hover text-primary focus:ring-ring focus:ring-offset-0"
         />
-        Allow partial
+        Allow partial schedules
       </label>
-      <label className="flex items-center gap-2.5 text-sm text-fg-muted cursor-pointer rounded-md py-1 hover:text-fg transition-colors">
+      <label
+        className="flex items-center gap-2.5 text-sm text-fg-muted cursor-pointer rounded-md py-1 hover:text-fg transition-colors"
+        title="Skip sections that report 0 seats available. Disable this if you plan to waitlist."
+      >
         <input
           type="checkbox"
           checked={rules.requireOpenSeats}
           onChange={(e) => update("requireOpenSeats", e.target.checked)}
           className="rounded border-edge-hover bg-surface-hover text-primary focus:ring-ring focus:ring-offset-0"
         />
-        Open seats only
+        Only sections with open seats
       </label>
+      <div>
+        <label
+          htmlFor="rule-section-prefixes"
+          className="block text-[11px] text-fg-faint mb-1"
+          title="Comma-separated list of section sequence prefixes to keep (case-insensitive). Useful for cross-listed courses where you only want your program's cohort. Example: 'SD' keeps SDA, SDB, SDC. Leave blank to allow all sections."
+        >
+          Section prefixes (e.g. SD, FV)
+        </label>
+        <input
+          id="rule-section-prefixes"
+          type="text"
+          value={rules.sectionPrefixes}
+          onChange={(e) => update("sectionPrefixes", e.target.value)}
+          placeholder="any"
+          spellCheck={false}
+          autoCapitalize="characters"
+          autoComplete="off"
+          className="w-full rounded-md bg-input border border-edge px-2 py-1 text-xs font-mono uppercase text-fg placeholder:normal-case placeholder:text-fg-faint focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
     </div>
   );
 

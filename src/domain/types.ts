@@ -99,6 +99,13 @@ export interface ScheduleRules {
   allowPartialSchedules: boolean;
   maxGapBetweenClasses: number;
   requireOpenSeats: boolean;
+  /**
+   * Comma-separated list of allowed section-sequence prefixes (case-insensitive).
+   * Empty string means "no filter — all sections allowed". Used by SAIT students
+   * to lock the planner to their program's cohort sections (e.g. "SD" matches
+   * SDA / SDB / SDC of cross-listed capstone courses).
+   */
+  sectionPrefixes: string;
   blockout: BlockoutGrid;
   /** 0-100 strength of the blockout-fit signal in the final score. */
   blockoutWeight: number;

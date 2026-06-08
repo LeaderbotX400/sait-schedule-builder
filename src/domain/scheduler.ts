@@ -75,7 +75,20 @@ function explainConflict(omittedSections: CourseSection[], chosen: CourseSection
   return "No section fits without violating your on-campus day or conflict rules.";
 }
 
-/** Hard-rules pre-filter: free days, time bounds, optional open-seats. */
+function parseSectionPrefixes(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter((s) => s.length > 0);
+}
+
+function matchesAllowedPrefix(section: CourseSection, prefixes: string[]): boolean {
+  if (prefixes.length === 0) return true;
+  const seq = section.sequenceNumber.toUpperCase();
+  return prefixes.some((p) => seq.startsWith(p));
+}
+
+/** Hard-rules pre-filter: free days, time bounds, optional open-seats, section prefix. */
 function violatesRules(section: CourseSection, rules: ScheduleRules): boolean {
   const earliest = parseInt(rules.earliestStart, 10);
   const latest = parseInt(rules.latestEnd, 10);
@@ -92,6 +105,11 @@ function violatesRules(section: CourseSection, rules: ScheduleRules): boolean {
   }
 
   if (rules.requireOpenSeats && section.seatsAvailable <= 0) {
+    return true;
+  }
+
+  const allowedPrefixes = parseSectionPrefixes(rules.sectionPrefixes);
+  if (!matchesAllowedPrefix(section, allowedPrefixes)) {
     return true;
   }
 
