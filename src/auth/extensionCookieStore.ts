@@ -1,8 +1,49 @@
+import { getExtensionId, isExtensionContext } from "../lib/extensionId";
 import type { CredentialStore } from "./credentialStore";
 import type { CredentialState, LoginResult } from "./types";
 
 const PERSIST_KEY = "sait-auth-v1";
 const SOURCE = "extension-cookies";
+
+function chromeRuntimeAvailable(): boolean {
+  return typeof chrome !== "undefined" && !!chrome.runtime;
+}
+
+function sendRuntimeMessage<T>(message: unknown): Promise<T | null> {
+  return new Promise<T | null>((resolve) => {
+    if (!chromeRuntimeAvailable()) {
+      resolve(null);
+      return;
+    }
+    const cb = (res: T | undefined) => {
+      if (chrome.runtime.lastError) {
+        resolve(null);
+        return;
+      }
+      resolve(res ?? null);
+    };
+    if (isExtensionContext()) {
+      chrome.runtime.sendMessage(message, cb);
+    } else {
+      const extensionId = getExtensionId();
+      if (!extensionId) {
+        resolve(null);
+        return;
+      }
+      chrome.runtime.sendMessage(extensionId, message, cb);
+    }
+  });
+}
+
+function openRuntimePort(portName: string): chrome.runtime.Port | null {
+  if (!chromeRuntimeAvailable()) return null;
+  if (isExtensionContext()) {
+    return chrome.runtime.connect({ name: portName });
+  }
+  const extensionId = getExtensionId();
+  if (!extensionId) return null;
+  return chrome.runtime.connect(extensionId, { name: portName });
+}
 
 interface PersistedShape {
   status: "authenticated" | "unauthenticated";
@@ -47,21 +88,11 @@ export class ExtensionCookieCredentialStore implements CredentialStore {
   }
 
   async getState(): Promise<CredentialState> {
-    if (typeof chrome === "undefined" || !chrome.runtime) {
+    if (!chromeRuntimeAvailable()) {
       return { status: "unauthenticated", acquiredAt: null, source: SOURCE };
     }
-    const loggedIn = await new Promise<boolean>((resolve) => {
-      chrome.runtime.sendMessage(
-        { type: "CHECK_LOGIN" },
-        (res: { loggedIn?: boolean } | undefined) => {
-          if (chrome.runtime.lastError) {
-            resolve(false);
-            return;
-          }
-          resolve(!!res?.loggedIn);
-        },
-      );
-    });
+    const res = await sendRuntimeMessage<{ loggedIn?: boolean }>({ type: "CHECK_LOGIN" });
+    const loggedIn = !!res?.loggedIn;
 
     const persisted = readLocal();
     if (loggedIn) {
@@ -84,7 +115,15 @@ export class ExtensionCookieCredentialStore implements CredentialStore {
 
   private installChromeListener(): void {
     if (this.chromeListenerInstalled) return;
-    if (typeof chrome === "undefined" || !chrome.runtime) return;
+    if (!chromeRuntimeAvailable()) return;
+    // chrome.runtime.onMessage only fires for same-extension senders, so the
+    // SW's LOGIN_STATE_CHANGED broadcast doesn't reach the web context. In
+    // localhost / pages.dev this listener is a no-op; login completion is
+    // signaled by the port message in startLogin().
+    if (!isExtensionContext()) {
+      this.chromeListenerInstalled = true;
+      return;
+    }
     this.chromeListenerInstalled = true;
     chrome.runtime.onMessage.addListener(
       (msg: { type?: string; loggedIn?: boolean } | undefined) => {
@@ -99,7 +138,7 @@ export class ExtensionCookieCredentialStore implements CredentialStore {
   }
 
   startLogin(opts?: { force?: boolean }): Promise<LoginResult> {
-    if (typeof chrome === "undefined" || !chrome.runtime) {
+    if (!chromeRuntimeAvailable()) {
       return Promise.resolve({
         ok: false,
         error: "NO_EXTENSION",
@@ -108,14 +147,23 @@ export class ExtensionCookieCredentialStore implements CredentialStore {
     }
     const portName = opts?.force ? "force-reauth" : "login";
     return new Promise<LoginResult>((resolve) => {
-      let port: chrome.runtime.Port;
+      let port: chrome.runtime.Port | null;
       try {
-        port = chrome.runtime.connect({ name: portName });
+        port = openRuntimePort(portName);
       } catch (e) {
         resolve({
           ok: false,
           error: "PORT_FAILED",
           message: e instanceof Error ? e.message : "Could not open extension port",
+        });
+        return;
+      }
+      if (!port) {
+        resolve({
+          ok: false,
+          error: "NO_EXTENSION_ID",
+          message:
+            "Extension ID is not set. Install the SAIT Schedule Builder extension or paste its ID in settings.",
         });
         return;
       }
@@ -154,18 +202,13 @@ export class ExtensionCookieCredentialStore implements CredentialStore {
     });
   }
 
-  clear(): Promise<void> {
+  async clear(): Promise<void> {
     writeLocal(null);
     for (const fn of this.listeners) {
       fn({ status: "unauthenticated", acquiredAt: null, source: SOURCE });
     }
-    if (typeof chrome === "undefined" || !chrome.runtime) return Promise.resolve();
-    return new Promise<void>((resolve) => {
-      chrome.runtime.sendMessage({ type: "CLEAR_SESSION" }, () => {
-        // Swallow lastError; the local state is already cleared.
-        void chrome.runtime.lastError;
-        resolve();
-      });
-    });
+    if (!chromeRuntimeAvailable()) return;
+    // Swallow lastError; the local state is already cleared.
+    await sendRuntimeMessage({ type: "CLEAR_SESSION" });
   }
 }

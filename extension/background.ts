@@ -69,9 +69,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) =>
   routeMessage(message, sendResponse),
 );
 
+// Web pages allowed in manifest.externally_connectable (localhost, pages.dev)
+// reach the SW through the *External listeners. The handlers are identical;
+// only the listener registration differs.
+chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) =>
+  routeMessage(message, sendResponse),
+);
+
 // Port-based login flow keeps the MV3 service worker alive for the entire
 // SAML dance (can exceed the 30-second idle timeout).
 chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === "login" || port.name === "force-reauth") {
+    void runLoginFlow(port);
+  }
+});
+
+chrome.runtime.onConnectExternal.addListener((port) => {
   if (port.name === "login" || port.name === "force-reauth") {
     void runLoginFlow(port);
   }

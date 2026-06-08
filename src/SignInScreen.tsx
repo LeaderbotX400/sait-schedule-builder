@@ -1,4 +1,5 @@
 import { useAuth } from "./auth";
+import ExtensionIdSettings from "./features/auth/ExtensionIdSettings";
 import ThemePicker from "./features/theme/ThemePicker";
 import Card from "./ui/Card";
 
@@ -24,6 +25,7 @@ export default function SignInScreen() {
           {busy ? "Waiting for SAIT login…" : "Sign in with SAIT"}
         </button>
         {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
+        <ExtensionIdSettings />
       </Card>
     </div>
   );
