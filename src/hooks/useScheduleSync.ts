@@ -8,6 +8,7 @@ const SKIP_TERMS = ["(View Only)", "Non-Credit", "Apprentice", "(View only)"];
 
 export function useScheduleSync(): void {
   const isLoggedIn = useAuthState((s) => s.status === "authenticated");
+  const term = useStore((s) => s.term);
   const courseGroups = useStore((s) => s.courseGroups);
   const selectedCourses = useStore((s) => s.selectedCourses);
   const setCourseGroups = useStore((s) => s.setCourseGroups);
@@ -45,8 +46,8 @@ export function useScheduleSync(): void {
         const registrations = await sdk.registration.registrations.listActive(termCode);
         if (cancelled) return;
 
-        if (registrations.length > 0) {
-          const groups = parseActiveRegistrations(registrations);
+        const groups = parseActiveRegistrations(registrations, termCode);
+        if (groups.size > 0) {
           setCourseGroups(groups);
           setSelectedCourses((prev) => {
             const restored = new Set([...prev].filter((name) => groups.has(name)));
@@ -81,6 +82,7 @@ export function useScheduleSync(): void {
     };
   }, [
     isLoggedIn,
+    term,
     setCourseGroups,
     setSelectedCourses,
     initializeCurrentRegistrations,
