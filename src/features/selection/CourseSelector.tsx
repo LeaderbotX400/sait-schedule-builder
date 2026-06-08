@@ -74,11 +74,13 @@ export default function CourseSelector({
                   type="checkbox"
                   checked={selected}
                   onChange={() => onToggle(name)}
+                  aria-label={`Include ${name} in schedule planning`}
                   className="rounded border-edge-hover bg-surface-hover text-primary focus:ring-ring focus:ring-offset-0 shrink-0"
                 />
                 <button
                   type="button"
                   onClick={() => onToggle(name)}
+                  aria-label={`${name} — ${title}, ${sectionCount} ${sectionCount === 1 ? "section" : "sections"}, ${totalSeats} ${totalSeats === 1 ? "seat" : "seats"} available. Click to ${selected ? "deselect" : "select"}.`}
                   className="flex-1 min-w-0 text-left"
                 >
                   <div className="flex items-baseline gap-1.5 min-w-0">
@@ -86,7 +88,8 @@ export default function CourseSelector({
                     <span className="text-fg-muted truncate flex-1 min-w-0">{title}</span>
                   </div>
                   <div className="text-[11px] text-fg-faint truncate">
-                    {sectionCount} sec · {totalSeats} seats
+                    {sectionCount} {sectionCount === 1 ? "section" : "sections"} · {totalSeats}{" "}
+                    {totalSeats === 1 ? "seat" : "seats"}
                   </div>
                 </button>
                 <button

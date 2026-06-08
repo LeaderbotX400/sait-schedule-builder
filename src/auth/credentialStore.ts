@@ -10,6 +10,8 @@ export interface CredentialStore {
   subscribe(fn: (s: CredentialState) => void): () => void;
   /** Start the interactive login flow. Resolves on completion or abort. */
   startLogin(opts?: { force?: boolean }): Promise<LoginResult>;
+  /** Abort an in-progress login (disconnects the SW port). No-op if no flow active. */
+  cancelLogin?(): void;
   /** Wipe stored credentials. */
   clear(): Promise<void>;
 }

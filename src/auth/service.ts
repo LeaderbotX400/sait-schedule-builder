@@ -22,12 +22,14 @@ export class AuthService {
 
     const live = await this.store.getState();
     this.applyState(live);
+    useAuthState.getState().markLiveChecked();
   }
 
   /** Re-fetch live state from the credential store and update internal state. */
   async refresh(): Promise<void> {
     const live = await this.store.getState();
     this.applyState(live);
+    useAuthState.getState().markLiveChecked();
   }
 
   async login(): Promise<LoginResult> {
@@ -43,6 +45,10 @@ export class AuthService {
     useAuthState.getState().reset();
   }
 
+  cancelLogin(): void {
+    this.store.cancelLogin?.();
+  }
+
   /** Called by the SDK proxy when a request fails with BannerSessionExpiredError. */
   notifySessionExpired(): void {
     useAuthState.getState().setStatus("unauthenticated", null);
@@ -56,6 +62,7 @@ export class AuthService {
       const result = await this.store.startLogin(opts);
       if (result.ok) {
         useAuthState.getState().setStatus("authenticated", Date.now());
+        useAuthState.getState().markLiveChecked();
       } else {
         if (opts.force) useAuthState.getState().setStatus("unauthenticated", null);
         useAuthState.getState().setError(result.message);

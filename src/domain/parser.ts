@@ -87,9 +87,15 @@ export function parseBannerData(response: BannerResponse): Map<string, CourseSec
 /**
  * Parse the renderActiveRegistrations response into grouped course sections.
  * Each course will have exactly one section — the one the student is enrolled in.
+ *
+ * Banner's endpoint accepts a term query param but does not reliably filter by
+ * it server-side. Each registration's meetingTimes entries carry the real term
+ * in `meetingTime.term`. When `termCode` is supplied we keep only registrations
+ * whose first meetingTime term matches — dropping stale cross-term entries.
  */
 export function parseActiveRegistrations(
   registrations: ActiveRegistration[],
+  termCode?: string,
 ): Map<string, CourseSection[]> {
   const grouped = new Map<string, CourseSection[]>();
 
@@ -102,7 +108,14 @@ export function parseActiveRegistrations(
       !r.courseRegistrationStatusDescription.includes("Sponsored"),
   );
 
-  for (const reg of activeRegistrations) {
+  // Filter by term client-side: Banner doesn't reliably honour the term param.
+  // A registration belongs to a term if any of its meetingTimes carries that term.
+  const termFiltered =
+    termCode !== undefined
+      ? activeRegistrations.filter((r) => r.meetingTimes.some((mt) => mt.term === termCode))
+      : activeRegistrations;
+
+  for (const reg of termFiltered) {
     const meetings: MeetingBlock[] = [];
     for (const mt of reg.meetingTimes) {
       const block = parseMeetingTime(mt);

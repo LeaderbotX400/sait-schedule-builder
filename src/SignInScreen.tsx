@@ -1,15 +1,16 @@
 import { useAuth } from "./auth";
+import ExtensionIdSettings from "./features/auth/ExtensionIdSettings";
 import ThemePicker from "./features/theme/ThemePicker";
 import Card from "./ui/Card";
 
 export default function SignInScreen() {
-  const { busy, error, login } = useAuth();
+  const { busy, error, login, cancelLogin } = useAuth();
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-page text-fg p-4">
       <Card size="sm">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-fg-muted">Connect to SAIT Banner</h3>
+          <h1 className="text-sm font-medium text-fg-muted">Connect to SAIT Banner</h1>
           <ThemePicker />
         </div>
         <p className="text-xs text-fg-faint mb-4">
@@ -23,7 +24,17 @@ export default function SignInScreen() {
         >
           {busy ? "Waiting for SAIT login…" : "Sign in with SAIT"}
         </button>
+        {busy && (
+          <button
+            type="button"
+            onClick={cancelLogin}
+            className="mt-2 w-full rounded-md border border-edge bg-surface px-4 py-1.5 text-xs text-fg-muted hover:text-fg hover:border-edge-hover transition-colors"
+          >
+            Cancel
+          </button>
+        )}
         {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
+        <ExtensionIdSettings />
       </Card>
     </div>
   );

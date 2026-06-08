@@ -32,20 +32,23 @@ export type LoginValidation =
  * heuristic doesn't apply here, but we still guard against the ssag6
  * edge case for future-proofing.
  */
+const CAS_WARMUP_URL =
+  "https://sait-sust-prd-prd1-eid-idm-wso2.sait.ca/cas-web/login?TARGET=https%3A%2F%2Fsait-sust-prd-prd1-ban-ss-ssag1.sait.ca%2FStudentSelfService%2Flogin%2Fcas";
+
 export async function validateLogin(
   transport: BannerTransport,
   hosts: BannerHostConfig,
 ): Promise<LoginValidation> {
   // Touch the CAS gateway with the user's existing SSO cookies before hitting
   // ssag2. SAIT's IdP needs a fresh redirect cycle to mint a per-host session.
-  const casResponse = await fetch(
-    "https://sait-sust-prd-prd1-eid-idm-wso2.sait.ca/cas-web/login?TARGET=https%3A%2F%2Fsait-sust-prd-prd1-ban-ss-ssag1.sait.ca%2FStudentSelfService%2Flogin%2Fcas",
-    {
-      method: "GET",
-      credentials: "include",
-    },
-  );
-  log.debug(`CAS warmup → ${casResponse.status} ${casResponse.statusText}`);
+  // Route through the transport (extension SW) so the call works from any
+  // origin — a direct fetch() to sait.ca from localhost is CORS-blocked.
+  try {
+    await transport.prime?.(CAS_WARMUP_URL);
+    log.debug("CAS warmup completed");
+  } catch (e) {
+    log.warn(`CAS warmup failed (continuing) — ${e instanceof Error ? e.message : String(e)}`);
+  }
 
   const url = ssag2Url(hosts, "/ssb/PersonalInformationDetails/getBannerId");
   let raw: Awaited<ReturnType<BannerTransport["fetch"]>>;
@@ -84,12 +87,17 @@ export async function validateLogin(
     };
   }
   if (!raw.ok) {
-    chrome.tabs.create({ url, active: false }, (win) => {
-      if (!win) return;
-      setTimeout(() => {
-        chrome.tabs.remove(win.id!);
-      }, 200);
-    });
+    // Best-effort: ping the URL in a background tab to trigger any pending
+    // SAML refresh that XHR can't satisfy. Only available from the extension's
+    // own page — chrome.tabs is undefined in web/localhost context.
+    if (typeof chrome !== "undefined" && chrome.tabs?.create) {
+      chrome.tabs.create({ url, active: false }, (win) => {
+        if (!win) return;
+        setTimeout(() => {
+          chrome.tabs.remove(win.id!);
+        }, 200);
+      });
+    }
 
     return {
       valid: false,

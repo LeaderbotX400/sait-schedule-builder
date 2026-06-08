@@ -97,9 +97,14 @@ function explainEmpty(
   const reasons: string[] = [];
   const earliest = parseInt(rules.earliestStart, 10);
   const latest = parseInt(rules.latestEnd, 10);
+  const allowedPrefixes = rules.sectionPrefixes
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter((s) => s.length > 0);
   let allFilteredByTime = true;
   let allFilteredBySeats = true;
   let allFilteredByDays = true;
+  let allFilteredByPrefix = allowedPrefixes.length > 0;
   for (const sections of filtered.values()) {
     for (const section of sections) {
       let timeOk = true;
@@ -113,6 +118,10 @@ function explainEmpty(
       if (timeOk) allFilteredByTime = false;
       if (dayOk) allFilteredByDays = false;
       if (section.seatsAvailable > 0) allFilteredBySeats = false;
+      if (allowedPrefixes.length > 0) {
+        const seq = section.sequenceNumber.toUpperCase();
+        if (allowedPrefixes.some((p) => seq.startsWith(p))) allFilteredByPrefix = false;
+      }
     }
   }
 
@@ -128,6 +137,11 @@ function explainEmpty(
   if (allFilteredByDays) {
     reasons.push(
       `All sections have classes on your designated free days (${rules.freeDays.join(", ")}). Try removing some free days.`,
+    );
+  }
+  if (allFilteredByPrefix) {
+    reasons.push(
+      `No sections match the section-prefix filter (${allowedPrefixes.join(", ")}). Clear the prefix field or add another prefix.`,
     );
   }
   if (reasons.length === 0) {
