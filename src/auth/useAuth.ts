@@ -11,6 +11,7 @@ export interface UseAuthApi {
   isStale: boolean;
   login: () => Promise<LoginResult>;
   reauth: () => Promise<LoginResult>;
+  cancelLogin: () => void;
   disconnect: () => Promise<void>;
 }
 
@@ -23,7 +24,18 @@ export function useAuth(): UseAuthApi {
 
   const login = useCallback(() => getAuthService().login(), []);
   const reauth = useCallback(() => getAuthService().reauth(), []);
+  const cancelLogin = useCallback(() => getAuthService().cancelLogin(), []);
   const disconnect = useCallback(() => getAuthService().disconnect(), []);
 
-  return { status, busy, error, sessionAgeSeconds, isStale, login, reauth, disconnect };
+  return {
+    status,
+    busy,
+    error,
+    sessionAgeSeconds,
+    isStale,
+    login,
+    reauth,
+    cancelLogin,
+    disconnect,
+  };
 }
