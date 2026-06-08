@@ -12,19 +12,25 @@
     "lint": "run-s lint:*",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
-    "format": "oxfmt src/"
+    "format": "oxfmt src/",
+    "test": "vitest",
+    "test:run": "vitest run --passWithNoTests",
+    "test:ui": "vitest --ui",
+    "check": "run-s type-check lint test:run build-only"
   },
   "dependencies": {
+    "nanoid": "^5.1.11",
     "pinia": "^3.0.4",
-    "vue": "^3.5.32",
-    "vue-router": "^5.0.4"
+    "vue": "^3.5.32"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.5.0",
+    "@tailwindcss/vite": "^4.3.0",
     "@tsconfig/node24": "^24.0.4",
     "@types/chrome": "^0.1.43",
     "@types/node": "^24.12.2",
     "@vitejs/plugin-vue": "^6.0.6",
+    "@vitest/coverage-v8": "^4.1.8",
     "@vue/eslint-config-typescript": "^14.7.0",
     "@vue/tsconfig": "^0.9.1",
     "eslint": "^10.2.1",
@@ -32,12 +38,16 @@
     "eslint-plugin-oxlint": "~1.60.0",
     "eslint-plugin-vue": "~10.8.0",
     "jiti": "^2.6.1",
+    "jsdom": "^29.1.1",
     "npm-run-all2": "^8.0.4",
     "oxfmt": "^0.45.0",
     "oxlint": "~1.60.0",
+    "tailwindcss": "^4.3.0",
     "typescript": "~6.0.0",
     "vite": "^8.0.8",
     "vite-plugin-vue-devtools": "^8.1.1",
+    "vite-plugin-vue-mcp": "^0.3.2",
+    "vitest": "^4.1.8",
     "vue-tsc": "^3.2.6"
   },
   "engines": {

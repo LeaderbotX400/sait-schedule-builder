@@ -6,6 +6,9 @@
     // Extra safety for array and object lookups, but may have false positives.
     "noUncheckedIndexedAccess": true,
 
+    // Chrome extension APIs + Vite's `import.meta.env` / CSS side-effect import types.
+    "types": ["chrome", "vite/client"],
+
     // Path mapping for cleaner imports.
     "paths": {
       "@/*": ["./src/*"]
