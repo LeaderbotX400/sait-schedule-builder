@@ -80,6 +80,7 @@ export class ExtensionCookieCredentialStore implements CredentialStore {
   readonly source = SOURCE;
   private listeners = new Set<(s: CredentialState) => void>();
   private chromeListenerInstalled = false;
+  private activeLoginPort: chrome.runtime.Port | null = null;
 
   readPersisted(): CredentialState | null {
     const p = readLocal();
@@ -168,10 +169,12 @@ export class ExtensionCookieCredentialStore implements CredentialStore {
         return;
       }
 
+      this.activeLoginPort = port;
       let resolved = false;
       const finish = (result: LoginResult) => {
         if (resolved) return;
         resolved = true;
+        if (this.activeLoginPort === port) this.activeLoginPort = null;
         if (result.ok) {
           const acquiredAt = Date.now();
           writeLocal({ status: "authenticated", acquiredAt });
@@ -200,6 +203,17 @@ export class ExtensionCookieCredentialStore implements CredentialStore {
         });
       });
     });
+  }
+
+  cancelLogin(): void {
+    const port = this.activeLoginPort;
+    if (!port) return;
+    this.activeLoginPort = null;
+    try {
+      port.disconnect();
+    } catch {
+      /* port already disconnected */
+    }
   }
 
   async clear(): Promise<void> {

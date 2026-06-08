@@ -8,6 +8,7 @@ const SKIP_TERMS = ["(View Only)", "Non-Credit", "Apprentice", "(View only)"];
 
 export function useScheduleSync(): void {
   const isLoggedIn = useAuthState((s) => s.status === "authenticated");
+  const liveChecked = useAuthState((s) => s.liveChecked);
   const term = useStore((s) => s.term);
   const courseGroups = useStore((s) => s.courseGroups);
   const selectedCourses = useStore((s) => s.selectedCourses);
@@ -22,6 +23,9 @@ export function useScheduleSync(): void {
   const generate = useStore((s) => s.generate);
 
   useEffect(() => {
+    // Same rationale as useIdentity: wait for the live CHECK_LOGIN before
+    // hitting Banner so persisted-but-stale auth doesn't trigger fetches.
+    if (!liveChecked) return;
     if (!isLoggedIn) return;
 
     let cancelled = false;
@@ -82,6 +86,7 @@ export function useScheduleSync(): void {
     };
   }, [
     isLoggedIn,
+    liveChecked,
     term,
     setCourseGroups,
     setSelectedCourses,

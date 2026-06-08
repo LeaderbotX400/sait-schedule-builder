@@ -6,12 +6,19 @@ export interface AuthStateShape {
   acquiredAt: number | null;
   lastError: string | null;
   busy: boolean;
+  /**
+   * True once the live CHECK_LOGIN has completed at least once. Downstream
+   * hooks (identity, profile, currentReg) should gate on this so they don't
+   * fire against persisted-but-stale "authenticated" state.
+   */
+  liveChecked: boolean;
   /** Bumped by a low-frequency ticker so age-derived selectors re-render. */
   tick: number;
 
   setStatus: (status: AuthStatus, acquiredAt?: number | null) => void;
   setBusy: (busy: boolean) => void;
   setError: (msg: string | null) => void;
+  markLiveChecked: () => void;
   bumpTick: () => void;
   reset: () => void;
 }
@@ -21,6 +28,7 @@ export const useAuthState = create<AuthStateShape>((set) => ({
   acquiredAt: null,
   lastError: null,
   busy: false,
+  liveChecked: false,
   tick: 0,
 
   setStatus: (status, acquiredAt) =>
@@ -30,8 +38,16 @@ export const useAuthState = create<AuthStateShape>((set) => ({
     })),
   setBusy: (busy) => set({ busy }),
   setError: (lastError) => set({ lastError }),
+  markLiveChecked: () => set({ liveChecked: true }),
   bumpTick: () => set((s) => ({ tick: s.tick + 1 })),
-  reset: () => set({ status: "unauthenticated", acquiredAt: null, lastError: null, busy: false }),
+  reset: () =>
+    set({
+      status: "unauthenticated",
+      acquiredAt: null,
+      lastError: null,
+      busy: false,
+      liveChecked: true,
+    }),
 }));
 
 export function selectSessionAgeSeconds(s: AuthStateShape): number {
