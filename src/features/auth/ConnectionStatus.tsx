@@ -32,6 +32,8 @@ export default function ConnectionStatus({ termLabel, loading }: Props) {
           type="button"
           onClick={onClick}
           aria-expanded={expanded}
+          aria-haspopup="menu"
+          aria-label={`Connected to Banner${termLabel ? `, ${termLabel}` : ""}${loading ? ", loading" : ""} — open session menu`}
           className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
             isStale
               ? "bg-tint-warning/90 border border-tint-warning-bd text-tint-warning-fg hover:bg-tint-warning"
@@ -40,7 +42,12 @@ export default function ConnectionStatus({ termLabel, loading }: Props) {
         >
           <StatusDot tone={isStale ? "warn" : "ok"} />
           <span className="hidden sm:inline">Connected</span>
-          {termLabel && <span className="text-success/70">· {termLabel}</span>}
+          {termLabel && (
+            <span className="text-success/70">
+              <span className="hidden sm:inline">·&nbsp;</span>
+              {termLabel}
+            </span>
+          )}
           {loading && <span className="text-success/70 italic">· Loading…</span>}
         </button>
       )}
@@ -65,7 +72,7 @@ export default function ConnectionStatus({ termLabel, loading }: Props) {
           <button
             type="button"
             onClick={() => void handleDisconnect(close)}
-            className="w-full rounded-md px-2.5 py-1.5 text-xs text-fg-faint hover:text-destructive transition-colors"
+            className="w-full rounded-md border border-tint-danger-bd bg-tint-danger px-2.5 py-1.5 text-xs text-tint-danger-fg hover:bg-destructive hover:text-destructive-fg hover:border-destructive transition-colors"
           >
             Disconnect
           </button>

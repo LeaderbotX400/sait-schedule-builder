@@ -21,7 +21,9 @@ export default function ThemePicker() {
           type="button"
           onClick={onClick}
           aria-expanded={expanded}
-          className="px-2 py-1 text-xs rounded-md border border-edge text-fg-muted hover:text-fg hover:border-edge-hover transition-colors"
+          aria-haspopup="menu"
+          aria-label="Change theme"
+          className="px-2 py-1 text-xs rounded-md border border-edge bg-surface text-fg hover:bg-surface-hover hover:border-edge-hover transition-colors"
           title="Change theme"
         >
           <span className="text-sm leading-none" aria-hidden>
@@ -43,6 +45,8 @@ export default function ThemePicker() {
                 setTheme(o.key);
                 close();
               }}
+              aria-label={`${o.label} theme${choice === o.key ? " (current)" : ""}`}
+              aria-pressed={choice === o.key}
               className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs transition-colors ${
                 choice === o.key
                   ? "bg-tint-primary text-tint-primary-fg"

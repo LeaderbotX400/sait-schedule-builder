@@ -10,7 +10,7 @@ export default function SignInScreen() {
     <div className="flex items-center justify-center min-h-screen bg-page text-fg p-4">
       <Card size="sm">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-fg-muted">Connect to SAIT Banner</h3>
+          <h1 className="text-sm font-medium text-fg-muted">Connect to SAIT Banner</h1>
           <ThemePicker />
         </div>
         <p className="text-xs text-fg-faint mb-4">
