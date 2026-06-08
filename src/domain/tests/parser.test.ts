@@ -89,12 +89,20 @@ describe("parseActiveRegistrations", () => {
       expect(result.has("A306")).toBe(true);
     });
 
-    it("drops registrations with no meeting times under a term filter", () => {
+    it("keeps registrations with no meeting times (online/independent-study — term unknown, assume it belongs)", () => {
       const result = parseActiveRegistrations(
         [registration({ subject: "A", meetingTimes: [] })],
         "202620",
       );
-      expect(result.size).toBe(0);
+      expect(result.size).toBe(1);
+    });
+
+    it("keeps registrations whose meetingTimes have no term field (Banner omitted it)", () => {
+      const result = parseActiveRegistrations(
+        [registration({ subject: "A", meetingTimes: [meetingTime({ term: "" })] })],
+        "202620",
+      );
+      expect(result.size).toBe(1);
     });
 
     it("keeps a registration if any meetingTime matches the term", () => {

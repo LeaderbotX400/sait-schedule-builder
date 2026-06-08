@@ -164,13 +164,7 @@ export default function CalendarGrid({ schedule, blockout }: Props) {
   );
 
   // Weekend columns if needed
-  const hasSat = expanded.some((e) => e.day === "Sat");
-  const hasSun = expanded.some((e) => e.day === "Sun");
-  const displayDays: DayOfWeek[] = [
-    ...DISPLAY_DAYS,
-    ...(hasSat ? ["Sat" as DayOfWeek] : []),
-    ...(hasSun ? ["Sun" as DayOfWeek] : []),
-  ];
+  const displayDays: DayOfWeek[] = [...DISPLAY_DAYS];
 
   // Group events by day
   const dayEvents = new Map<DayOfWeek, typeof expanded>();
@@ -253,7 +247,7 @@ export default function CalendarGrid({ schedule, blockout }: Props) {
 
                 return (
                   <div
-                    key={`${course.crn}-${day}-${meeting.startTime}`}
+                    key={`course-${course.identifier}-${day}-${meeting.startTime}`}
                     className={`absolute left-0.5 right-0.5 ${isWarned ? color.bgWarn : color.bg} ${isWarned ? color.borderWarn : color.border} border-l-3 rounded-r-md overflow-hidden flex flex-col justify-center px-1.5 cursor-default transition-colors`}
                     style={{ top, height }}
                     onMouseEnter={(e) => {

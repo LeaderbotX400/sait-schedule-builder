@@ -112,7 +112,7 @@ function RulesSidebar() {
   const rules = useStore((s) => s.rules);
   const setRules = useStore((s) => s.setRules);
   return (
-    <div className="hidden lg:block w-52 shrink-0">
+    <div className="hidden lg:block shrink-0">
       <p className="text-[10px] font-semibold uppercase tracking-widest text-fg-faint mb-2">
         Rules
       </p>

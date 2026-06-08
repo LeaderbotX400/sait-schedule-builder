@@ -69,19 +69,28 @@ function parseSection(section: BannerSection): CourseSection {
 
 /** Parse a Banner API response into grouped course sections. */
 export function parseBannerData(response: BannerResponse): Map<string, CourseSection[]> {
-  const grouped = new Map<string, CourseSection[]>();
+  // Two-level map: subjectCourse → crn → section.
+  // Banner sometimes returns the same CRN multiple times (once per meeting pattern);
+  // keying by CRN means the second row merges its meetings into the first instead of
+  // creating a phantom duplicate section.
+  const byCrn = new Map<string, Map<string, CourseSection>>();
 
   for (const section of response.data) {
     const course = parseSection(section);
-    const existing = grouped.get(course.subjectCourse);
+    let crnMap = byCrn.get(course.subjectCourse);
+    if (!crnMap) {
+      crnMap = new Map();
+      byCrn.set(course.subjectCourse, crnMap);
+    }
+    const existing = crnMap.get(course.crn);
     if (existing) {
-      existing.push(course);
+      existing.meetings.push(...course.meetings);
     } else {
-      grouped.set(course.subjectCourse, [course]);
+      crnMap.set(course.crn, course);
     }
   }
 
-  return grouped;
+  return new Map([...byCrn.entries()].map(([name, crnMap]) => [name, [...crnMap.values()]]));
 }
 
 /**
@@ -109,10 +118,18 @@ export function parseActiveRegistrations(
   );
 
   // Filter by term client-side: Banner doesn't reliably honour the term param.
-  // A registration belongs to a term if any of its meetingTimes carries that term.
+  // A registration belongs to a term if:
+  //   - it has no meetingTimes (online / independent-study courses — can't determine term, assume it belongs), OR
+  //   - any meetingTime carries a falsy term field (Banner omitted it — assume it belongs), OR
+  //   - any meetingTime's term matches termCode (coerce to string to handle number/string mismatch).
+  // We only exclude a registration when ALL of its meetingTimes have an explicit, non-matching term.
   const termFiltered =
     termCode !== undefined
-      ? activeRegistrations.filter((r) => r.meetingTimes.some((mt) => mt.term === termCode))
+      ? activeRegistrations.filter(
+          (r) =>
+            r.meetingTimes.length === 0 ||
+            r.meetingTimes.some((mt) => !mt.term || String(mt.term) === termCode),
+        )
       : activeRegistrations;
 
   for (const reg of termFiltered) {
