@@ -1,4 +1,6 @@
 import { type BannerSdk, BannerSessionExpiredError, createBannerSdk, ExtensionTransport } from "../banner-sdk";
+import { isDemoMode } from "../demo";
+import { createDemoTransport } from "../demo/mockBanner";
 
 let _sdk: BannerSdk | null = null;
 let _wrapped: BannerSdk | null = null;
@@ -16,7 +18,8 @@ export function setSessionExpiredHandler(callback: () => void): void {
 /** Returns the module-level SDK singleton, constructing it on first call. */
 export function getSdk(): BannerSdk {
   if (!_sdk) {
-    _sdk = createBannerSdk(new ExtensionTransport());
+    const transport = isDemoMode() ? createDemoTransport() : new ExtensionTransport();
+    _sdk = createBannerSdk(transport);
     _wrapped = wrapWithSessionGuard(_sdk);
   }
   return _wrapped as BannerSdk;

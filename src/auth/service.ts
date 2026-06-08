@@ -1,5 +1,7 @@
 import { resetSdk, setSessionExpiredHandler } from "../lib/sdk";
+import { isDemoMode } from "../demo";
 import type { CredentialStore } from "./credentialStore";
+import { DemoCredentialStore } from "./demoStore";
 import { ExtensionCookieCredentialStore } from "./extensionCookieStore";
 import { useAuthStore } from "./store";
 import type { CredentialState, LoginResult } from "./types";
@@ -96,7 +98,10 @@ let _service: AuthService | null = null;
 /** Module-level singleton — constructed on first call. */
 export function getAuthService(): AuthService {
   if (!_service) {
-    _service = new AuthService(new ExtensionCookieCredentialStore());
+    const store: CredentialStore = isDemoMode()
+      ? new DemoCredentialStore()
+      : new ExtensionCookieCredentialStore();
+    _service = new AuthService(store);
   }
   return _service;
 }
