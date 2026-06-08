@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+/* =================================================================
+   Theme tokens. Each variable is registered with @theme so Tailwind
+   generates the matching `bg-*`, `text-*`, `border-*`, `ring-*`
+   utilities. Switch theme at runtime by setting `data-theme="<id>"`
+   on <html>.
+   ================================================================= */
+
+@theme {
+  /* surfaces */
+  --color-page: var(--th-page);
+  --color-surface: var(--th-surface);
+  --color-surface-hover: var(--th-surface-hover);
+  --color-overlay: var(--th-overlay);
+  --color-input: var(--th-input);
+
+  /* borders */
+  --color-edge: var(--th-edge);
+  --color-edge-hover: var(--th-edge-hover);
+  --color-edge-subtle: var(--th-edge-subtle);
+
+  /* text */
+  --color-fg: var(--th-fg);
+  --color-fg-muted: var(--th-fg-muted);
+  --color-fg-faint: var(--th-fg-faint);
+
+  /* primary action */
+  --color-primary: var(--th-primary);
+  --color-primary-hover: var(--th-primary-hover);
+  --color-primary-fg: var(--th-primary-fg);
+
+  /* destructive action */
+  --color-destructive: var(--th-destructive);
+  --color-destructive-hover: var(--th-destructive-hover);
+  --color-destructive-fg: var(--th-destructive-fg);
+
+  /* status */
+  --color-success: var(--th-success);
+  --color-success-hover: var(--th-success-hover);
+  --color-success-fg: var(--th-success-fg);
+  --color-warning: var(--th-warning);
+  --color-caution: var(--th-caution);
+
+  /* utilities */
+  --color-ring: var(--th-ring);
+  --color-indicator: var(--th-indicator);
+
+  /* soft tones */
+  --color-tint-primary: var(--th-tint-primary);
+  --color-tint-primary-fg: var(--th-tint-primary-fg);
+  --color-tint-primary-bd: var(--th-tint-primary-bd);
+  --color-tint-success: var(--th-tint-success);
+  --color-tint-success-fg: var(--th-tint-success-fg);
+  --color-tint-success-bd: var(--th-tint-success-bd);
+  --color-tint-warning: var(--th-tint-warning);
+  --color-tint-warning-fg: var(--th-tint-warning-fg);
+  --color-tint-warning-bd: var(--th-tint-warning-bd);
+  --color-tint-caution: var(--th-tint-caution);
+  --color-tint-caution-fg: var(--th-tint-caution-fg);
+  --color-tint-caution-bd: var(--th-tint-caution-bd);
+  --color-tint-danger: var(--th-tint-danger);
+  --color-tint-danger-fg: var(--th-tint-danger-fg);
+  --color-tint-danger-bd: var(--th-tint-danger-bd);
+}
+
+/* SAIT Dark — Midnight Blue base, Sky Blue accent. Default. */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --th-page: #06101f;
+  --th-surface: #0d1b30;
+  --th-surface-hover: #132543;
+  --th-overlay: #152a4a;
+  --th-input: #132543;
+
+  --th-edge: #1c3352;
+  --th-edge-hover: #2a4b6e;
+  --th-edge-subtle: #142438;
+
+  --th-fg: #eaf0f6;
+  --th-fg-muted: #8a9fba;
+  --th-fg-faint: #4d6580;
+
+  --th-primary: #00a3e0;
+  --th-primary-hover: #22b5ec;
+  --th-primary-fg: #ffffff;
+
+  --th-destructive: #da291c;
+  --th-destructive-hover: #e84838;
+  --th-destructive-fg: #ffffff;
+
+  --th-success: #34d399;
+  --th-success-hover: #10b981;
+  --th-success-fg: #ffffff;
+  --th-warning: #facc15;
+  --th-caution: #f59e0b;
+
+  --th-ring: #00a3e0;
+  --th-indicator: #00a3e0;
+
+  --th-tint-primary: #0b2538;
+  --th-tint-primary-fg: #55caf0;
+  --th-tint-primary-bd: #0e4d6e;
+  --th-tint-success: #0b2a1f;
+  --th-tint-success-fg: #34d399;
+  --th-tint-success-bd: #0e5c3a;
+  --th-tint-warning: #2a2210;
+  --th-tint-warning-fg: #fcd34d;
+  --th-tint-warning-bd: #854d0e;
+  --th-tint-caution: #2c1c0a;
+  --th-tint-caution-fg: #fdba74;
+  --th-tint-caution-bd: #9a3412;
+  --th-tint-danger: #2c120f;
+  --th-tint-danger-fg: #f87171;
+  --th-tint-danger-bd: #991b1b;
+}
+
+/* SAIT Light */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --th-page: #f4f5f7;
+  --th-surface: #ffffff;
+  --th-surface-hover: #eef1f5;
+  --th-overlay: #ffffff;
+  --th-input: #ffffff;
+
+  --th-edge: #d1d5db;
+  --th-edge-hover: #9ca3af;
+  --th-edge-subtle: #e5e7eb;
+
+  --th-fg: #212529;
+  --th-fg-muted: #4b5563;
+  --th-fg-faint: #9ca3af;
+
+  --th-primary: #005eb8;
+  --th-primary-hover: #004d96;
+  --th-primary-fg: #ffffff;
+
+  --th-destructive: #b91c1c;
+  --th-destructive-hover: #dc2626;
+  --th-destructive-fg: #ffffff;
+
+  --th-success: #16a34a;
+  --th-success-hover: #15803d;
+  --th-success-fg: #ffffff;
+  --th-warning: #ca8a04;
+  --th-caution: #d97706;
+
+  --th-ring: #005eb8;
+  --th-indicator: #005eb8;
+
+  --th-tint-primary: #e8f0fa;
+  --th-tint-primary-fg: #005eb8;
+  --th-tint-primary-bd: #93c5fd;
+  --th-tint-success: #ecfdf5;
+  --th-tint-success-fg: #15803d;
+  --th-tint-success-bd: #86efac;
+  --th-tint-warning: #fefce8;
+  --th-tint-warning-fg: #a16207;
+  --th-tint-warning-bd: #fde047;
+  --th-tint-caution: #fff7ed;
+  --th-tint-caution-fg: #c2410c;
+  --th-tint-caution-bd: #fdba74;
+  --th-tint-danger: #fef2f2;
+  --th-tint-danger-fg: #dc2626;
+  --th-tint-danger-bd: #fca5a5;
+}
+
+html,
+body {
+  background-color: var(--color-page);
+  color: var(--color-fg);
+}
