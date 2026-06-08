@@ -6,12 +6,14 @@ import { useHolds } from "./holds";
 import { useDemoBootstrap } from "./hooks/useDemoBootstrap";
 import { useScheduleSync } from "./hooks/useScheduleSync";
 import { useIdentity } from "./identity";
+import { useExtensionIdListener } from "./lib/extensionIdListener";
 import MainArea from "./MainArea";
 import { useProfile } from "./profile";
 import { useRegistrationStatus } from "./registration-status";
 import SignInScreen from "./SignInScreen";
 
 export default function App() {
+  useExtensionIdListener();
   useDemoBootstrap();
   useAuthInit();
   useIdentity();
