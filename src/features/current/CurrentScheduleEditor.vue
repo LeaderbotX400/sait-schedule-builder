@@ -131,7 +131,7 @@ function onSelectChange(subjectCourse: string, event: Event): void {
         <!-- Meeting summary for the active section -->
         <template
           v-for="section in [resolveCurrentSection(subjectCourse, currentRegistrations, sectionOverrides, courseGroups)]"
-          :key="`summary-${subjectCourse}`"
+          :key="section?.identifier ?? `none-${subjectCourse}`"
         >
           <p v-if="section" class="text-[11px] text-fg-faint leading-snug">
             {{ meetingSummary(section) }}

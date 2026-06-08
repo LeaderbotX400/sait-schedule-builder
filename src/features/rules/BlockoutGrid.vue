@@ -46,14 +46,6 @@ const emit = defineEmits<{
   "update:blockoutWeight": [weight: number];
 }>();
 
-// ── Cell toggle logic ────────────────────────────────────────────────────────
-
-function cycle(current: BlockoutCell): BlockoutCell {
-  if (current === "neutral") return "preferred";
-  if (current === "preferred") return "blocked";
-  return "neutral";
-}
-
 // ── Paint mode (used in the toolbar) ────────────────────────────────────────
 
 type PaintMode = BlockoutCell;
@@ -187,17 +179,6 @@ function paint(day: DayOfWeek, hour: number): void {
   const next: BlockoutGridType = { ...props.blockout };
   next[day] = { ...next[day], [hour]: paintMode.value };
   emit("update:blockout", next);
-}
-
-function onCellClick(day: DayOfWeek, hour: number): void {
-  if (isHardBlocked(day, hour)) return;
-  // When in click-mode (not painting), cycle through states
-  const current: BlockoutCell = props.blockout[day]?.[hour] ?? "neutral";
-  const nextGrid: BlockoutGridType = {
-    ...props.blockout,
-    [day]: { ...props.blockout[day], [hour]: cycle(current) },
-  };
-  emit("update:blockout", nextGrid);
 }
 
 function handleMouseDown(day: DayOfWeek, hour: number): void {

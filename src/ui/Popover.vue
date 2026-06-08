@@ -6,7 +6,7 @@
 
 import { ref, watch, onUnmounted, nextTick } from "vue";
 
-const props = withDefaults(
+withDefaults(
   defineProps<{
     align?: "left" | "right";
     widthClass?: string;

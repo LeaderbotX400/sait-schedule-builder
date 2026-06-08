@@ -20,8 +20,8 @@ const ORDER: Record<LogLevel, number> = {
 
 function envDefault(): LogLevel {
   // Vitest sets MODE=test; Vite sets DEV/PROD.
-  // biome-ignore lint/suspicious/noExplicitAny: import.meta.env shape varies by build target
-  const env = (import.meta as any)?.env ?? {};
+  const env = (import.meta as ImportMeta & { env?: { MODE?: string; DEV?: boolean } })
+    .env ?? {};
   if (env.MODE === "test") return "silent";
   if (env.DEV) return "info";
   return "warn";

@@ -22,5 +22,15 @@ export default defineConfigWithVueTs(
 
   ...pluginOxlint.buildFromOxlintConfigFile('.oxlintrc.json'),
 
+  // Shared UI primitives are namespaced via imports; single-word names
+  // (Button / Card / Spinner / Popover) are idiomatic and don't risk
+  // collision with HTML elements.
+  {
+    files: ['src/ui/*.vue'],
+    rules: {
+      'vue/multi-word-component-names': 'off',
+    },
+  },
+
   skipFormatting,
 )
