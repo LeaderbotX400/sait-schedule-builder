@@ -111,6 +111,11 @@ export default function CourseSearch() {
 
       if (searchResult.response.data.length > 0) {
         loadBannerResponse(searchResult.response);
+        // Courses are now visible as chips above; drop the input tags so we
+        // don't show the same code in both the input pill and the result row.
+        setTags((prev) =>
+          prev.filter((t) => !searchResult.perCode.some((r) => r.code === t && r.count > 0)),
+        );
       }
 
       const allFailed = searchResult.perCode.every((r) => r.count === 0);
