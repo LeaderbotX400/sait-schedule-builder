@@ -2,9 +2,14 @@ import { useEffect } from "react";
 import { getSdk, useAuthState } from "../auth";
 import { BannerAuthRequiredError } from "../banner-sdk";
 import { parseActiveRegistrations } from "../domain/parser";
+import { mergeTermOptions } from "../lib/terms";
 import { useStore } from "../store";
 
 const SKIP_TERMS = ["(View Only)", "Non-Credit", "Apprentice", "(View only)"];
+
+function plannableTerms<T extends { description: string }>(terms: T[]): T[] {
+  return terms.filter((t) => !SKIP_TERMS.some((s) => t.description.includes(s)));
+}
 
 export function useScheduleSync(): void {
   const isLoggedIn = useAuthState((s) => s.status === "authenticated");
@@ -16,6 +21,7 @@ export function useScheduleSync(): void {
   const setSelectedCourses = useStore((s) => s.setSelectedCourses);
   const initializeCurrentRegistrations = useStore((s) => s.initializeCurrentRegistrations);
   const setTerm = useStore((s) => s.setTerm);
+  const setTermOptions = useStore((s) => s.setTermOptions);
   const setLoadError = useStore((s) => s.setLoadError);
   const setAuthRequired = useStore((s) => s.setAuthRequired);
   const setRegistrationsLoading = useStore((s) => s.setRegistrationsLoading);
@@ -42,7 +48,9 @@ export function useScheduleSync(): void {
         if (!terms.length) {
           throw new Error("Banner returned no terms — session may be invalid");
         }
-        const activeTerm = terms.find((t) => !SKIP_TERMS.some((s) => t.description.includes(s)));
+        const plannable = plannableTerms(terms);
+        setTermOptions(mergeTermOptions(plannable));
+        const activeTerm = plannable[0];
         const termCode = activeTerm?.code;
         if (!termCode) return;
         setTerm(termCode);
@@ -92,6 +100,7 @@ export function useScheduleSync(): void {
     setSelectedCourses,
     initializeCurrentRegistrations,
     setTerm,
+    setTermOptions,
     setLoadError,
     setAuthRequired,
     setRegistrationsLoading,
@@ -117,7 +126,9 @@ export async function refreshAllData(): Promise<void> {
     if (!terms.length) {
       throw new Error("Banner returned no terms — session may be invalid");
     }
-    const activeTerm = terms.find((t) => !SKIP_TERMS.some((s) => t.description.includes(s)));
+    const plannable = plannableTerms(terms);
+    state.setTermOptions(mergeTermOptions(plannable));
+    const activeTerm = plannable[0];
     const termCode = activeTerm?.code;
     if (termCode) {
       state.setTerm(termCode);

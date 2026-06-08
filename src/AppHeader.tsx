@@ -19,6 +19,7 @@ interface Props {
 export default function AppHeader({ panelOpen, onTogglePanel }: Props) {
   const isLoggedIn = useAuth().status === "authenticated";
   const term = useStore((s) => s.term);
+  const termOptions = useStore((s) => s.termOptions);
   const courseGroups = useStore((s) => s.courseGroups);
   const selectedCourses = useStore((s) => s.selectedCourses);
   const rules = useStore((s) => s.rules);
@@ -90,7 +91,10 @@ export default function AppHeader({ panelOpen, onTogglePanel }: Props) {
           )}
           {isLoggedIn && <GpaChip />}
           {isLoggedIn && (
-            <ConnectionStatus termLabel={describeTerm(term)} loading={registrationsLoading} />
+            <ConnectionStatus
+              termLabel={describeTerm(term, termOptions)}
+              loading={registrationsLoading}
+            />
           )}
           {hasData && <Button onClick={clearCourses}>Clear</Button>}
           {activeSchedule && (
