@@ -50,10 +50,19 @@ export function useScheduleSync(): void {
         }
         const plannable = plannableTerms(terms);
         setTermOptions(mergeTermOptions(plannable));
-        const activeTerm = plannable[0];
-        const termCode = activeTerm?.code;
+        // Preserve the user's chosen term (or the persisted one) if it's still
+        // a plannable term. Only fall back to the auto-detected active term
+        // (plannable[0]) if the current term isn't in Banner's catalogue —
+        // otherwise this effect would race with the dropdown's onChange and
+        // snap every user selection back to plannable[0]. After setTerm fires
+        // we return; the effect re-runs with the new term and resumes here.
+        const isCurrentPlannable = plannable.some((t) => t.code === term);
+        const termCode = isCurrentPlannable ? term : plannable[0]?.code;
         if (!termCode) return;
-        setTerm(termCode);
+        if (termCode !== term) {
+          setTerm(termCode);
+          return;
+        }
 
         const registrations = await sdk.registration.registrations.listActive(termCode);
         if (cancelled) return;
@@ -128,13 +137,13 @@ export async function refreshAllData(): Promise<void> {
     }
     const plannable = plannableTerms(terms);
     state.setTermOptions(mergeTermOptions(plannable));
-    const activeTerm = plannable[0];
-    const termCode = activeTerm?.code;
+    const isCurrentPlannable = plannable.some((t) => t.code === state.term);
+    const termCode = isCurrentPlannable ? state.term : plannable[0]?.code;
     if (termCode) {
-      state.setTerm(termCode);
+      if (termCode !== state.term) state.setTerm(termCode);
       const registrations = await sdk.registration.registrations.listActive(termCode);
       if (registrations.length > 0) {
-        const groups = parseActiveRegistrations(registrations);
+        const groups = parseActiveRegistrations(registrations, termCode);
         state.setCourseGroups(groups);
         state.setSelectedCourses((prev) => {
           const restored = new Set([...prev].filter((name) => groups.has(name)));
