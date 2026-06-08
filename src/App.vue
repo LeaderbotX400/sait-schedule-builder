@@ -2,15 +2,17 @@
 import { computed } from "vue";
 import { useAuthStore } from "./auth/store";
 import { useAuthInit } from "./auth/useAuthInit";
-import { useExtensionIdListener } from "./lib/extensionIdListener";
 import { useScheduleSync } from "./composables/useScheduleSync";
-import SignInScreen from "./shell/SignInScreen.vue";
+import { useExtensionIdListener } from "./lib/extensionIdListener";
 import AppShell from "./shell/AppShell.vue";
+import SignInScreen from "./shell/SignInScreen.vue";
+import { useTheme } from "./theme/useTheme";
 
 // Side-effect composables — mounted once at the root.
 useExtensionIdListener();
 useAuthInit();
 useScheduleSync();
+useTheme();
 
 const auth = useAuthStore();
 const authenticated = computed(() => auth.status === "authenticated");
