@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, type PersistOptions, persist } from "zustand/middleware";
 import { isDemoMode } from "../demo";
+import { DEFAULT_RULES } from "../domain/blockout";
 import { type CoursesSlice, createCoursesSlice } from "./slices/courses";
 import { type CurrentRegSlice, createCurrentRegSlice } from "./slices/currentReg";
 import { createRulesSlice, type RulesSlice } from "./slices/rules";
@@ -41,7 +42,9 @@ const persistOptions: PersistOptions<AppState, PersistedShape> = {
     const p = persisted as Partial<PersistedShape>;
     return {
       ...current,
-      ...(p.rules ? { rules: p.rules } : {}),
+      // Spread DEFAULT_RULES first so any new fields added in newer versions
+      // pick up sane defaults when the user's persisted rules predate them.
+      rules: { ...DEFAULT_RULES, ...(p.rules ?? {}) },
       ...(p.term ? { term: p.term } : {}),
       selectedCourses: new Set(p.selectedCourses ?? []),
       sectionOverrides: new Map(p.sectionOverrides ?? []),

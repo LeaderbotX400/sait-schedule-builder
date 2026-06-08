@@ -21,6 +21,7 @@ export const DEFAULT_RULES: ScheduleRules = {
   allowPartialSchedules: false,
   maxGapBetweenClasses: 0,
   requireOpenSeats: false,
+  sectionPrefixes: "",
   blockout: createEmptyBlockout(),
   blockoutWeight: 50,
 };
