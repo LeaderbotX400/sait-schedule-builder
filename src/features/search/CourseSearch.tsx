@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { BannerAuthRequiredError } from "../../banner-sdk";
-import { TERM_OPTIONS } from "../../lib/terms";
 import { useStore } from "../../store";
 import { getSdk } from "../../store/sdk";
 import Spinner from "../../ui/Spinner";
@@ -18,6 +17,7 @@ interface Suggestion {
 export default function CourseSearch() {
   const term = useStore((s) => s.term);
   const setTerm = useStore((s) => s.setTerm);
+  const termOptions = useStore((s) => s.termOptions);
   const loadBannerResponse = useStore((s) => s.loadBannerResponse);
   const setAuthRequired = useStore((s) => s.setAuthRequired);
 
@@ -204,11 +204,19 @@ export default function CourseSearch() {
           }}
           className="rounded-md bg-input border border-edge px-2 py-0.5 text-xs text-fg focus:outline-none focus:ring-2 focus:ring-ring"
         >
-          {TERM_OPTIONS.map((t) => (
+          {termOptions.map((t) => (
             <option key={t.code} value={t.code}>
               {t.description}
             </option>
           ))}
+          {/* Persisted term may not appear in the live list (e.g. an older term
+              the user picked before Banner trimmed it). Add it as a fallback so
+              the select always has a matching option. */}
+          {!termOptions.some((t) => t.code === term) && (
+            <option key={term} value={term}>
+              {term}
+            </option>
+          )}
         </select>
       </div>
 
