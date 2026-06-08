@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { downloadICal } from "../../domain/ical";
 import { formatTime } from "../../domain/time";
 import type { Schedule, ScheduleRules, ScheduleWarning } from "../../lib/types";
 
@@ -100,8 +99,6 @@ function dedupeBlockoutWarnings(warnings: ScheduleWarning[]): ScheduleWarning[] 
 }
 
 export default function ScheduleDetail({ schedule }: Props) {
-  const handleExportICal = () => downloadICal(schedule);
-
   const dedupedWarnings = useMemo(
     () => dedupeBlockoutWarnings(schedule.warnings),
     [schedule.warnings],
@@ -137,7 +134,26 @@ export default function ScheduleDetail({ schedule }: Props) {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div
+          className="flex items-center gap-2"
+          title={[
+            `Quality score: ${schedule.qualityScore}/100`,
+            `Days used: ${schedule.daysCount}`,
+            `On-campus days: ${schedule.onCampusDaysCount}`,
+            schedule.earlyMorningPenalty
+              ? `Early-morning penalty: −${schedule.earlyMorningPenalty}`
+              : null,
+            schedule.travelTimePenalty
+              ? `Travel-gap penalty: −${schedule.travelTimePenalty}`
+              : null,
+            schedule.blockoutFitScore < 100
+              ? `Blockout match: ${schedule.blockoutFitScore}%`
+              : null,
+            schedule.isPartial ? "Partial schedule (some courses dropped)" : null,
+          ]
+            .filter(Boolean)
+            .join(" • ")}
+        >
           <span
             className={`text-2xl font-bold ${
               schedule.qualityScore >= 80
@@ -239,16 +255,6 @@ export default function ScheduleDetail({ schedule }: Props) {
             );
           })}
         </div>
-      </div>
-
-      {/* Export */}
-      <div className="flex gap-2">
-        <button
-          onClick={handleExportICal}
-          className="rounded-lg bg-success px-4 py-2 text-sm font-medium text-success-fg hover:bg-success-hover transition-colors"
-        >
-          Export to iCal (.ics)
-        </button>
       </div>
     </div>
   );
