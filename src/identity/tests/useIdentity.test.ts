@@ -96,10 +96,12 @@ describe("useIdentity", () => {
   });
 
   it("discards a late SDK response when the scope unmounts mid-flight", async () => {
-    let resolveFetch: ((bannerId: string) => void) | null = null;
+    // Holder wrapper instead of a let binding — defeats TS control-flow
+    // narrowing of "always null" inside the Promise constructor closure.
+    const pending: { resolve: ((bannerId: string) => void) | null } = { resolve: null };
     const transport = new MockTransport().on("/getBannerId", () => {
       return new Promise((resolve) => {
-        resolveFetch = (id) =>
+        pending.resolve = (id) =>
           resolve({
             ok: true,
             status: 200,
@@ -122,7 +124,7 @@ describe("useIdentity", () => {
 
     // Unmount BEFORE the SDK responds; the in-flight result must be dropped.
     scope.stop();
-    resolveFetch?.("000999999");
+    pending.resolve?.("000999999");
     await flushAsync();
 
     expect(identity.studentId).toBeNull();
