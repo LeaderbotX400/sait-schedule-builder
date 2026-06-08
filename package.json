@@ -20,7 +20,9 @@
     "vue-router": "^5.0.4"
   },
   "devDependencies": {
+    "@crxjs/vite-plugin": "^2.5.0",
     "@tsconfig/node24": "^24.0.4",
+    "@types/chrome": "^0.1.43",
     "@types/node": "^24.12.2",
     "@vitejs/plugin-vue": "^6.0.6",
     "@vue/eslint-config-typescript": "^14.7.0",
