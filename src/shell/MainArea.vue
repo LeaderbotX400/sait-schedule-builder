@@ -2,6 +2,7 @@
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { useAuth } from "../auth/useAuth";
+import CurrentScheduleEditor from "../features/current/CurrentScheduleEditor.vue";
 import BlockoutGrid from "../features/rules/BlockoutGrid.vue";
 import RulesPanel from "../features/rules/RulesPanel.vue";
 import ScheduleDetail from "../features/schedule/ScheduleDetail.vue";
@@ -35,7 +36,8 @@ const selectionStore = useSelectionStore();
 const { selectedCourses } = storeToRefs(selectionStore);
 
 const currentRegStore = useCurrentRegStore();
-const { currentRegistrations } = storeToRefs(currentRegStore);
+const { currentRegistrations, sectionOverrides, includedCourses } =
+  storeToRefs(currentRegStore);
 
 const schedulesStore = useSchedulesStore();
 const { schedules, activeScheduleIndex, generationStatus } = storeToRefs(schedulesStore);
@@ -113,6 +115,16 @@ async function onReauth(): Promise<void> {
     </aside>
 
     <div class="flex-1 min-w-0 space-y-4">
+      <CurrentScheduleEditor
+        v-if="activeTab === 'current' && currentRegistrations.size > 0"
+        :current-registrations="currentRegistrations"
+        :course-groups="courseGroups"
+        :included-courses="includedCourses"
+        :section-overrides="sectionOverrides"
+        @swap-section="currentRegStore.swapSection"
+        @toggle-course="currentRegStore.toggleCurrentCourse"
+      />
+      <template v-else>
       <BlockoutGrid
         :blockout="rules.blockout"
         :blockout-weight="rules.blockoutWeight"
@@ -179,6 +191,7 @@ async function onReauth(): Promise<void> {
           Generate Schedules
         </UiButton>
       </div>
+      </template>
     </div>
   </div>
 

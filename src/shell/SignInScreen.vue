@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { useAuth } from "../auth/useAuth";
+import ExtensionIdSettings from "../features/auth/ExtensionIdSettings.vue";
+import ThemePicker from "../features/theme/ThemePicker.vue";
 import Card from "../ui/Card.vue";
 import UiButton from "../ui/Button.vue";
 
@@ -15,6 +17,7 @@ async function handleLogin(): Promise<void> {
     <Card size="sm">
       <div class="flex items-center justify-between mb-3">
         <h1 class="text-sm font-medium text-fg-muted">Connect to SAIT Banner</h1>
+        <ThemePicker />
       </div>
       <p class="text-xs text-fg-faint mb-4">
         A SAIT login window will open. Sign in and it will close automatically.
@@ -38,6 +41,7 @@ async function handleLogin(): Promise<void> {
         Cancel
       </UiButton>
       <p v-if="error" class="mt-3 text-xs text-destructive">{{ error }}</p>
+      <ExtensionIdSettings />
     </Card>
   </div>
 </template>
