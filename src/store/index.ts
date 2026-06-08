@@ -29,7 +29,24 @@ interface PersistedShape {
 const persistOptions: PersistOptions<AppState, PersistedShape> = {
   name: isDemoMode() ? "sait-sb-demo-v1" : "sait-sb-v1",
   storage: createJSONStorage(() => localStorage),
-  version: 1,
+  // v2 — selection sets are now per-term (cleared on setTerm), so a v1
+  // blob whose `term` doesn't match its `selectedCourses` would surface
+  // as ghosts on the user's first post-upgrade load. Drop the selection
+  // sets once; rules + term survive.
+  version: 2,
+  migrate: (persistedState, version) => {
+    if (version < 2 && persistedState && typeof persistedState === "object") {
+      const p = persistedState as Partial<PersistedShape>;
+      return {
+        rules: p.rules,
+        term: p.term,
+        selectedCourses: [],
+        sectionOverrides: [],
+        includedCourses: [],
+      } as PersistedShape;
+    }
+    return persistedState as PersistedShape;
+  },
   partialize: (s) => ({
     rules: s.rules,
     term: s.term,
