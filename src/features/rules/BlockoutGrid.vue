@@ -85,11 +85,19 @@ const expanded = computed<ExpandedMeeting[]>(() =>
 
 const ghosts = computed<ExpandedMeeting[]>(() => {
   const activeCrns = new Set(props.schedule?.courses.map((c) => c.crn) ?? []);
+  const allowedPrefixes = props.rules.sectionPrefixes
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter((s) => s.length > 0);
   const out: ExpandedMeeting[] = [];
   for (const subjectCourse of props.selectedCourses) {
     const sections = props.courseGroups.get(subjectCourse) ?? [];
     for (const section of sections) {
       if (activeCrns.has(section.crn)) continue;
+      if (allowedPrefixes.length > 0) {
+        const seq = section.sequenceNumber.toUpperCase();
+        if (seq.length > 1 && !allowedPrefixes.some((p) => seq.startsWith(p))) continue;
+      }
       for (const meeting of section.meetings) {
         for (const day of meeting.days) {
           out.push({ course: section, meeting, day });
@@ -251,7 +259,9 @@ void ALL_DAYS;
       class="flex items-center gap-3 px-4 py-2.5 border-b border-edge bg-surface/40 flex-wrap gap-y-2"
     >
       <!-- Paint mode buttons -->
-      <div class="flex rounded-lg overflow-hidden border border-edge-subtle text-xs font-medium shrink-0">
+      <div
+        class="flex rounded-lg overflow-hidden border border-edge-subtle text-xs font-medium shrink-0"
+      >
         <button
           v-for="(mode, i) in PAINT_MODES"
           :key="mode.value"
@@ -293,9 +303,13 @@ void ALL_DAYS;
           step="5"
           :value="blockoutWeight"
           class="w-20 accent-primary"
-          @input="emit('update:blockoutWeight', parseInt(($event.target as HTMLInputElement).value, 10))"
+          @input="
+            emit('update:blockoutWeight', parseInt(($event.target as HTMLInputElement).value, 10))
+          "
         />
-        <span class="text-xs font-medium text-fg-muted tabular-nums w-8">{{ blockoutWeight }}%</span>
+        <span class="text-xs font-medium text-fg-muted tabular-nums w-8"
+          >{{ blockoutWeight }}%</span
+        >
       </div>
 
       <!-- Fit score badge -->
@@ -334,11 +348,7 @@ void ALL_DAYS;
         </div>
 
         <!-- Day columns -->
-        <div
-          v-for="day in displayDays"
-          :key="day"
-          class="flex-1 min-w-[80px]"
-        >
+        <div v-for="day in displayDays" :key="day" class="flex-1 min-w-[80px]">
           <!-- Day header -->
           <div
             :class="[
@@ -353,10 +363,7 @@ void ALL_DAYS;
           </div>
 
           <!-- Cell column -->
-          <div
-            class="relative border-l border-edge-subtle"
-            :style="{ height: `${totalHeight}px` }"
-          >
+          <div class="relative border-l border-edge-subtle" :style="{ height: `${totalHeight}px` }">
             <!-- Blockout cells -->
             <div
               v-for="(h, i) in hours"
@@ -369,10 +376,15 @@ void ALL_DAYS;
 
             <!-- Ghost (alternative section) blocks -->
             <div
-              v-for="({ course, meeting }, idx) in (dayGhosts.get(day) ?? [])"
+              v-for="({ course, meeting }, idx) in dayGhosts.get(day) ?? []"
               :key="`ghost-${course.crn}-${day}-${meeting.startTime}-${idx}`"
               class="absolute left-0.5 right-0.5 bg-surface-hover/25 border border-dashed border-edge-hover/50 rounded-r-md overflow-hidden flex flex-col justify-center px-1.5"
-              :style="{ top: `${meetingTop(meeting)}px`, height: `${meetingHeight(meeting)}px`, zIndex: 1, pointerEvents: 'none' }"
+              :style="{
+                top: `${meetingTop(meeting)}px`,
+                height: `${meetingHeight(meeting)}px`,
+                zIndex: 1,
+                pointerEvents: 'none',
+              }"
               :title="`Alternative: ${course.identifier} - ${course.title}\n${course.instructor}\n${meeting.building} ${meeting.room}\n${formatTime(meeting.startTime)} - ${formatTime(meeting.endTime)}`"
             >
               <span class="text-[10px] font-medium text-fg-muted truncate leading-tight italic">
@@ -389,7 +401,7 @@ void ALL_DAYS;
             <!-- Active schedule meeting blocks -->
             <template v-if="schedule">
               <div
-                v-for="({ course, meeting }) in (dayEvents.get(day) ?? [])"
+                v-for="{ course, meeting } in dayEvents.get(day) ?? []"
                 :key="`${course.crn}-${day}-${meeting.startTime}`"
                 :class="[
                   'absolute left-0.5 right-0.5 border-l-[3px] rounded-r-md overflow-hidden flex flex-col justify-center px-1.5',
@@ -398,18 +410,29 @@ void ALL_DAYS;
                     if (!colorSlot) return '';
                     const mode = getThemeMode(resolvedTheme);
                     const color = mode === 'light' ? colorSlot.light : colorSlot.dark;
-                    const isWarned = warningKeys.has(`${course.identifier}|${day}|${meeting.startTime}`) || warnedCourseIds.has(course.identifier);
+                    const isWarned =
+                      warningKeys.has(`${course.identifier}|${day}|${meeting.startTime}`) ||
+                      warnedCourseIds.has(course.identifier);
                     return `${isWarned ? color.bgWarn : color.bg} ${isWarned ? color.borderWarn : color.border} ${color.text}`;
                   })(),
                 ]"
-                :style="{ top: `${meetingTop(meeting)}px`, height: `${meetingHeight(meeting)}px`, zIndex: 2, pointerEvents: 'none' }"
+                :style="{
+                  top: `${meetingTop(meeting)}px`,
+                  height: `${meetingHeight(meeting)}px`,
+                  zIndex: 2,
+                  pointerEvents: 'none',
+                }"
                 :title="`${course.identifier} - ${course.title}\n${course.instructor}\n${meeting.building} ${meeting.room}\n${formatTime(meeting.startTime)} - ${formatTime(meeting.endTime)}`"
               >
                 <div class="flex items-center gap-1">
                   <span
-                    v-if="warningKeys.has(`${course.identifier}|${day}|${meeting.startTime}`) || warnedCourseIds.has(course.identifier)"
+                    v-if="
+                      warningKeys.has(`${course.identifier}|${day}|${meeting.startTime}`) ||
+                      warnedCourseIds.has(course.identifier)
+                    "
                     class="text-[10px] text-destructive shrink-0"
-                  >&#x26A0;</span>
+                    >&#x26A0;</span
+                  >
                   <span class="text-xs font-semibold truncate leading-tight">
                     {{ course.identifier }}
                   </span>
@@ -434,27 +457,34 @@ void ALL_DAYS;
     </div>
 
     <!-- Legend -->
-    <div class="flex items-center gap-4 px-4 py-2 border-t border-edge-subtle text-[10px] text-fg-faint">
+    <div
+      class="flex items-center gap-4 px-4 py-2 border-t border-edge-subtle text-[10px] text-fg-faint"
+    >
       <span class="flex items-center gap-1.5">
         <span class="inline-block w-3 h-3 rounded-sm bg-success/20 border border-success/40" />
         Preferred
       </span>
       <span class="flex items-center gap-1.5">
-        <span class="inline-block w-3 h-3 rounded-sm bg-destructive/20 border border-destructive/40" />
+        <span
+          class="inline-block w-3 h-3 rounded-sm bg-destructive/20 border border-destructive/40"
+        />
         Blocked
       </span>
       <span class="flex items-center gap-1.5">
         <span
           class="inline-block w-3 h-3 rounded-sm"
           :style="{
-            backgroundImage: 'repeating-linear-gradient(135deg, transparent, transparent 3px, rgba(255,255,255,0.06) 3px, rgba(255,255,255,0.06) 6px)',
+            backgroundImage:
+              'repeating-linear-gradient(135deg, transparent, transparent 3px, rgba(255,255,255,0.06) 3px, rgba(255,255,255,0.06) 6px)',
             backgroundColor: 'rgba(0,0,0,0.32)',
           }"
         />
         Outside time window / day off
       </span>
       <span v-if="ghosts.length > 0" class="flex items-center gap-1.5">
-        <span class="inline-block w-3 h-3 rounded-sm bg-surface-hover/40 border border-dashed border-edge-hover/60" />
+        <span
+          class="inline-block w-3 h-3 rounded-sm bg-surface-hover/40 border border-dashed border-edge-hover/60"
+        />
         Alternative section
       </span>
     </div>

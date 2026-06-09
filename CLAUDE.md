@@ -10,6 +10,7 @@ bun run build    # type-check + vite build
 bun run preview  # Preview production build
 bun run type-check
 bun test         # vitest --watch
+bun test src/path/to/test.ts  # run a single test file
 bun run test:run # vitest run (CI-safe, passes with no tests)
 bun run test:ui  # vitest with @vitest/ui
 bun run lint     # oxlint + eslint
@@ -64,6 +65,7 @@ src/
                     #     rules/            ScheduleRules + RulesPanel + BlockoutGrid
                     #     schedules/        generated schedules + Calendar/Strip/Detail
                     #     current/          current registration editor
+                    #     saved/            saved schedule picks + reload (term-keyed)
                     #     search/           CourseSearch component (reads courses)
                     #     ui-state/         transient loadError / loading / authRequired
   App.vue           # mounts side-effect composables + swaps between
@@ -115,7 +117,7 @@ Tests live in `src/domain/tests/` (vitest).
 
 ### Planner stores (under `src/features/<name>/store.ts`)
 
-Seven Pinia setup-style stores, one concern each, each colocated with
+Eight Pinia setup-style stores, one concern each, each colocated with
 its UI under `src/features/`:
 
 - `term` — active term + picker options. `setTerm` cascades a wipe to
@@ -130,6 +132,9 @@ its UI under `src/features/`:
 - `current` — `currentRegistrations`, `sectionOverrides`,
   `includedCourses`, `swapSection`, `getCurrentSchedule` (store ID stays
   `"currentReg"` to preserve the localStorage key).
+- `saved` — `slots: Map<termCode, SavedSchedule[]>` (term-keyed). `saveSchedule`
+  snapshots picks; `loadSaved` re-fetches Banner data, rehydrates courses/selection,
+  regenerates, then seeks the best-matching schedule index.
 - `ui-state` — `loadError`, `registrationsLoading`, `authRequired`
   (transient, not persisted).
 
@@ -147,6 +152,7 @@ A tiny `$subscribe`-based helper. Each store exports its own
 - `term` (string)
 - `selectedCourses` (Set → array)
 - `currentReg.sectionOverrides` (Map → array) + `includedCourses` (Set → array)
+- `savedSchedules` (Map<termCode, SavedSchedule[]> → plain object, key `sait-sb-v1:savedSchedules`)
 
 Auth state has its own persistence inside `extensionCookieStore.ts`
 under `sait-auth-v1` so login state survives reloads.
@@ -166,7 +172,7 @@ from `lib/persistence.ts`.
 - `credentialStore.ts` + `extensionCookieStore.ts` + `demoStore.ts` —
   pluggable backends.
 - `useAuth.ts` — component-facing composable; returns reactive refs
-  + bound action callbacks.
+  - bound action callbacks.
 - `useAuthInit.ts` — mounted once at the root; kicks off init + the
   60s live-check poll + the 10s age-tick + `visibilitychange` refresh.
 

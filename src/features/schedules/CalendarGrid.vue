@@ -5,11 +5,11 @@
  * selection and editing happens in sibling or parent components.
  */
 
+import { useThemeStore } from "@/features/theme/store";
 import { computed, ref } from "vue";
 import { getExpandedMeetings } from "../../domain/scheduler";
 import { formatTime, timeToMinutes } from "../../domain/time";
 import type { BlockoutGrid, DayOfWeek, Schedule } from "../../domain/types";
-import { useThemeStore } from "@/features/theme/store";
 import {
   buildColorMap,
   buildWarnedCourseIds,
@@ -35,6 +35,7 @@ const TOOLTIP_PADDING = 8;
 interface HoveredEvent {
   course: Schedule["courses"][number];
   meeting: Schedule["courses"][number]["meetings"][number];
+  // viewport-relative coords for fixed positioning via Teleport
   blockTop: number;
   blockBottom: number;
   blockCenterX: number;
@@ -107,17 +108,11 @@ function eventHeight(meeting: Schedule["courses"][number]["meetings"][number]): 
   return ((endMin - startMin) / 60) * HOUR_HEIGHT;
 }
 
-function getColor(
-  identifier: string,
-): NonNullable<ReturnType<typeof colorMap.value.get>> {
+function getColor(identifier: string): NonNullable<ReturnType<typeof colorMap.value.get>> {
   return colorMap.value.get(identifier) ?? COURSE_COLORS[0]!;
 }
 
-function isEventWarned(
-  identifier: string,
-  day: DayOfWeek,
-  startTime: number,
-): boolean {
+function isEventWarned(identifier: string, day: DayOfWeek, startTime: number): boolean {
   const blockKey = `${identifier}|${day}|${startTime}`;
   return warningKeys.value.has(blockKey) || warnedCourseIds.value.has(identifier);
 }
@@ -136,14 +131,12 @@ function onMouseEnter(
   if (!containerRef.value) return;
   const el = event.currentTarget as HTMLElement;
   const br = el.getBoundingClientRect();
-  const cr = containerRef.value.getBoundingClientRect();
-  const sl = containerRef.value.scrollLeft;
   hoveredEvent.value = {
     course,
     meeting,
-    blockTop: br.top - cr.top + containerRef.value.scrollTop,
-    blockBottom: br.bottom - cr.top + containerRef.value.scrollTop,
-    blockCenterX: br.left - cr.left + sl + br.width / 2,
+    blockTop: br.top,
+    blockBottom: br.bottom,
+    blockCenterX: br.left + br.width / 2,
   };
 }
 
@@ -155,21 +148,20 @@ function onScroll(): void {
   hoveredEvent.value = null;
 }
 
-// Tooltip positioning
+// Tooltip positioning — uses fixed coords so Teleport renders above all overflow containers
 const tooltipStyle = computed<Record<string, string>>(() => {
   const ev = hoveredEvent.value;
   if (!ev) return {} as Record<string, string>;
   const showAbove = ev.blockTop >= TOOLTIP_HEIGHT + ARROW_SIZE + TOOLTIP_PADDING;
-  const top = showAbove
-    ? ev.blockTop - TOOLTIP_HEIGHT - ARROW_SIZE
-    : ev.blockBottom + ARROW_SIZE;
-  const containerWidth = containerRef.value?.scrollWidth ?? 800;
+  const top = showAbove ? ev.blockTop - TOOLTIP_HEIGHT - ARROW_SIZE : ev.blockBottom + ARROW_SIZE;
+  const viewportWidth = window.innerWidth;
   const rawLeft = ev.blockCenterX - TOOLTIP_WIDTH / 2;
   const left = Math.max(
     TOOLTIP_PADDING,
-    Math.min(rawLeft, containerWidth - TOOLTIP_WIDTH - TOOLTIP_PADDING),
+    Math.min(rawLeft, viewportWidth - TOOLTIP_WIDTH - TOOLTIP_PADDING),
   );
   return {
+    position: "fixed",
     top: `${top}px`,
     left: `${left}px`,
     width: `${TOOLTIP_WIDTH}px`,
@@ -180,11 +172,11 @@ const tooltipArrowStyle = computed<Record<string, string | undefined>>(() => {
   const ev = hoveredEvent.value;
   if (!ev) return {};
   const showAbove = ev.blockTop >= TOOLTIP_HEIGHT + ARROW_SIZE + TOOLTIP_PADDING;
-  const containerWidth = containerRef.value?.scrollWidth ?? 800;
+  const viewportWidth = window.innerWidth;
   const rawLeft = ev.blockCenterX - TOOLTIP_WIDTH / 2;
   const clampedLeft = Math.max(
     TOOLTIP_PADDING,
-    Math.min(rawLeft, containerWidth - TOOLTIP_WIDTH - TOOLTIP_PADDING),
+    Math.min(rawLeft, viewportWidth - TOOLTIP_WIDTH - TOOLTIP_PADDING),
   );
   const arrowLeft = ev.blockCenterX - clampedLeft - ARROW_SIZE;
 
@@ -212,11 +204,7 @@ const seatsColor = computed(() => {
 </script>
 
 <template>
-  <div
-    class="overflow-x-auto relative"
-    ref="containerRef"
-    @scroll="onScroll"
-  >
+  <div class="overflow-x-auto relative" ref="containerRef" @scroll="onScroll">
     <div class="flex min-w-[640px]">
       <!-- Time labels column -->
       <div class="w-16 shrink-0">
@@ -234,20 +222,13 @@ const seatsColor = computed(() => {
       </div>
 
       <!-- Day columns -->
-      <div
-        v-for="day in DISPLAY_DAYS"
-        :key="day"
-        class="flex-1 min-w-[100px]"
-      >
+      <div v-for="day in DISPLAY_DAYS" :key="day" class="flex-1 min-w-[100px]">
         <div
           class="h-8 flex items-center justify-center text-sm font-medium text-fg-muted border-b border-edge"
         >
           {{ day }}
         </div>
-        <div
-          class="relative border-l border-edge-subtle"
-          :style="{ height: `${totalHeight}px` }"
-        >
+        <div class="relative border-l border-edge-subtle" :style="{ height: `${totalHeight}px` }">
           <!-- Blockout shading -->
           <template v-if="blockout">
             <template v-for="(h, i) in hours" :key="`bo-${h}`">
@@ -269,7 +250,10 @@ const seatsColor = computed(() => {
           />
 
           <!-- Events -->
-          <template v-for="{ course, meeting } in getEventsForDay(day)" :key="`${course.identifier}-${day}-${meeting.startTime}`">
+          <template
+            v-for="{ course, meeting } in getEventsForDay(day)"
+            :key="`${course.identifier}-${day}-${meeting.startTime}`"
+          >
             <div
               class="absolute left-0.5 right-0.5 border-l-3 rounded-r-md overflow-hidden flex flex-col justify-center px-1.5 cursor-default transition-colors"
               :class="[
@@ -289,7 +273,8 @@ const seatsColor = computed(() => {
                   v-if="isEventWarned(course.identifier, day, meeting.startTime)"
                   class="text-[10px] text-destructive shrink-0"
                   title="This class has a scheduling issue"
-                >&#x26A0;</span>
+                  >&#x26A0;</span
+                >
                 <span
                   class="text-xs font-semibold truncate leading-tight"
                   :class="getColor(course.identifier)[themeMode].text"
@@ -315,71 +300,71 @@ const seatsColor = computed(() => {
       </div>
     </div>
 
-    <!-- Hover tooltip -->
-    <div
-      v-if="hoveredEvent"
-      class="absolute z-50 pointer-events-none rounded-lg border border-edge bg-surface/95 shadow-xl backdrop-blur-sm p-2.5"
-      :style="tooltipStyle"
-    >
-      <!-- Arrow -->
+    <!-- Hover tooltip — teleported to body so it renders above overflow containers -->
+    <Teleport to="body">
       <div
-        class="absolute border-transparent"
-        :style="tooltipArrowStyle"
-      />
-      <!-- Header -->
-      <div class="flex items-start justify-between gap-2">
-        <span class="font-mono font-semibold text-sm text-fg leading-tight">
-          {{ hoveredEvent.course.identifier }}
-        </span>
-        <span class="text-[10px] text-fg-faint font-mono shrink-0 mt-0.5">
-          CRN {{ hoveredEvent.course.crn }}
-        </span>
-      </div>
-      <div class="text-xs text-fg-muted mt-0.5 leading-snug">
-        {{ hoveredEvent.course.title }}
-      </div>
+        v-if="hoveredEvent"
+        class="z-[9999] pointer-events-none rounded-lg border border-edge bg-surface/95 shadow-xl backdrop-blur-sm p-2.5"
+        :style="tooltipStyle"
+      >
+        <!-- Arrow -->
+        <div class="absolute border-transparent" :style="tooltipArrowStyle" />
+        <!-- Header -->
+        <div class="flex items-start justify-between gap-2">
+          <span class="font-mono font-semibold text-sm text-fg leading-tight">
+            {{ hoveredEvent.course.identifier }}
+          </span>
+          <span class="text-[10px] text-fg-faint font-mono shrink-0 mt-0.5">
+            CRN {{ hoveredEvent.course.crn }}
+          </span>
+        </div>
+        <div class="text-xs text-fg-muted mt-0.5 leading-snug">
+          {{ hoveredEvent.course.title }}
+        </div>
 
-      <div class="border-t border-edge-subtle my-1.5" />
+        <div class="border-t border-edge-subtle my-1.5" />
 
-      <!-- Time -->
-      <div class="flex items-center gap-1.5 text-xs text-fg">
-        <span class="text-fg-faint text-[10px]">&#x23F1;</span>
-        {{ formatTime(hoveredEvent.meeting.startTime) }} &ndash; {{ formatTime(hoveredEvent.meeting.endTime) }}
-      </div>
-      <!-- Location -->
-      <div class="flex items-center gap-1.5 text-xs text-fg mt-0.5">
-        <span class="text-fg-faint text-[10px]">&#x1F4CD;</span>
-        <span v-if="hoveredEvent.meeting.isOnline">Online</span>
-        <span v-else>{{ hoveredEvent.meeting.building }} {{ hoveredEvent.meeting.room }}</span>
-      </div>
-      <!-- Instructor -->
-      <div class="text-xs text-fg-muted mt-0.5 truncate">
-        {{ hoveredEvent.course.instructor }}
-      </div>
+        <!-- Time -->
+        <div class="flex items-center gap-1.5 text-xs text-fg">
+          <span class="text-fg-faint text-[10px]">&#x23F1;</span>
+          {{ formatTime(hoveredEvent.meeting.startTime) }} &ndash;
+          {{ formatTime(hoveredEvent.meeting.endTime) }}
+        </div>
+        <!-- Location -->
+        <div class="flex items-center gap-1.5 text-xs text-fg mt-0.5">
+          <span class="text-fg-faint text-[10px]">&#x1F4CD;</span>
+          <span v-if="hoveredEvent.meeting.isOnline">Online</span>
+          <span v-else>{{ hoveredEvent.meeting.building }} {{ hoveredEvent.meeting.room }}</span>
+        </div>
+        <!-- Instructor -->
+        <div class="text-xs text-fg-muted mt-0.5 truncate">
+          {{ hoveredEvent.course.instructor }}
+        </div>
 
-      <div class="border-t border-edge-subtle my-1.5" />
+        <div class="border-t border-edge-subtle my-1.5" />
 
-      <!-- Bottom metadata -->
-      <div class="grid grid-cols-3 gap-x-2">
-        <div>
-          <div class="text-[9px] text-fg-faint uppercase tracking-wide">Method</div>
-          <div class="text-xs text-fg font-medium truncate">
-            {{ hoveredEvent.course.instructionalMethod }}
+        <!-- Bottom metadata -->
+        <div class="grid grid-cols-3 gap-x-2">
+          <div>
+            <div class="text-[9px] text-fg-faint uppercase tracking-wide">Method</div>
+            <div class="text-xs text-fg font-medium truncate">
+              {{ hoveredEvent.course.instructionalMethod }}
+            </div>
+          </div>
+          <div>
+            <div class="text-[9px] text-fg-faint uppercase tracking-wide">Seats</div>
+            <div class="text-xs font-medium" :class="seatsColor">
+              {{ hoveredEvent.course.seatsAvailable }}/{{ hoveredEvent.course.maximumEnrollment }}
+            </div>
+          </div>
+          <div>
+            <div class="text-[9px] text-fg-faint uppercase tracking-wide">Credits</div>
+            <div class="text-xs text-fg font-medium">
+              {{ hoveredEvent.course.creditHours ?? "&mdash;" }}
+            </div>
           </div>
         </div>
-        <div>
-          <div class="text-[9px] text-fg-faint uppercase tracking-wide">Seats</div>
-          <div class="text-xs font-medium" :class="seatsColor">
-            {{ hoveredEvent.course.seatsAvailable }}/{{ hoveredEvent.course.maximumEnrollment }}
-          </div>
-        </div>
-        <div>
-          <div class="text-[9px] text-fg-faint uppercase tracking-wide">Credits</div>
-          <div class="text-xs text-fg font-medium">
-            {{ hoveredEvent.course.creditHours ?? '&mdash;' }}
-          </div>
-        </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
