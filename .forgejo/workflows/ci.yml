@@ -17,17 +17,45 @@ jobs:
         with:
           bun-version: latest
 
+      - uses: https://code.forgejo.org/actions/cache@v5
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
       - run: bun install --frozen-lockfile
 
       - run: bun run check
 
+  release:
+    needs: ci
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: https://code.forgejo.org/actions/cache@v5
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - run: bun install --frozen-lockfile
+
+      - run: bun run build
+
       - name: Package extension
         run: |
           cd dist
-          zip -r ../sait-schedule-builder-${{ github.ref_type == 'tag' && github.ref_name || github.sha }}.zip .
+          zip -r ../sait-schedule-builder-${{ github.ref_name }}.zip .
 
       - name: Create Forgejo release
-        if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
         uses: https://code.forgejo.org/actions/forgejo-release@v2.12.1
         with:
           direction: upload
