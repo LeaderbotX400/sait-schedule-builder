@@ -1,6 +1,6 @@
 import { computed, type ComputedRef } from "vue";
-import type { RegistrationNoticesResponse } from "../banner-sdk/apps/selfService/types";
-import { useProfileStore } from "../profile/store";
+import type { RegistrationNoticesResponse } from "@/banner-sdk/apps/selfService/types";
+import { useProfileStore } from "@/features/profile/store";
 
 /**
  * Derived registration-status composable. Mount once at the app root (App.vue).

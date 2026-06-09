@@ -1,10 +1,10 @@
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { effectScope, nextTick } from "vue";
-import { useAuthStore } from "../../auth/store";
-import { createBannerSdk } from "../../banner-sdk/facade";
-import { MockTransport } from "../../banner-sdk/transport/mock";
-import { _setSdkForTesting } from "../../lib/sdk";
+import { useAuthStore } from "@/features/auth/store";
+import { createBannerSdk } from "@/banner-sdk/facade";
+import { MockTransport } from "@/banner-sdk/transport/mock";
+import { _setSdkForTesting } from "@/lib/sdk";
 import { useIdentityStore } from "../store";
 import { useIdentity } from "../useIdentity";
 

@@ -21,7 +21,7 @@ import type {
 } from "../../domain/types";
 import { createEmptyBlockout } from "../../domain/blockout";
 import { ALL_DAYS, GRID_HOURS, WEEKDAYS } from "../../domain/types";
-import { useThemeStore, getThemeMode } from "../../theme/store";
+import { useThemeStore, getThemeMode } from "@/features/theme/store";
 import {
   buildColorMap,
   buildWarnedCourseIds,

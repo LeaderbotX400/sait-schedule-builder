@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import type { GpaResponse, RegistrationNoticesResponse } from "../banner-sdk/apps/selfService/types";
+import type { GpaResponse, RegistrationNoticesResponse } from "@/banner-sdk/apps/selfService/types";
 
 /**
  * Reactive profile state — GPA and registration notices fetched from

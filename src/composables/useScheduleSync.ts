@@ -1,6 +1,6 @@
 import { storeToRefs } from "pinia";
 import { onUnmounted, watch } from "vue";
-import { useAuthStore } from "../auth/store";
+import { useAuthStore } from "@/features/auth/store";
 import { BannerAuthRequiredError } from "../banner-sdk";
 import { parseActiveRegistrations } from "../domain/parser";
 import type { CourseSection } from "../domain/types";

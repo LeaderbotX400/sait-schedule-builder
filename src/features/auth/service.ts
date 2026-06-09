@@ -1,5 +1,5 @@
-import { resetSdk, setSessionExpiredHandler } from "../lib/sdk";
-import { isDemoMode } from "../demo";
+import { resetSdk, setSessionExpiredHandler } from "@/lib/sdk";
+import { isDemoMode } from "@/demo";
 import type { CredentialStore } from "./credentialStore";
 import { DemoCredentialStore } from "./demoStore";
 import { ExtensionCookieCredentialStore } from "./extensionCookieStore";

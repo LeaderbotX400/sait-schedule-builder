@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { useAuth } from "../auth/useAuth";
-import ExtensionIdSettings from "../features/auth/ExtensionIdSettings.vue";
-import ThemePicker from "../features/theme/ThemePicker.vue";
-import Card from "../ui/Card.vue";
-import UiButton from "../ui/Button.vue";
+import { useAuth } from "@/features/auth/useAuth";
+import ExtensionIdSettings from "@/features/auth/ExtensionIdSettings.vue";
+import ThemePicker from "@/features/theme/ThemePicker.vue";
+import Card from "@/ui/Card.vue";
+import UiButton from "@/ui/Button.vue";
 
 const { busy, error, login, cancelLogin } = useAuth();
 

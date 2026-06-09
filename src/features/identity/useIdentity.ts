@@ -1,7 +1,7 @@
 import { storeToRefs } from "pinia";
 import { onUnmounted, watch } from "vue";
-import { useAuthStore } from "../auth/store";
-import { getSdk } from "../lib/sdk";
+import { useAuthStore } from "@/features/auth/store";
+import { getSdk } from "@/lib/sdk";
 import { useIdentityStore } from "./store";
 
 /**

@@ -4,9 +4,9 @@
  * click opens a session menu with the age, a Reauth button, and a
  * Disconnect button. Tinted warn when the credentials are stale.
  */
-import { useAuth } from "../../auth/useAuth";
-import Popover from "../../ui/Popover.vue";
-import StatusDot from "../../ui/StatusDot.vue";
+import { useAuth } from "./useAuth";
+import Popover from "@/ui/Popover.vue";
+import StatusDot from "@/ui/StatusDot.vue";
 
 defineProps<{
   termLabel?: string | null;

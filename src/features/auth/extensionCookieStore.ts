@@ -1,4 +1,4 @@
-import { getExtensionId, isExtensionContext } from "../lib/extensionId";
+import { getExtensionId, isExtensionContext } from "@/lib/extensionId";
 import type { CredentialStore } from "./credentialStore";
 import type { CredentialState, LoginResult } from "./types";
 

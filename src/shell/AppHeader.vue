@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
-import { refreshAllData } from "../composables/useScheduleSync";
-import { downloadICal } from "../domain/ical";
-import ConnectionStatus from "../features/auth/ConnectionStatus.vue";
-import ThemePicker from "../features/theme/ThemePicker.vue";
-import { describeTerm } from "../lib/terms";
-import GpaChip from "../profile/GpaChip.vue";
-import { useCoursesStore } from "../stores/courses";
-import { useSchedulesStore } from "../stores/schedules";
-import { useSelectionStore } from "../stores/selection";
-import { useTermStore } from "../stores/term";
-import { useUiStore } from "../stores/ui";
-import UiButton from "../ui/Button.vue";
-import StatusDot from "../ui/StatusDot.vue";
+import { refreshAllData } from "@/composables/useScheduleSync";
+import { downloadICal } from "@/domain/ical";
+import ConnectionStatus from "@/features/auth/ConnectionStatus.vue";
+import ThemePicker from "@/features/theme/ThemePicker.vue";
+import { describeTerm } from "@/lib/terms";
+import GpaChip from "@/features/profile/GpaChip.vue";
+import { useCoursesStore } from "@/stores/courses";
+import { useSchedulesStore } from "@/stores/schedules";
+import { useSelectionStore } from "@/stores/selection";
+import { useTermStore } from "@/stores/term";
+import { useUiStore } from "@/stores/ui";
+import UiButton from "@/ui/Button.vue";
+import StatusDot from "@/ui/StatusDot.vue";
 
 /**
  * Sticky top bar with the courses toggle, term-aware connection pill,

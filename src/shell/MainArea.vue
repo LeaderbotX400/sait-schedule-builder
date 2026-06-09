@@ -1,21 +1,21 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
-import { useAuth } from "../auth/useAuth";
-import CurrentScheduleEditor from "../features/current/CurrentScheduleEditor.vue";
-import BlockoutGrid from "../features/rules/BlockoutGrid.vue";
-import RulesPanel from "../features/rules/RulesPanel.vue";
-import ScheduleDetail from "../features/schedule/ScheduleDetail.vue";
-import ScheduleStrip from "../features/schedule/ScheduleStrip.vue";
-import { useCoursesStore } from "../stores/courses";
-import { useCurrentRegStore } from "../stores/currentReg";
-import { useRulesStore } from "../stores/rules";
-import { useSchedulesStore } from "../stores/schedules";
-import { useSelectionStore } from "../stores/selection";
-import { useUiStore } from "../stores/ui";
-import UiButton from "../ui/Button.vue";
-import EmptyState from "../ui/EmptyState.vue";
-import Spinner from "../ui/Spinner.vue";
+import { useAuth } from "@/features/auth/useAuth";
+import CurrentScheduleEditor from "@/features/current/CurrentScheduleEditor.vue";
+import BlockoutGrid from "@/features/rules/BlockoutGrid.vue";
+import RulesPanel from "@/features/rules/RulesPanel.vue";
+import ScheduleDetail from "@/features/schedule/ScheduleDetail.vue";
+import ScheduleStrip from "@/features/schedule/ScheduleStrip.vue";
+import { useCoursesStore } from "@/stores/courses";
+import { useCurrentRegStore } from "@/stores/currentReg";
+import { useRulesStore } from "@/stores/rules";
+import { useSchedulesStore } from "@/stores/schedules";
+import { useSelectionStore } from "@/stores/selection";
+import { useUiStore } from "@/stores/ui";
+import UiButton from "@/ui/Button.vue";
+import EmptyState from "@/ui/EmptyState.vue";
+import Spinner from "@/ui/Spinner.vue";
 
 /**
  * Main content area for the authenticated app. Hosts:

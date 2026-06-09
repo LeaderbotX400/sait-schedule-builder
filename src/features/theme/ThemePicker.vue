@@ -6,10 +6,10 @@
  */
 
 import { storeToRefs } from "pinia";
-import { useThemeStore } from "../../theme/store";
-import { THEMES } from "../../theme/themes";
-import type { ThemeChoice } from "../../theme/store";
-import Popover from "../../ui/Popover.vue";
+import { useThemeStore } from "./store";
+import { THEMES } from "./themes";
+import type { ThemeChoice } from "./store";
+import Popover from "@/ui/Popover.vue";
 
 const store = useThemeStore();
 const { choice } = storeToRefs(store);

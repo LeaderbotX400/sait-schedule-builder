@@ -9,7 +9,7 @@ import { computed, ref } from "vue";
 import { getExpandedMeetings } from "../../domain/scheduler";
 import { formatTime, timeToMinutes } from "../../domain/time";
 import type { BlockoutGrid, DayOfWeek, Schedule } from "../../domain/types";
-import { useThemeStore } from "../../theme/store";
+import { useThemeStore } from "@/features/theme/store";
 import {
   buildColorMap,
   buildWarnedCourseIds,

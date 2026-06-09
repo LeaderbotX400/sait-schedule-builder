@@ -1,6 +1,6 @@
 import { onMounted } from "vue";
-import { getAuthService } from "../auth/service";
-import { useAuthStore } from "../auth/store";
+import { getAuthService } from "@/features/auth/service";
+import { useAuthStore } from "@/features/auth/store";
 import { isDemoMode } from "../demo";
 
 /**
