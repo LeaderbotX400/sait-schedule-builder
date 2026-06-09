@@ -123,7 +123,11 @@ function explainEmpty(filtered: Map<string, CourseSection[]>, rules: ScheduleRul
       if (section.seatsAvailable > 0) allFilteredBySeats = false;
       if (allowedPrefixes.length > 0) {
         const seq = section.sequenceNumber.toUpperCase();
-        if (allowedPrefixes.some((p) => seq.startsWith(p))) allFilteredByPrefix = false;
+        // Mirror scheduler.matchesAllowedPrefix: single-char seq numbers
+        // bypass the filter, so they shouldn't count as "filtered out" here.
+        if (seq.length <= 1 || allowedPrefixes.some((p) => seq.startsWith(p))) {
+          allFilteredByPrefix = false;
+        }
       }
     }
   }
