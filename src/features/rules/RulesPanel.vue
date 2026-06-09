@@ -7,6 +7,7 @@
  */
 
 import { ref } from "vue";
+import { Icon } from "@iconify/vue";
 import { formatTimeFromString } from "../../domain/time";
 import type { DayOfWeek, ScheduleRules } from "../../domain/types";
 
@@ -72,15 +73,11 @@ function prefSummary(): string {
           {{ formatTimeFromString(rules.latestEnd) }}
         </span>
       </div>
-      <svg
+      <Icon
+        icon="mdi:chevron-down"
         :class="['w-4 h-4 text-fg-faint transition-transform duration-150', openSections.timeWindow ? 'rotate-180' : '']"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        :stroke-width="2"
-      >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-      </svg>
+        aria-hidden="true"
+      />
     </button>
     <div v-if="openSections.timeWindow" class="pb-3">
       <div class="grid grid-cols-2 gap-2">
@@ -124,15 +121,11 @@ function prefSummary(): string {
           {{ rules.freeDays.length === 0 ? "No days off" : rules.freeDays.join(", ") }}
         </span>
       </div>
-      <svg
+      <Icon
+        icon="mdi:chevron-down"
         :class="['w-4 h-4 text-fg-faint transition-transform duration-150', openSections.daysOff ? 'rotate-180' : '']"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        :stroke-width="2"
-      >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-      </svg>
+        aria-hidden="true"
+      />
     </button>
     <div v-if="openSections.daysOff" class="pb-3">
       <div class="flex gap-1">
@@ -168,15 +161,11 @@ function prefSummary(): string {
           Max {{ rules.maxOnCampusDays }} day{{ rules.maxOnCampusDays !== 1 ? "s" : "" }} on campus
         </span>
       </div>
-      <svg
+      <Icon
+        icon="mdi:chevron-down"
         :class="['w-4 h-4 text-fg-faint transition-transform duration-150', openSections.campus ? 'rotate-180' : '']"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        :stroke-width="2"
-      >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-      </svg>
+        aria-hidden="true"
+      />
     </button>
     <div v-if="openSections.campus" class="pb-3 space-y-3">
       <!-- Max campus days slider -->
@@ -246,15 +235,11 @@ function prefSummary(): string {
           {{ prefSummary() }}
         </span>
       </div>
-      <svg
+      <Icon
+        icon="mdi:chevron-down"
         :class="['w-4 h-4 text-fg-faint transition-transform duration-150', openSections.preferences ? 'rotate-180' : '']"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        :stroke-width="2"
-      >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-      </svg>
+        aria-hidden="true"
+      />
     </button>
     <div v-if="openSections.preferences" class="pb-3 space-y-3">
       <!-- Max gap between classes slider -->

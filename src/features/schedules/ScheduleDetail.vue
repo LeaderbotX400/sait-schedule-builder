@@ -4,12 +4,16 @@
  * to form the two-level schedule browser: strip selects, this pane explains.
  */
 
-import { computed, ref } from "vue";
-import { formatTime } from "../../domain/time";
-import type { Schedule, ScheduleRules, ScheduleWarning } from "../../domain/types";
-import CalendarGrid from "./CalendarGrid.vue";
+import { useCoursesStore } from "@/features/courses/store";
 import { useSavedStore } from "@/features/saved/store";
 import UiButton from "@/ui/Button.vue";
+import { computed, ref } from "vue";
+import { formatTime } from "../../domain/time";
+import type { CourseSection, Schedule, ScheduleRules, ScheduleWarning } from "../../domain/types";
+import CalendarGrid from "./CalendarGrid.vue";
+import { usePinnedSectionsStore } from "./pinnedSections";
+
+import { Icon } from "@iconify/vue";
 
 const props = defineProps<{
   schedule: Schedule;
@@ -25,37 +29,37 @@ interface WarningStyle {
 
 const WARNING_STYLES: Record<string, WarningStyle> = {
   early_morning: {
-    icon: "&#x23F0;",
+    icon: "mdi:alarm",
     color: "text-tint-caution-fg",
     bg: "bg-tint-caution",
     border: "border-tint-caution-bd",
   },
   travel_gap: {
-    icon: "&#x1F697;",
+    icon: "mdi:car",
     color: "text-tint-danger-fg",
     bg: "bg-tint-danger",
     border: "border-tint-danger-bd",
   },
   campus_days: {
-    icon: "&#x1F3EB;",
+    icon: "mdi:school",
     color: "text-tint-warning-fg",
     bg: "bg-tint-warning",
     border: "border-tint-warning-bd",
   },
   large_gap: {
-    icon: "&#x23F3;",
+    icon: "mdi:timer-sand",
     color: "text-tint-caution-fg",
     bg: "bg-tint-caution",
     border: "border-tint-caution-bd",
   },
   partial: {
-    icon: "&#x2702;",
+    icon: "mdi:content-cut",
     color: "text-tint-warning-fg",
     bg: "bg-tint-warning",
     border: "border-tint-warning-bd",
   },
   blockout_conflict: {
-    icon: "&#x1F6AB;",
+    icon: "mdi:cancel",
     color: "text-tint-danger-fg",
     bg: "bg-tint-danger",
     border: "border-tint-danger-bd",
@@ -115,7 +119,53 @@ const saved = ref(false);
 function remember(): void {
   savedStore.saveSchedule(props.schedule);
   saved.value = true;
-  setTimeout(() => { saved.value = false; }, 1500);
+  setTimeout(() => {
+    saved.value = false;
+  }, 1500);
+}
+
+const pinnedStore = usePinnedSectionsStore();
+const coursesStore = useCoursesStore();
+
+function isSectionPinned(course: CourseSection): boolean {
+  return pinnedStore.pinnedSections.get(course.subjectCourse) === course.crn;
+}
+
+function togglePin(course: CourseSection): void {
+  if (isSectionPinned(course)) {
+    pinnedStore.unpin(course.subjectCourse);
+  } else {
+    pinnedStore.pin(course.subjectCourse, course.crn);
+  }
+}
+
+/** All sections available for a course this term, sorted by sequence number. */
+function sectionsForCourse(subjectCourse: string): CourseSection[] {
+  const sections = coursesStore.courseGroups.get(subjectCourse) ?? [];
+  return sections.slice().sort((a, b) => a.sequenceNumber.localeCompare(b.sequenceNumber));
+}
+
+/** Pick a section by CRN — pins it so the next regeneration uses it. Picking
+ * the currently-displayed section unpins instead (back to "any section"). */
+function onSelectSection(course: CourseSection, crn: string): void {
+  if (!crn || crn === course.crn) {
+    pinnedStore.unpin(course.subjectCourse);
+    return;
+  }
+  pinnedStore.pin(course.subjectCourse, crn);
+}
+
+/** Short summary of a section for the dropdown option label. */
+function sectionOptionLabel(section: CourseSection): string {
+  const first = section.meetings[0];
+  const time = first ? `${formatTime(first.startTime)}–${formatTime(first.endTime)}` : "";
+  const days = first?.days.join("") ?? "";
+  const instructor = section.instructor ? ` · ${section.instructor}` : "";
+  const seats = section.seatsAvailable > 0 ? "" : " (full)";
+  return [section.identifier, days && time ? `${days} ${time}` : ""]
+    .filter(Boolean)
+    .join(" — ")
+    .concat(instructor, seats);
 }
 
 const qualityTooltip = computed(() => {
@@ -153,12 +203,7 @@ const qualityTooltip = computed(() => {
         </div>
       </div>
       <div class="flex items-center gap-3">
-        <UiButton
-          variant="ghost"
-          size="sm"
-          :disabled="saved"
-          @click="remember"
-        >
+        <UiButton variant="ghost" size="sm" :disabled="saved" @click="remember">
           {{ saved ? "Saved!" : "Remember" }}
         </UiButton>
         <div class="flex items-center gap-2" :title="qualityTooltip">
@@ -171,10 +216,7 @@ const qualityTooltip = computed(() => {
     </div>
 
     <!-- Calendar -->
-    <CalendarGrid
-      :schedule="schedule"
-      :blockout="rules?.blockout"
-    />
+    <CalendarGrid :schedule="schedule" :blockout="rules?.blockout" />
 
     <!-- Warnings -->
     <div v-if="dedupedWarnings.length > 0" class="space-y-1.5">
@@ -184,7 +226,11 @@ const qualityTooltip = computed(() => {
         class="rounded-lg border px-3 py-2 flex items-start gap-2"
         :class="[getWarningStyle(w.kind).bg, getWarningStyle(w.kind).border]"
       >
-        <span class="text-sm mt-0.5" v-html="getWarningStyle(w.kind).icon" />
+        <Icon
+          :icon="getWarningStyle(w.kind).icon"
+          :class="['text-sm mt-0.5 shrink-0', getWarningStyle(w.kind).color]"
+          aria-hidden="true"
+        />
         <div class="flex-1 min-w-0">
           <p class="text-xs" :class="getWarningStyle(w.kind).color">{{ w.message }}</p>
           <p v-if="w.courseIds.length > 0" class="text-[10px] text-fg-faint mt-0.5">
@@ -231,10 +277,37 @@ const qualityTooltip = computed(() => {
               <span
                 v-if="courseWarnings.get(course.identifier)?.length"
                 class="text-destructive mr-1"
-              >&#x26A0;</span>
+                role="img"
+                aria-label="Has scheduling warning"
+              >
+                <Icon icon="mdi:alert" aria-hidden="true" />
+              </span>
               {{ course.identifier }}
             </span>
-            <span class="text-xs text-fg-faint">CRN: {{ course.crn }}</span>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-fg-faint">CRN: {{ course.crn }}</span>
+              <button
+                :title="
+                  isSectionPinned(course)
+                    ? `Unlock ${course.identifier} — allow any section`
+                    : `Lock ${course.identifier} — only show schedules with this section`
+                "
+                :aria-label="
+                  isSectionPinned(course)
+                    ? `Unlock ${course.identifier}`
+                    : `Lock ${course.identifier}`
+                "
+                :aria-pressed="isSectionPinned(course)"
+                class="text-base leading-none transition-colors rounded p-0.5 hover:bg-surface-hover/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                @click="togglePin(course)"
+              >
+                <Icon
+                  :icon="isSectionPinned(course) ? 'mdi:lock' : 'mdi:lock-open-variant'"
+                  :class="isSectionPinned(course) ? 'text-destructive' : 'text-success'"
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
           </div>
           <div class="text-sm text-fg-muted">{{ course.title }}</div>
           <div class="text-xs text-fg-faint">
@@ -244,27 +317,54 @@ const qualityTooltip = computed(() => {
             {{ course.seatsAvailable }}/{{ course.maximumEnrollment }} seats available
           </div>
           <div class="mt-1 space-y-0.5">
-            <div
-              v-for="(m, mi) in course.meetings"
-              :key="mi"
-              class="text-xs text-fg-muted"
-            >
+            <div v-for="(m, mi) in course.meetings" :key="mi" class="text-xs text-fg-muted">
               {{ m.days.join(", ") }} {{ formatTime(m.startTime) }}-{{ formatTime(m.endTime) }}
               <span class="text-fg-faint ml-1">{{ m.building }} {{ m.room }}</span>
             </div>
           </div>
-          <!-- Per-course warnings -->
+
+          <!-- Section swap dropdown -->
           <div
-            v-if="courseWarnings.get(course.identifier)?.length"
-            class="mt-1.5 space-y-0.5"
+            v-if="sectionsForCourse(course.subjectCourse).length > 1"
+            class="mt-2 flex items-center gap-1.5"
           >
+            <label
+              :for="`section-swap-${course.subjectCourse}`"
+              class="text-[10px] uppercase tracking-widest text-fg-faint shrink-0"
+            >
+              Swap
+            </label>
+            <select
+              :id="`section-swap-${course.subjectCourse}`"
+              :value="course.crn"
+              class="flex-1 min-w-0 rounded-md bg-input border border-edge px-1.5 py-1 text-xs text-fg focus:outline-none focus:ring-2 focus:ring-ring"
+              :title="isSectionPinned(course)
+                ? `Currently locked to ${course.identifier} — picking another section will lock that one instead`
+                : `Pick another section to lock it (only schedules with that section will show)`"
+              @change="onSelectSection(course, ($event.target as HTMLSelectElement).value)"
+            >
+              <option
+                v-for="s in sectionsForCourse(course.subjectCourse)"
+                :key="s.crn"
+                :value="s.crn"
+              >
+                {{ sectionOptionLabel(s) }}
+              </option>
+            </select>
+          </div>
+          <!-- Per-course warnings -->
+          <div v-if="courseWarnings.get(course.identifier)?.length" class="mt-1.5 space-y-0.5">
             <div
               v-for="(w, wi) in courseWarnings.get(course.identifier)"
               :key="wi"
               class="text-[10px]"
               :class="getWarningStyle(w.kind).color"
             >
-              <span v-html="getWarningStyle(w.kind).icon" />
+              <Icon
+                :icon="getWarningStyle(w.kind).icon"
+                class="inline-block align-text-bottom"
+                aria-hidden="true"
+              />
               {{ w.message }}
             </div>
           </div>

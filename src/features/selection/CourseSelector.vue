@@ -6,6 +6,7 @@
  */
 
 import { ref } from "vue";
+import { Icon } from "@iconify/vue";
 import { formatTimeCompact } from "../../domain/time";
 import type { CourseSection, MeetingBlock } from "../../domain/types";
 
@@ -88,16 +89,12 @@ function meetingSummary(m: MeetingBlock): string {
             :aria-expanded="expanded.has(name)"
             @click="toggleExpanded(name)"
           >
-            <svg
+            <Icon
+              icon="mdi:chevron-down"
               class="w-3 h-3 text-fg-faint transition-transform duration-150"
               :class="expanded.has(name) ? 'rotate-180' : ''"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="2.5"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
+              aria-hidden="true"
+            />
           </button>
 
           <!-- Remove button -->
@@ -108,16 +105,7 @@ function meetingSummary(m: MeetingBlock): string {
             :title="`Remove ${name}`"
             @click.stop="emit('remove', name)"
           >
-            <svg
-              class="w-3 h-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="2.5"
-              aria-hidden="true"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <Icon icon="mdi:close" class="w-3 h-3" aria-hidden="true" />
           </button>
         </div>
 

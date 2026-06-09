@@ -3,6 +3,7 @@ import { ref, shallowRef } from "vue";
 import { generateSchedules } from "@/domain/scheduler";
 import type { CourseSection, Schedule, ScheduleRules } from "@/domain/types";
 import { useCoursesStore } from "@/features/courses/store";
+import { usePinnedSectionsStore } from "@/features/schedules/pinnedSections";
 import { useRulesStore } from "@/features/rules/store";
 import { useSelectionStore } from "@/features/selection/store";
 import { useUiStore } from "@/features/ui-state/store";
@@ -59,7 +60,8 @@ export const useSchedulesStore = defineStore("schedules", () => {
           return;
         }
 
-        const result = generateSchedules(filtered, { rules });
+        const pinnedCrns = usePinnedSectionsStore().pinnedSections;
+        const result = generateSchedules(filtered, { rules, pinnedCrns });
         schedules.value = result;
         activeScheduleIndex.value = 0;
 

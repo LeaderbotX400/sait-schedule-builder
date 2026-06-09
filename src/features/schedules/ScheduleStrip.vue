@@ -23,31 +23,31 @@ const emit = defineEmits<{
  * contrast across every theme — white on bg-warning was ~1.5:1, well
  * below the 4.5:1 normal-text threshold.
  */
-function scoreBadgeColor(score: number): string {
+const scoreBadgeColor = (score: number): string => {
   if (score >= 80) return "bg-success text-success-fg";
   if (score >= 60) return "bg-warning text-warning-fg";
   if (score >= 40) return "bg-caution text-caution-fg";
   return "bg-destructive text-destructive-fg";
-}
+};
 
-function scoreLabel(score: number): string {
+const scoreLabel = (score: number): string => {
   if (score >= 90) return "Excellent";
   if (score >= 75) return "Good";
   if (score >= 55) return "OK";
   return "Poor";
-}
+};
 
-function onBadgeClick(i: number): void {
+const onBadgeClick = (i: number): void => {
   emit("select", i);
-}
+};
 
-function onPrev(): void {
+const onPrev = (): void => {
   emit("select", Math.max(0, props.activeIndex - 1));
-}
+};
 
-function onNext(): void {
+const onNext = (): void => {
   emit("select", Math.min(props.schedules.length - 1, props.activeIndex + 1));
-}
+};
 </script>
 
 <template>
@@ -64,12 +64,7 @@ function onNext(): void {
     </button>
 
     <div class="flex-1 overflow-x-auto flex gap-1.5 py-0.5">
-      <Popover
-        v-for="(s, i) in schedules"
-        :key="s.id"
-        align="left"
-        widthClass="w-72"
-      >
+      <Popover v-for="(s, i) in schedules" :key="s.id" align="left" widthClass="w-72">
         <template #trigger="{ toggle }">
           <button
             :title="`Schedule #${s.id} · Score ${s.qualityScore}`"
@@ -82,7 +77,13 @@ function onNext(): void {
                 ? 'ring-2 ring-fg/40 scale-110'
                 : 'opacity-60 hover:opacity-100 hover:scale-105',
             ]"
-            @click="(e) => { onBadgeClick(i); toggle(); e.stopPropagation(); }"
+            @click="
+              (e) => {
+                onBadgeClick(i);
+                toggle();
+                e.stopPropagation();
+              }
+            "
           >
             {{ s.qualityScore }}
           </button>
@@ -107,29 +108,46 @@ function onNext(): void {
           <div class="border-t border-edge pt-2 space-y-1">
             <div class="flex items-center justify-between text-[11px]">
               <span class="text-fg-muted">Days on campus</span>
-              <span class="text-fg tabular-nums">{{ s.onCampusDaysCount }} of {{ s.daysCount }}</span>
+              <span class="text-fg tabular-nums"
+                >{{ s.onCampusDaysCount }} of {{ s.daysCount }}</span
+              >
             </div>
-            <div v-if="s.earlyMorningPenalty > 0" class="flex items-center justify-between text-[11px]">
+            <div
+              v-if="s.earlyMorningPenalty > 0"
+              class="flex items-center justify-between text-[11px]"
+            >
               <span class="text-fg-muted">Early morning</span>
-              <span class="text-fg tabular-nums">&minus;{{ s.earlyMorningPenalty.toFixed(0) }} pts</span>
+              <span class="text-fg tabular-nums"
+                >&minus;{{ s.earlyMorningPenalty.toFixed(0) }} pts</span
+              >
             </div>
-            <div v-if="s.travelTimePenalty > 0" class="flex items-center justify-between text-[11px]">
+            <div
+              v-if="s.travelTimePenalty > 0"
+              class="flex items-center justify-between text-[11px]"
+            >
               <span class="text-fg-muted">Travel gap violations</span>
-              <span class="text-fg tabular-nums">&minus;{{ s.travelTimePenalty.toFixed(0) }} pts</span>
+              <span class="text-fg tabular-nums"
+                >&minus;{{ s.travelTimePenalty.toFixed(0) }} pts</span
+              >
             </div>
-            <div v-if="s.blockoutFitScore !== undefined && s.blockoutFitScore < 100" class="flex items-center justify-between text-[11px]">
+            <div
+              v-if="s.blockoutFitScore !== undefined && s.blockoutFitScore < 100"
+              class="flex items-center justify-between text-[11px]"
+            >
               <span class="text-fg-muted">Blockout fit</span>
               <span class="text-fg tabular-nums">{{ s.blockoutFitScore.toFixed(0) }}%</span>
             </div>
             <div v-if="s.isPartial" class="flex items-center justify-between text-[11px]">
               <span class="text-fg-faint">Partial schedule</span>
-              <span class="text-fg-faint tabular-nums">&minus;{{ s.omittedCourses.length }} omitted</span>
+              <span class="text-fg-faint tabular-nums"
+                >&minus;{{ s.omittedCourses.length }} omitted</span
+              >
             </div>
           </div>
 
           <div v-if="s.warnings.length > 0" class="border-t border-edge pt-2 space-y-1">
             <p class="text-[10px] font-semibold uppercase tracking-widest text-fg-faint">
-              {{ s.warnings.length }} warning{{ s.warnings.length !== 1 ? 's' : '' }}
+              {{ s.warnings.length }} warning{{ s.warnings.length !== 1 ? "s" : "" }}
             </p>
             <p
               v-for="(w, wi) in s.warnings.slice(0, 4)"

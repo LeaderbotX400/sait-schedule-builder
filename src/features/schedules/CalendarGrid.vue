@@ -6,6 +6,7 @@
  */
 
 import { useThemeStore } from "@/features/theme/store";
+import { Icon } from "@iconify/vue";
 import { computed, ref } from "vue";
 import { getExpandedMeetings } from "../../domain/scheduler";
 import { formatTime, timeToMinutes } from "../../domain/time";
@@ -269,12 +270,13 @@ const seatsColor = computed(() => {
               @mouseleave="onMouseLeave"
             >
               <div class="flex items-center gap-1">
-                <span
+                <Icon
                   v-if="isEventWarned(course.identifier, day, meeting.startTime)"
+                  icon="mdi:alert"
                   class="text-[10px] text-destructive shrink-0"
-                  title="This class has a scheduling issue"
-                  >&#x26A0;</span
-                >
+                  role="img"
+                  aria-label="Scheduling conflict"
+                />
                 <span
                   class="text-xs font-semibold truncate leading-tight"
                   :class="getColor(course.identifier)[themeMode].text"
@@ -326,13 +328,13 @@ const seatsColor = computed(() => {
 
         <!-- Time -->
         <div class="flex items-center gap-1.5 text-xs text-fg">
-          <span class="text-fg-faint text-[10px]">&#x23F1;</span>
+          <Icon icon="mdi:clock-outline" class="text-fg-faint" aria-hidden="true" />
           {{ formatTime(hoveredEvent.meeting.startTime) }} &ndash;
           {{ formatTime(hoveredEvent.meeting.endTime) }}
         </div>
         <!-- Location -->
         <div class="flex items-center gap-1.5 text-xs text-fg mt-0.5">
-          <span class="text-fg-faint text-[10px]">&#x1F4CD;</span>
+          <Icon icon="mdi:map-marker" class="text-fg-faint" aria-hidden="true" />
           <span v-if="hoveredEvent.meeting.isOnline">Online</span>
           <span v-else>{{ hoveredEvent.meeting.building }} {{ hoveredEvent.meeting.room }}</span>
         </div>

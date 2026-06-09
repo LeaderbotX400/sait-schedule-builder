@@ -13,6 +13,7 @@ import { useTermStore } from "@/features/term/store";
 import { useCoursesStore } from "@/features/courses/store";
 import { useUiStore } from "@/features/ui-state/store";
 import Spinner from "@/ui/Spinner.vue";
+import { Icon } from "@iconify/vue";
 
 interface Suggestion {
   code: string;
@@ -329,8 +330,20 @@ function onTermChange(e: Event): void {
         :key="r.code"
         class="flex items-center gap-2 text-xs"
       >
-        <span v-if="r.count > 0" class="text-success">&#x2713;</span>
-        <span v-else class="text-destructive">&#x2717;</span>
+        <Icon
+          v-if="r.count > 0"
+          icon="mdi:check-circle"
+          class="text-success"
+          role="img"
+          :aria-label="`${r.code} found`"
+        />
+        <Icon
+          v-else
+          icon="mdi:close-circle"
+          class="text-destructive"
+          role="img"
+          :aria-label="`${r.code} not found`"
+        />
         <span class="font-mono text-fg-muted">{{ r.code }}</span>
         <span v-if="r.count > 0" class="text-fg-faint">
           {{ r.count }} section{{ r.count !== 1 ? "s" : "" }}
