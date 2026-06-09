@@ -26,21 +26,8 @@ jobs:
           cd dist
           zip -r ../sait-schedule-builder-${{ github.ref_type == 'tag' && github.ref_name || github.sha }}.zip .
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: extension
-          path: sait-schedule-builder-*.zip
-
-  release:
-    needs: ci
-    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: extension
-
       - name: Create Forgejo release
+        if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
         uses: https://code.forgejo.org/actions/forgejo-release@v2.12.1
         with:
           direction: upload
