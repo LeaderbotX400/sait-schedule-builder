@@ -82,7 +82,7 @@ function prefSummary(): string {
     <div v-if="openSections.timeWindow" class="pb-3">
       <div class="grid grid-cols-2 gap-2">
         <div>
-          <label class="block text-[11px] text-fg-faint mb-0.5">Start</label>
+          <label class="block text-[0.6875rem] text-fg-faint mb-0.5">Start</label>
           <select
             :value="rules.earliestStart"
             class="w-full rounded-md bg-input border border-edge px-1.5 py-1 text-xs text-fg focus:outline-none focus:ring-2 focus:ring-ring"
@@ -94,7 +94,7 @@ function prefSummary(): string {
           </select>
         </div>
         <div>
-          <label class="block text-[11px] text-fg-faint mb-0.5">End</label>
+          <label class="block text-[0.6875rem] text-fg-faint mb-0.5">End</label>
           <select
             :value="rules.latestEnd"
             class="w-full rounded-md bg-input border border-edge px-1.5 py-1 text-xs text-fg focus:outline-none focus:ring-2 focus:ring-ring"
@@ -293,7 +293,7 @@ function prefSummary(): string {
       <div>
         <label
           for="rule-section-prefixes"
-          class="block text-[11px] text-fg-faint mb-1"
+          class="block text-[0.6875rem] text-fg-faint mb-1"
           title="Comma-separated list of section sequence prefixes to keep (case-insensitive). Leave blank to allow all sections."
         >
           Section prefixes (e.g. SD, FV)

@@ -423,3 +423,37 @@ body {
   background-color: var(--color-page);
   color: var(--color-fg);
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Scrollbars — theme-aware, slim
+   ───────────────────────────────────────────────────────────── */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--th-edge) var(--th-page);
+}
+
+/* WebKit / Blink (Chrome, Edge, Electron) */
+::-webkit-scrollbar {
+  width: 0.375rem;
+  height: 0.375rem;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--th-page);
+  border-radius: 62.4375rem;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--th-edge);
+  border-radius: 62.4375rem;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--th-edge-hover);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--th-page);
+}

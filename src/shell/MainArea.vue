@@ -138,7 +138,7 @@ async function onReauth(): Promise<void> {
   <div v-if="hasData" class="flex gap-6 items-start">
     <aside class="hidden lg:block shrink-0">
       <p
-        class="text-[10px] font-semibold uppercase tracking-widest text-fg-faint mb-2"
+        class="text-[0.625rem] font-semibold uppercase tracking-widest text-fg-faint mb-2"
       >
         Rules
       </p>
@@ -198,7 +198,7 @@ async function onReauth(): Promise<void> {
       </EmptyState>
       <div
         v-else-if="generationStatus.kind === 'generating'"
-        class="flex items-center justify-center h-64"
+        class="flex items-center justify-center min-h-64"
       >
         <div class="text-center">
           <Spinner size="lg" color="text-primary" />
@@ -231,7 +231,7 @@ async function onReauth(): Promise<void> {
 
   <div
     v-else-if="isLoggedIn && registrationsLoading"
-    class="flex items-center justify-center h-64"
+    class="flex items-center justify-center min-h-64"
   >
     <div class="text-center">
       <Spinner size="lg" color="text-primary" />
@@ -240,7 +240,7 @@ async function onReauth(): Promise<void> {
   </div>
   <div
     v-else-if="isLoggedIn && authRequired"
-    class="flex items-center justify-center h-64"
+    class="flex items-center justify-center min-h-64"
   >
     <div class="max-w-sm text-center space-y-3">
       <p class="text-sm text-destructive">
@@ -253,11 +253,11 @@ async function onReauth(): Promise<void> {
   </div>
   <div
     v-else-if="isLoggedIn && loadError"
-    class="flex items-center justify-center h-64"
+    class="flex items-center justify-center min-h-64"
   >
     <p class="text-sm text-destructive max-w-sm text-center">{{ loadError }}</p>
   </div>
-  <div v-else-if="isLoggedIn" class="flex items-center justify-center h-64">
+  <div v-else-if="isLoggedIn" class="flex items-center justify-center min-h-64">
     <p class="text-sm text-fg-faint">
       No registered courses found — search above to add courses.
     </p>

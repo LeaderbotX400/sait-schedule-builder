@@ -363,7 +363,7 @@ function handleMouseUp(): void {
 // ── Cell style helpers ────────────────────────────────────────────────────────
 
 const HARD_BLOCKED_BG_IMAGE =
-  "repeating-linear-gradient(135deg, transparent, transparent 3px, rgba(255,255,255,0.035) 3px, rgba(255,255,255,0.035) 6px)";
+  "repeating-linear-gradient(135deg, transparent, transparent 0.1875rem, rgba(255,255,255,0.035) 0.1875rem, rgba(255,255,255,0.035) 0.375rem)";
 
 function cellClass(day: DayOfWeek, hour: number): string {
   if (isHardBlocked(day, hour)) return "";
@@ -375,8 +375,8 @@ function cellClass(day: DayOfWeek, hour: number): string {
 
 function cellStyle(day: DayOfWeek, hour: number, rowIndex: number): Record<string, string> {
   const base: Record<string, string> = {
-    top: `${rowIndex * HOUR_HEIGHT}px`,
-    height: `${HOUR_HEIGHT}px`,
+    top: `${rowIndex * HOUR_HEIGHT}rem`,
+    height: `${HOUR_HEIGHT}rem`,
     zIndex: "0",
     cursor: isHardBlocked(day, hour) ? "not-allowed" : "crosshair",
   };
@@ -481,7 +481,7 @@ function togglePin(course: CourseSection): void {
           <Icon icon="mdi:magnify-minus-outline" aria-hidden="true" />
         </button>
         <span
-          class="px-2 text-[11px] font-medium text-fg-muted tabular-nums border-x border-edge-subtle"
+          class="px-2 text-[0.6875rem] font-medium text-fg-muted tabular-nums border-x border-edge-subtle"
           aria-live="polite"
           :aria-label="`Zoom level ${zoom} times`"
           >{{ zoom }}&times;</span
@@ -509,12 +509,12 @@ function togglePin(course: CourseSection): void {
           max="100"
           step="5"
           :value="blockoutWeight"
-          class="w-20 accent-primary"
+          class="min-w-20 accent-primary"
           @input="
             emit('update:blockoutWeight', parseInt(($event.target as HTMLInputElement).value, 10))
           "
         />
-        <span class="text-xs font-medium text-fg-muted tabular-nums w-8"
+        <span class="text-xs font-medium text-fg-muted tabular-nums min-w-8"
           >{{ blockoutWeight }}%</span
         >
       </div>
@@ -533,22 +533,22 @@ function togglePin(course: CourseSection): void {
     </div>
 
     <!-- Grid -->
-    <div class="overflow-x-auto overflow-y-auto max-h-[calc(100vh-300px)]">
+    <div class="overflow-x-auto overflow-y-auto max-h-[calc(100vh-18.75rem)]">
       <div
         class="flex select-none"
-        :style="{ minWidth: `${560 * zoom}px` }"
+        :style="{ minWidth: `${35 * zoom}rem` }"
         @mouseup="handleMouseUp"
         @mouseleave="handleMouseUp"
       >
         <!-- Time labels column -->
-        <div class="w-14 shrink-0">
-          <div class="h-8" />
-          <div class="relative" :style="{ height: `${totalHeight}px` }">
+        <div class="min-w-14 shrink-0">
+          <div class="min-h-8" />
+          <div class="relative" :style="{ height: `${totalHeight}rem` }">
             <div
               v-for="(h, i) in hours"
               :key="h"
-              class="absolute right-2 text-[10px] text-fg-faint leading-none"
-              :style="{ top: `${i * HOUR_HEIGHT - 6}px` }"
+              class="absolute right-2 text-[0.625rem] text-fg-faint leading-none"
+              :style="{ top: `${i * HOUR_HEIGHT - 0.375}rem` }"
             >
               {{ formatHour(h) }}
             </div>
@@ -556,22 +556,25 @@ function togglePin(course: CourseSection): void {
         </div>
 
         <!-- Day columns -->
-        <div v-for="day in displayDays" :key="day" class="flex-1 min-w-[80px]">
+        <div v-for="day in displayDays" :key="day" class="flex-1 min-w-20">
           <!-- Day header -->
           <div
             :class="[
-              'h-8 flex flex-col items-center justify-center border-b border-edge-subtle',
+              'min-h-8 flex flex-col items-center justify-center border-b border-edge-subtle sticky top-0 bg-surface/10 z-50 backdrop-blur-md',
               hardBlockedDays.has(day) || !WEEKDAYS.includes(day) ? 'opacity-40' : '',
             ]"
           >
             <span class="text-xs font-medium text-fg-muted">{{ day }}</span>
-            <span v-if="hardBlockedDays.has(day)" class="text-[8px] text-destructive leading-none">
+            <span v-if="hardBlockedDays.has(day)" class="text-2 text-destructive leading-none">
               day off
             </span>
           </div>
 
           <!-- Cell column -->
-          <div class="relative border-l border-edge-subtle" :style="{ height: `${totalHeight}px` }">
+          <div
+            class="relative border-l border-edge-subtle"
+            :style="{ height: `${totalHeight}rem` }"
+          >
             <!-- Blockout cells -->
             <div
               v-for="(h, i) in hours"
@@ -587,10 +590,10 @@ function togglePin(course: CourseSection): void {
               v-for="({ course, meeting }, idx) in dayLockedGhosts.get(day) ?? []"
               :key="`locked-${course.crn}-${day}-${meeting.startTime}-${idx}`"
               type="button"
-              class="absolute left-0.5 right-0.5 rounded-r-md overflow-hidden flex flex-col justify-center px-1.5 cursor-pointer transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-tint-danger/60 border-l-[3px] border-l-destructive border border-tint-danger-bd hover:bg-tint-danger/80"
+              class="absolute left-0.5 right-0.5 rounded-r-md overflow-hidden flex flex-col justify-center px-1.5 cursor-pointer transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-tint-danger/60 border-l-[0.1875rem] border-l-destructive border border-tint-danger-bd hover:bg-tint-danger/80"
               :style="{
-                top: `${meetingTop(meeting)}px`,
-                height: `${meetingHeight(meeting)}px`,
+                top: `${meetingTop(meeting)}rem`,
+                height: `${meetingHeight(meeting)}rem`,
                 zIndex: 2,
               }"
               :title="`Locked: ${course.identifier} - ${course.title}\n${course.instructor}\n${meeting.building} ${meeting.room}\n${formatTime(meeting.startTime)} - ${formatTime(meeting.endTime)}\nClick to unlock`"
@@ -610,14 +613,14 @@ function togglePin(course: CourseSection): void {
                 </span>
               </div>
               <div
-                v-if="meetingHeight(meeting) > 35"
-                class="text-[10px] text-tint-danger-fg/80 truncate leading-tight"
+                v-if="meetingHeight(meeting) > 2.1875"
+                class="text-[0.625rem] text-tint-danger-fg/80 truncate leading-tight"
               >
                 {{ meeting.building }} {{ meeting.room }}
               </div>
               <div
-                v-if="meetingHeight(meeting) > 50"
-                class="text-[10px] text-tint-danger-fg/70 truncate leading-tight"
+                v-if="meetingHeight(meeting) > 3.125"
+                class="text-[0.625rem] text-tint-danger-fg/70 truncate leading-tight"
               >
                 {{ formatTime(meeting.startTime) }}&ndash;{{ formatTime(meeting.endTime) }}
               </div>
@@ -632,10 +635,10 @@ function togglePin(course: CourseSection): void {
                 type="button"
                 class="absolute rounded-r-md overflow-hidden flex flex-col justify-center px-1 cursor-pointer transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-surface-hover/25 border border-dashed border-edge-hover/50 hover:bg-tint-success/30 hover:border-tint-success-bd"
                 :style="{
-                  top: `${rangeTop(tile.meeting.meeting.startTime)}px`,
-                  height: `${rangeHeight(tile.meeting.meeting.startTime, tile.meeting.meeting.endTime)}px`,
-                  left: `calc(${tileLeftPct(tile)} + 2px)`,
-                  width: `calc(${tileWidthPct(tile)} - 4px)`,
+                  top: `${rangeTop(tile.meeting.meeting.startTime)}rem`,
+                  height: `${rangeHeight(tile.meeting.meeting.startTime, tile.meeting.meeting.endTime)}rem`,
+                  left: `calc(${tileLeftPct(tile)} + 0.125rem)`,
+                  width: `calc(${tileWidthPct(tile)} - 0.25rem)`,
                   zIndex: 1,
                 }"
                 :title="`Alternative: ${tile.meeting.course.identifier} - ${tile.meeting.course.title}\n${tile.meeting.course.instructor}\n${tile.meeting.meeting.building} ${tile.meeting.meeting.room}\n${formatTime(tile.meeting.meeting.startTime)} - ${formatTime(tile.meeting.meeting.endTime)}\nClick to lock`"
@@ -650,16 +653,18 @@ function togglePin(course: CourseSection): void {
                     class="w-3 h-3 shrink-0 text-success"
                     aria-hidden="true"
                   />
-                  <span class="text-[10px] font-medium leading-tight text-fg-muted italic truncate min-w-0">
+                  <span
+                    class="text-[0.625rem] font-medium leading-tight text-fg-muted italic truncate min-w-0"
+                  >
                     {{ tile.meeting.course.identifier }}
                   </span>
                 </div>
                 <div
                   v-if="
                     rangeHeight(tile.meeting.meeting.startTime, tile.meeting.meeting.endTime) >
-                      35 && tile.totalColumns <= 2
+                      2.1875 && tile.totalColumns <= 2
                   "
-                  class="text-[9px] leading-tight text-fg-faint"
+                  class="text-[0.5625rem] leading-tight text-fg-faint"
                 >
                   {{ formatTime(tile.meeting.meeting.startTime) }}&ndash;{{
                     formatTime(tile.meeting.meeting.endTime)
@@ -673,10 +678,10 @@ function togglePin(course: CourseSection): void {
                 :key="`gtile-overflow-${day}-${tile.startTime}-${idx}`"
                 class="absolute"
                 :style="{
-                  top: `${rangeTop(tile.startTime)}px`,
-                  height: `${rangeHeight(tile.startTime, tile.endTime)}px`,
-                  left: `calc(${tileLeftPct(tile)} + 2px)`,
-                  width: `calc(${tileWidthPct(tile)} - 4px)`,
+                  top: `${rangeTop(tile.startTime)}rem`,
+                  height: `${rangeHeight(tile.startTime, tile.endTime)}rem`,
+                  left: `calc(${tileLeftPct(tile)} + 0.125rem)`,
+                  width: `calc(${tileWidthPct(tile)} - 0.25rem)`,
                   zIndex: 1,
                 }"
               >
@@ -692,7 +697,9 @@ function togglePin(course: CourseSection): void {
                       @mousedown.stop
                       @click.stop="toggle"
                     >
-                      <span class="text-[11px] font-bold text-fg-muted tabular-nums leading-none">
+                      <span
+                        class="text-[0.6875rem] font-bold text-fg-muted tabular-nums leading-none"
+                      >
                         +{{ tile.members.length }}
                       </span>
                     </button>
@@ -706,7 +713,7 @@ function togglePin(course: CourseSection): void {
                       <span class="text-xs font-semibold text-fg">
                         {{ tile.members.length }} more sections
                       </span>
-                      <span class="text-[10px] text-fg-faint tabular-nums">{{ day }}</span>
+                      <span class="text-[0.625rem] text-fg-faint tabular-nums">{{ day }}</span>
                     </div>
                     <button
                       v-for="m in tile.members"
@@ -726,13 +733,13 @@ function togglePin(course: CourseSection): void {
                           <span class="font-mono text-xs font-semibold text-fg truncate">
                             {{ m.course.identifier }}
                           </span>
-                          <span class="text-[10px] text-fg-faint tabular-nums shrink-0">
+                          <span class="text-[0.625rem] text-fg-faint tabular-nums shrink-0">
                             {{ formatTime(m.meeting.startTime) }}&ndash;{{
                               formatTime(m.meeting.endTime)
                             }}
                           </span>
                         </div>
-                        <div class="text-[10px] text-fg-muted truncate">
+                        <div class="text-[0.625rem] text-fg-muted truncate">
                           {{ m.course.instructor || "TBA" }}
                           <span v-if="m.meeting.building" class="text-fg-faint">
                             &middot; {{ m.meeting.building }} {{ m.meeting.room }}
@@ -751,7 +758,7 @@ function togglePin(course: CourseSection): void {
                 v-for="{ course, meeting } in dayEvents.get(day) ?? []"
                 :key="`${course.crn}-${day}-${meeting.startTime}`"
                 :class="[
-                  'absolute left-0.5 right-0.5 border-l-[3px] rounded-r-md overflow-hidden flex flex-col justify-center px-1.5',
+                  'absolute left-0.5 right-0.5 border-l-[0.1875rem] rounded-r-md overflow-hidden flex flex-col justify-center px-1.5',
                   (() => {
                     const colorSlot = colorMap.get(course.identifier) ?? COURSE_COLORS[0];
                     if (!colorSlot) return '';
@@ -764,8 +771,8 @@ function togglePin(course: CourseSection): void {
                   })(),
                 ]"
                 :style="{
-                  top: `${meetingTop(meeting)}px`,
-                  height: `${meetingHeight(meeting)}px`,
+                  top: `${meetingTop(meeting)}rem`,
+                  height: `${meetingHeight(meeting)}rem`,
                   zIndex: 2,
                   pointerEvents: 'none',
                 }"
@@ -778,14 +785,14 @@ function togglePin(course: CourseSection): void {
                       warnedCourseIds.has(course.identifier)
                     "
                     icon="mdi:alert"
-                    class="text-[10px] text-destructive shrink-0"
+                    class="text-[0.625rem] text-destructive shrink-0"
                     role="img"
                     aria-label="Scheduling conflict"
                   />
                   <Icon
                     v-if="isSectionPinned(course)"
                     icon="mdi:lock"
-                    class="text-[10px] shrink-0 text-destructive"
+                    class="text-[0.625rem] shrink-0 text-destructive"
                     role="img"
                     aria-label="Locked"
                   />
@@ -794,14 +801,14 @@ function togglePin(course: CourseSection): void {
                   </span>
                 </div>
                 <div
-                  v-if="meetingHeight(meeting) > 35"
-                  class="text-[10px] text-fg-muted truncate leading-tight"
+                  v-if="meetingHeight(meeting) > 2.1875"
+                  class="text-[0.625rem] text-fg-muted truncate leading-tight"
                 >
                   {{ meeting.building }} {{ meeting.room }}
                 </div>
                 <div
-                  v-if="meetingHeight(meeting) > 50"
-                  class="text-[10px] text-fg-faint truncate leading-tight"
+                  v-if="meetingHeight(meeting) > 3.125"
+                  class="text-[0.625rem] text-fg-faint truncate leading-tight"
                 >
                   {{ formatTime(meeting.startTime) }}&ndash;{{ formatTime(meeting.endTime) }}
                 </div>
@@ -814,7 +821,7 @@ function togglePin(course: CourseSection): void {
 
     <!-- Legend -->
     <div
-      class="flex items-center gap-4 px-4 py-2 border-t border-edge-subtle text-[10px] text-fg-faint"
+      class="flex items-center gap-4 px-4 py-2 border-t border-edge-subtle text-[0.625rem] text-fg-faint"
     >
       <span class="flex items-center gap-1.5">
         <span class="inline-block w-3 h-3 rounded-sm bg-success/20 border border-success/40" />
@@ -831,7 +838,7 @@ function togglePin(course: CourseSection): void {
           class="inline-block w-3 h-3 rounded-sm"
           :style="{
             backgroundImage:
-              'repeating-linear-gradient(135deg, transparent, transparent 3px, rgba(255,255,255,0.06) 3px, rgba(255,255,255,0.06) 6px)',
+              'repeating-linear-gradient(135deg, transparent, transparent 0.1875rem, rgba(255,255,255,0.06) 0.1875rem, rgba(255,255,255,0.06) 0.375rem)',
             backgroundColor: 'rgba(0,0,0,0.32)',
           }"
         />

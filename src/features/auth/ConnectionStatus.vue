@@ -64,7 +64,7 @@ async function handleDisconnect(close: () => void): Promise<void> {
             {{ ageLabel(sessionAgeSeconds) }}
           </span>
         </div>
-        <p v-if="isStale" class="text-[11px] text-warning">
+        <p v-if="isStale" class="text-[0.6875rem] text-warning">
           Session may have expired. Reauth to refresh.
         </p>
         <button
@@ -82,7 +82,7 @@ async function handleDisconnect(close: () => void): Promise<void> {
         >
           Disconnect
         </button>
-        <p v-if="error" class="text-[11px] text-destructive">{{ error }}</p>
+        <p v-if="error" class="text-[0.6875rem] text-destructive">{{ error }}</p>
       </div>
     </template>
   </Popover>

@@ -94,7 +94,7 @@ function cancel(): void {
         >
           Clear
         </UiButton>
-        <span v-if="saved" class="text-success text-[11px]">Saved</span>
+        <span v-if="saved" class="text-success text-[0.6875rem]">Saved</span>
       </div>
     </div>
   </details>

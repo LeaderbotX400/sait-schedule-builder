@@ -23,7 +23,7 @@ const formatted = computed(() => {
 
 <template>
   <span v-if="loading && !gpa" :class="`${CHIP} bg-input/60 text-fg-faint`">
-    <span class="text-[10px] uppercase tracking-wide">GPA</span>
+    <span class="text-[0.625rem] uppercase tracking-wide">GPA</span>
     <span>…</span>
   </span>
   <span
@@ -31,7 +31,7 @@ const formatted = computed(() => {
     :class="`${CHIP} bg-input text-fg-muted`"
     title="Cumulative GPA"
   >
-    <span class="text-[10px] uppercase tracking-wide text-fg-faint">GPA</span>
+    <span class="text-[0.625rem] uppercase tracking-wide text-fg-faint">GPA</span>
     <span class="font-semibold text-fg">{{ formatted }}</span>
   </span>
 </template>

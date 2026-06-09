@@ -86,7 +86,7 @@ function onExport(): void {
         Courses
         <span
           v-if="courseGroups.size > 0"
-          class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-surface-hover text-fg-muted"
+          class="text-[0.625rem] font-bold px-1.5 py-0.5 rounded-full bg-surface-hover text-fg-muted"
         >
           {{ courseGroups.size }}
         </span>
@@ -97,7 +97,7 @@ function onExport(): void {
       <div class="flex flex-wrap items-center gap-2 ml-auto">
         <label class="flex items-center gap-1.5">
           <span
-            class="text-[10px] font-semibold uppercase tracking-widest text-fg-faint"
+            class="text-[0.625rem] font-semibold uppercase tracking-widest text-fg-faint"
           >
             Term
           </span>

@@ -63,7 +63,7 @@ const onNext = (): void => {
       &larr; Prev
     </button>
 
-    <div class="flex-1 overflow-x-auto flex gap-1.5 py-0.5">
+    <div class="flex overflow-x-auto gap-1.5 px-1 overflow-y-hidden">
       <Popover v-for="(s, i) in schedules" :key="s.id" align="left" widthClass="w-72">
         <template #trigger="{ toggle }">
           <button
@@ -100,13 +100,13 @@ const onNext = (): void => {
               >
                 {{ s.qualityScore }}
               </span>
-              <span class="text-[11px] text-fg-faint">/ 100</span>
+              <span class="text-[0.6875rem] text-fg-faint">/ 100</span>
             </div>
           </div>
-          <p class="text-[11px] text-fg-faint">{{ scoreLabel(s.qualityScore) }}</p>
+          <p class="text-[0.6875rem] text-fg-faint">{{ scoreLabel(s.qualityScore) }}</p>
 
           <div class="border-t border-edge pt-2 space-y-1">
-            <div class="flex items-center justify-between text-[11px]">
+            <div class="flex items-center justify-between text-[0.6875rem]">
               <span class="text-fg-muted">Days on campus</span>
               <span class="text-fg tabular-nums"
                 >{{ s.onCampusDaysCount }} of {{ s.daysCount }}</span
@@ -114,7 +114,7 @@ const onNext = (): void => {
             </div>
             <div
               v-if="s.earlyMorningPenalty > 0"
-              class="flex items-center justify-between text-[11px]"
+              class="flex items-center justify-between text-[0.6875rem]"
             >
               <span class="text-fg-muted">Early morning</span>
               <span class="text-fg tabular-nums"
@@ -123,7 +123,7 @@ const onNext = (): void => {
             </div>
             <div
               v-if="s.travelTimePenalty > 0"
-              class="flex items-center justify-between text-[11px]"
+              class="flex items-center justify-between text-[0.6875rem]"
             >
               <span class="text-fg-muted">Travel gap violations</span>
               <span class="text-fg tabular-nums"
@@ -132,12 +132,12 @@ const onNext = (): void => {
             </div>
             <div
               v-if="s.blockoutFitScore !== undefined && s.blockoutFitScore < 100"
-              class="flex items-center justify-between text-[11px]"
+              class="flex items-center justify-between text-[0.6875rem]"
             >
               <span class="text-fg-muted">Blockout fit</span>
               <span class="text-fg tabular-nums">{{ s.blockoutFitScore.toFixed(0) }}%</span>
             </div>
-            <div v-if="s.isPartial" class="flex items-center justify-between text-[11px]">
+            <div v-if="s.isPartial" class="flex items-center justify-between text-[0.6875rem]">
               <span class="text-fg-faint">Partial schedule</span>
               <span class="text-fg-faint tabular-nums"
                 >&minus;{{ s.omittedCourses.length }} omitted</span
@@ -146,17 +146,17 @@ const onNext = (): void => {
           </div>
 
           <div v-if="s.warnings.length > 0" class="border-t border-edge pt-2 space-y-1">
-            <p class="text-[10px] font-semibold uppercase tracking-widest text-fg-faint">
+            <p class="text-[0.625rem] font-semibold uppercase tracking-widest text-fg-faint">
               {{ s.warnings.length }} warning{{ s.warnings.length !== 1 ? "s" : "" }}
             </p>
             <p
               v-for="(w, wi) in s.warnings.slice(0, 4)"
               :key="wi"
-              class="text-[11px] text-warning/90 leading-snug"
+              class="text-[0.6875rem] text-warning/90 leading-snug"
             >
               &middot; {{ w.message }}
             </p>
-            <p v-if="s.warnings.length > 4" class="text-[10px] text-fg-faint">
+            <p v-if="s.warnings.length > 4" class="text-[0.625rem] text-fg-faint">
               + {{ s.warnings.length - 4 }} more in details below
             </p>
           </div>

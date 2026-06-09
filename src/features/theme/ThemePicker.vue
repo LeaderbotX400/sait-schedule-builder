@@ -38,7 +38,7 @@ const options: { key: ThemeChoice; label: string; swatches?: [string, string, st
 
     <template #default="{ close }">
       <div class="space-y-1">
-        <p class="text-[10px] font-semibold uppercase tracking-widest text-fg-faint mb-2">
+        <p class="text-[0.625rem] font-semibold uppercase tracking-widest text-fg-faint mb-2">
           Theme
         </p>
         <button
@@ -65,7 +65,7 @@ const options: { key: ThemeChoice; label: string; swatches?: [string, string, st
           </span>
           <span
             v-else
-            class="flex items-center justify-center h-4 w-[3.25rem] shrink-0 text-[10px] text-fg-faint"
+            class="flex items-center justify-center h-4 w-[3.25rem] shrink-0 text-[0.625rem] text-fg-faint"
           >
             &#9788;/&#9790;
           </span>

@@ -100,7 +100,7 @@ function eventStyle(
   const endMin = timeToMinutes(meeting.endTime) - gridStartMinutes.value;
   const top = (startMin / 60) * HOUR_HEIGHT;
   const height = ((endMin - startMin) / 60) * HOUR_HEIGHT;
-  return { top: `${top}px`, height: `${height}px` };
+  return { top: `${top}rem`, height: `${height}rem` };
 }
 
 function eventHeight(meeting: Schedule["courses"][number]["meetings"][number]): number {
@@ -206,16 +206,16 @@ const seatsColor = computed(() => {
 
 <template>
   <div class="overflow-x-auto relative" ref="containerRef" @scroll="onScroll">
-    <div class="flex min-w-[640px]">
+    <div class="flex min-w-[40rem]">
       <!-- Time labels column -->
-      <div class="w-16 shrink-0">
-        <div class="h-8" />
-        <div class="relative" :style="{ height: `${totalHeight}px` }">
+      <div class="min-w-16 shrink-0">
+        <div class="min-h-8" />
+        <div class="relative" :style="{ height: `${totalHeight}rem` }">
           <div
             v-for="(h, i) in hours"
             :key="h"
             class="absolute right-1 text-xs text-fg-faint"
-            :style="{ top: `${i * HOUR_HEIGHT}px` }"
+            :style="{ top: `${i * HOUR_HEIGHT}rem` }"
           >
             {{ formatTime(h * 100) }}
           </div>
@@ -223,13 +223,13 @@ const seatsColor = computed(() => {
       </div>
 
       <!-- Day columns -->
-      <div v-for="day in DISPLAY_DAYS" :key="day" class="flex-1 min-w-[100px]">
+      <div v-for="day in DISPLAY_DAYS" :key="day" class="flex-1 min-w-[6.25rem]">
         <div
-          class="h-8 flex items-center justify-center text-sm font-medium text-fg-muted border-b border-edge"
+          class="min-h-8 flex items-center justify-center text-sm font-medium text-fg-muted border-b border-edge"
         >
           {{ day }}
         </div>
-        <div class="relative border-l border-edge-subtle" :style="{ height: `${totalHeight}px` }">
+        <div class="relative border-l border-edge-subtle" :style="{ height: `${totalHeight}rem` }">
           <!-- Blockout shading -->
           <template v-if="blockout">
             <template v-for="(h, i) in hours" :key="`bo-${h}`">
@@ -237,7 +237,7 @@ const seatsColor = computed(() => {
                 v-if="blockoutCellClass(day, h)"
                 class="absolute w-full"
                 :class="blockoutCellClass(day, h)!"
-                :style="{ top: `${i * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }"
+                :style="{ top: `${i * HOUR_HEIGHT}rem`, height: `${HOUR_HEIGHT}rem` }"
               />
             </template>
           </template>
@@ -247,7 +247,7 @@ const seatsColor = computed(() => {
             v-for="(_, i) in hours"
             :key="`line-${i}`"
             class="absolute w-full border-b border-edge-subtle"
-            :style="{ top: `${i * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }"
+            :style="{ top: `${i * HOUR_HEIGHT}rem`, height: `${HOUR_HEIGHT}rem` }"
           />
 
           <!-- Events -->
@@ -273,7 +273,7 @@ const seatsColor = computed(() => {
                 <Icon
                   v-if="isEventWarned(course.identifier, day, meeting.startTime)"
                   icon="mdi:alert"
-                  class="text-[10px] text-destructive shrink-0"
+                  class="text-[0.625rem] text-destructive shrink-0"
                   role="img"
                   aria-label="Scheduling conflict"
                 />
@@ -285,14 +285,14 @@ const seatsColor = computed(() => {
                 </span>
               </div>
               <div
-                v-if="eventHeight(meeting) > 35"
-                class="text-[10px] text-fg-muted truncate leading-tight"
+                v-if="eventHeight(meeting) > 2.1875"
+                class="text-[0.625rem] text-fg-muted truncate leading-tight"
               >
                 {{ meeting.building }} {{ meeting.room }}
               </div>
               <div
-                v-if="eventHeight(meeting) > 50"
-                class="text-[10px] text-fg-faint truncate leading-tight"
+                v-if="eventHeight(meeting) > 3.125"
+                class="text-[0.625rem] text-fg-faint truncate leading-tight"
               >
                 {{ formatTime(meeting.startTime) }}-{{ formatTime(meeting.endTime) }}
               </div>
@@ -316,7 +316,7 @@ const seatsColor = computed(() => {
           <span class="font-mono font-semibold text-sm text-fg leading-tight">
             {{ hoveredEvent.course.identifier }}
           </span>
-          <span class="text-[10px] text-fg-faint font-mono shrink-0 mt-0.5">
+          <span class="text-[0.625rem] text-fg-faint font-mono shrink-0 mt-0.5">
             CRN {{ hoveredEvent.course.crn }}
           </span>
         </div>
@@ -348,19 +348,19 @@ const seatsColor = computed(() => {
         <!-- Bottom metadata -->
         <div class="grid grid-cols-3 gap-x-2">
           <div>
-            <div class="text-[9px] text-fg-faint uppercase tracking-wide">Method</div>
+            <div class="text-[0.5625rem] text-fg-faint uppercase tracking-wide">Method</div>
             <div class="text-xs text-fg font-medium truncate">
               {{ hoveredEvent.course.instructionalMethod }}
             </div>
           </div>
           <div>
-            <div class="text-[9px] text-fg-faint uppercase tracking-wide">Seats</div>
+            <div class="text-[0.5625rem] text-fg-faint uppercase tracking-wide">Seats</div>
             <div class="text-xs font-medium" :class="seatsColor">
               {{ hoveredEvent.course.seatsAvailable }}/{{ hoveredEvent.course.maximumEnrollment }}
             </div>
           </div>
           <div>
-            <div class="text-[9px] text-fg-faint uppercase tracking-wide">Credits</div>
+            <div class="text-[0.5625rem] text-fg-faint uppercase tracking-wide">Credits</div>
             <div class="text-xs text-fg font-medium">
               {{ hoveredEvent.course.creditHours ?? "&mdash;" }}
             </div>

@@ -5,8 +5,8 @@
  */
 import type { ScheduleWarning } from "../../domain/types";
 
-/** Pixel height of a single hour-row in the calendar grid. */
-export const HOUR_HEIGHT = 60;
+/** rem height of a single hour-row in the calendar grid (3.75rem = 60px at 16px base). */
+export const HOUR_HEIGHT = 3.75;
 
 export interface CourseColorSet {
   bg: string;

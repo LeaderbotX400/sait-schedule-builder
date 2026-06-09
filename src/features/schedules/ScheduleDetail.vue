@@ -233,7 +233,7 @@ const qualityTooltip = computed(() => {
         />
         <div class="flex-1 min-w-0">
           <p class="text-xs" :class="getWarningStyle(w.kind).color">{{ w.message }}</p>
-          <p v-if="w.courseIds.length > 0" class="text-[10px] text-fg-faint mt-0.5">
+          <p v-if="w.courseIds.length > 0" class="text-[0.625rem] text-fg-faint mt-0.5">
             Affects: {{ w.courseIds.join(", ") }}
           </p>
         </div>
@@ -245,7 +245,7 @@ const qualityTooltip = computed(() => {
       v-if="schedule.omittedCourses.length > 0"
       class="rounded-lg bg-surface/40 border border-edge px-3 py-2 space-y-1.5"
     >
-      <p class="text-[10px] font-semibold uppercase tracking-widest text-fg-faint">
+      <p class="text-[0.625rem] font-semibold uppercase tracking-widest text-fg-faint">
         Not included in this schedule
       </p>
       <div
@@ -330,7 +330,7 @@ const qualityTooltip = computed(() => {
           >
             <label
               :for="`section-swap-${course.subjectCourse}`"
-              class="text-[10px] uppercase tracking-widest text-fg-faint shrink-0"
+              class="text-[0.625rem] uppercase tracking-widest text-fg-faint shrink-0"
             >
               Swap
             </label>
@@ -357,7 +357,7 @@ const qualityTooltip = computed(() => {
             <div
               v-for="(w, wi) in courseWarnings.get(course.identifier)"
               :key="wi"
-              class="text-[10px]"
+              class="text-[0.625rem]"
               :class="getWarningStyle(w.kind).color"
             >
               <Icon

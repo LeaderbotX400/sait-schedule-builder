@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import UiButton from "@/ui/Button.vue";
 import { ref } from "vue";
 import { useSavedStore } from "./store";
-import UiButton from "@/ui/Button.vue";
 
 const savedStore = useSavedStore();
 
@@ -47,8 +47,8 @@ async function load(id: string): Promise<void> {
 </script>
 
 <template>
-  <div v-if="savedStore.savedSchedules.length > 0" class="space-y-2">
-    <p class="text-[10px] font-semibold uppercase tracking-widest text-fg-faint mb-2">
+  <div v-if="savedStore.savedSchedules.length > 0" class="space-y-2 mb-2">
+    <p class="text-[0.625rem] font-semibold uppercase tracking-widest text-fg-faint mb-2">
       Saved Schedules
     </p>
     <div

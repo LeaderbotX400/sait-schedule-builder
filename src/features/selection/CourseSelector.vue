@@ -73,7 +73,7 @@ function meetingSummary(m: MeetingBlock): string {
               <span class="font-mono font-semibold text-fg shrink-0">{{ name }}</span>
               <span class="text-fg-muted truncate flex-1 min-w-0">{{ sections[0]?.title ?? name }}</span>
             </div>
-            <div class="text-[11px] text-fg-faint truncate">
+            <div class="text-[0.6875rem] text-fg-faint truncate">
               {{ sections.length }} {{ sections.length === 1 ? "section" : "sections" }}
               &middot;
               {{ sections.reduce((sum, s) => sum + s.seatsAvailable, 0) }}
@@ -117,7 +117,7 @@ function meetingSummary(m: MeetingBlock): string {
           <div
             v-for="s in sections"
             :key="s.identifier"
-            class="text-[11px] leading-snug"
+            class="text-[0.6875rem] leading-snug"
           >
             <div class="flex items-baseline gap-1.5 flex-wrap">
               <span class="font-mono text-fg-muted">{{ s.identifier }}</span>
