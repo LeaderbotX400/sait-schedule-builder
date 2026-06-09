@@ -17,11 +17,17 @@ const emit = defineEmits<{
   select: [index: number];
 }>();
 
+/**
+ * Background + matching FG token for each score band. Pairing the bg with
+ * its theme-tuned `-fg` (instead of hard-coding white) keeps WCAG AA
+ * contrast across every theme — white on bg-warning was ~1.5:1, well
+ * below the 4.5:1 normal-text threshold.
+ */
 function scoreBadgeColor(score: number): string {
-  if (score >= 80) return "bg-success";
-  if (score >= 60) return "bg-warning";
-  if (score >= 40) return "bg-caution";
-  return "bg-destructive";
+  if (score >= 80) return "bg-success text-success-fg";
+  if (score >= 60) return "bg-warning text-warning-fg";
+  if (score >= 40) return "bg-caution text-caution-fg";
+  return "bg-destructive text-destructive-fg";
 }
 
 function scoreLabel(score: number): string {
@@ -67,12 +73,14 @@ function onNext(): void {
         <template #trigger="{ toggle }">
           <button
             :title="`Schedule #${s.id} · Score ${s.qualityScore}`"
+            :aria-label="`Schedule ${s.id}, score ${s.qualityScore} out of 100`"
+            :aria-current="i === activeIndex ? 'true' : undefined"
             class="shrink-0 rounded-md px-2 py-0.5 text-xs font-bold transition-all"
             :class="[
               scoreBadgeColor(s.qualityScore),
               i === activeIndex
-                ? 'text-white ring-2 ring-white/20 scale-110'
-                : 'text-white/50 hover:text-white hover:scale-105',
+                ? 'ring-2 ring-fg/40 scale-110'
+                : 'opacity-60 hover:opacity-100 hover:scale-105',
             ]"
             @click="(e) => { onBadgeClick(i); toggle(); e.stopPropagation(); }"
           >

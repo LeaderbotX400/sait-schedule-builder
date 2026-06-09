@@ -40,7 +40,9 @@
   --color-success-hover: var(--th-success-hover);
   --color-success-fg: var(--th-success-fg);
   --color-warning: var(--th-warning);
+  --color-warning-fg: var(--th-warning-fg);
   --color-caution: var(--th-caution);
+  --color-caution-fg: var(--th-caution-fg);
 
   /* utilities */
   --color-ring: var(--th-ring);
@@ -93,9 +95,13 @@
 
   --th-success: #34d399;
   --th-success-hover: #10b981;
-  --th-success-fg: #ffffff;
+  /* status FGs sit ON the matching bright status bg, so dark text is the
+     only WCAG-AA passable choice (white on #34d399 is 1.92:1). */
+  --th-success-fg: #052e1a;
   --th-warning: #facc15;
+  --th-warning-fg: #1f1605;
   --th-caution: #f59e0b;
+  --th-caution-fg: #1f1605;
 
   --th-ring: #00a3e0;
   --th-indicator: #00a3e0;
@@ -145,9 +151,12 @@
 
   --th-success: #16a34a;
   --th-success-hover: #15803d;
-  --th-success-fg: #ffffff;
+  /* White on #16a34a is 3.3:1 — fails AA normal. Dark text gives 6.4:1. */
+  --th-success-fg: #052e1a;
   --th-warning: #ca8a04;
+  --th-warning-fg: #1f1605;
   --th-caution: #d97706;
+  --th-caution-fg: #1f1605;
 
   --th-ring: #005eb8;
   --th-indicator: #005eb8;
@@ -199,9 +208,11 @@
 
   --th-success: #34d399;
   --th-success-hover: #10b981;
-  --th-success-fg: #ffffff;
+  --th-success-fg: #052e1a;
   --th-warning: #facc15;
+  --th-warning-fg: #1f1605;
   --th-caution: #f59e0b;
+  --th-caution-fg: #1f1605;
 
   --th-ring: #c06dd8;
   --th-indicator: #c06dd8;
@@ -257,9 +268,11 @@
 
   --th-success: #16a34a;
   --th-success-hover: #15803d;
-  --th-success-fg: #ffffff;
+  --th-success-fg: #052e1a;
   --th-warning: #ca8a04;
+  --th-warning-fg: #1f1605;
   --th-caution: #d97706;
+  --th-caution-fg: #1f1605;
 
   --th-ring: #7c2d8c;
   --th-indicator: #7c2d8c;
@@ -317,7 +330,9 @@
   --th-success-hover: #c0c0c0;
   --th-success-fg: #0a0a0a;
   --th-warning: #999999;
+  --th-warning-fg: #0a0a0a;
   --th-caution: #888888;
+  --th-caution-fg: #0a0a0a;
 
   --th-ring: #999999;
   --th-indicator: #d4d4d4;
@@ -375,7 +390,9 @@
   --th-success-hover: #444444;
   --th-success-fg: #ffffff;
   --th-warning: #777777;
+  --th-warning-fg: #ffffff;
   --th-caution: #666666;
+  --th-caution-fg: #ffffff;
 
   --th-ring: #666666;
   --th-indicator: #333333;
