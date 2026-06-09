@@ -1,8 +1,5 @@
-// Banner-shape API types. These will move to src/banner-sdk/apps/<app>/types.ts
-// in step 3; for now they live here so src/lib/api.ts can keep working
-// unchanged.
-//
-// Pure domain types live in src/domain/types.ts.
+// Banner-shaped API types shared across the SDK.
+// Pure domain types live in src/domain/types.ts — import from there directly.
 
 // The opaque 127-field model Banner returns from addRegistrationItem and expects
 // back in submitRegistration/batch. We only type the fields we interact with.
@@ -177,23 +174,3 @@ export interface RegistrationNoticesResponse {
   count?: number;
 }
 
-// ---- Re-exports from src/domain so existing consumers (src/components,
-//      src/hooks, src/App.tsx) don't break during this step. They will be
-//      replaced with direct `src/domain/*` imports as features migrate. ----
-
-export { createEmptyBlockout, DEFAULT_RULES } from "../domain/blockout";
-export { resolveCurrentSection, sectionsHaveConflict, timesOverlap } from "../domain/conflicts";
-export type {
-  BlockoutCell,
-  BlockoutGrid,
-  CourseSection,
-  CurrentRegistration,
-  DayOfWeek,
-  MeetingBlock,
-  OmittedCourse,
-  Schedule,
-  ScheduleRules,
-  ScheduleWarning,
-  WarningKind,
-} from "../domain/types";
-export { ALL_DAYS, GRID_HOURS, WEEKDAYS } from "../domain/types";

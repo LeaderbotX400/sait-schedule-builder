@@ -193,4 +193,25 @@ describe("sectionPrefixes filter", () => {
       true,
     );
   });
+
+  it("exempts single-character sequence numbers from the prefix filter", () => {
+    // Real-world case: PROJ309 has sectioned variants (ITB, SDC) but
+    // CPRG305 / CPSY300 / ITSC320 have plain "A" / "B" sequences. A user
+    // filtering for "ITB" should still get the single-section courses.
+    const groups = new Map([
+      ["PROJ309", [
+        section("PROJ309-ITB", [meeting({ startTime: 900, endTime: 1000 })]),
+        section("PROJ309-SDC", [meeting({ startTime: 900, endTime: 1000 })]),
+      ]],
+      ["CPRG305", [section("CPRG305-A", [meeting({ startTime: 1100, endTime: 1200 })])]],
+      ["CPSY300", [section("CPSY300-B", [meeting({ startTime: 1300, endTime: 1400 })])]],
+    ]);
+    const result = generateSchedules(groups, { rules: { ...rules, sectionPrefixes: "ITB" } });
+    expect(result.length).toBeGreaterThan(0);
+    for (const s of result) {
+      expect(s.omittedCourses).toHaveLength(0);
+      const seqs = s.courses.map((c) => c.sequenceNumber).sort();
+      expect(seqs).toEqual(["A", "B", "ITB"]);
+    }
+  });
 });

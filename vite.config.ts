@@ -1,11 +1,21 @@
+import { fileURLToPath, URL } from "node:url";
+import { VueMcp } from "vite-plugin-vue-mcp";
+
 import { crx } from "@crxjs/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react";
+import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
+import vueDevTools from "vite-plugin-vue-devtools";
 import manifest from "./manifest.config";
 
+// https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), crx({ manifest })],
+  plugins: [vue(), vueDevTools(), tailwindcss(), crx({ manifest }), VueMcp()],
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
   server: {
     cors: true,
   },

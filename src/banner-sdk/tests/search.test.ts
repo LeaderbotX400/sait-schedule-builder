@@ -23,6 +23,12 @@ describe("registration.search.byCourses", () => {
       contentType: "application/json",
       body: "{}",
     });
+    transport.on("/classSearch/resetDataForm", {
+      ok: true,
+      status: 200,
+      contentType: "application/json",
+      body: "{}",
+    });
     transport.on("/searchResults/searchResults", {
       ok: true,
       status: 200,
@@ -43,12 +49,16 @@ describe("registration.search.byCourses", () => {
     ]);
     expect(result.response.data).toHaveLength(2);
 
-    // Term primed exactly once: 4 priming calls + 2 search calls = 6 total.
-    expect(transport.calls.length).toBe(6);
+    // Term primed exactly once: 4 priming calls + 2 reset calls + 2 search calls = 8 total.
+    expect(transport.calls.length).toBe(8);
     const primingCalls = transport.calls.filter(
       (c) => c.url.includes("/saveTerm") || c.url.includes("/term/search"),
     );
     expect(primingCalls.length).toBe(2);
+    // resetDataForm is called before every search so Banner's session-side
+    // filter doesn't leak between codes.
+    const resetCalls = transport.calls.filter((c) => c.url.includes("/resetDataForm"));
+    expect(resetCalls.length).toBe(2);
   });
 
   it("records per-code errors without throwing the whole batch", async () => {
@@ -66,6 +76,12 @@ describe("registration.search.byCourses", () => {
       body: "{}",
     });
     transport.on("/fetchUsageTracking", {
+      ok: true,
+      status: 200,
+      contentType: "application/json",
+      body: "{}",
+    });
+    transport.on("/classSearch/resetDataForm", {
       ok: true,
       status: 200,
       contentType: "application/json",

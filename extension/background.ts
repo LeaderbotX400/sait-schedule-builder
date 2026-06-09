@@ -69,9 +69,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) =>
   routeMessage(message, sendResponse),
 );
 
-// Web pages allowed in manifest.externally_connectable (localhost, pages.dev)
-// reach the SW through the *External listeners. The handlers are identical;
-// only the listener registration differs.
+// Web pages allowed in manifest.externally_connectable reach the SW through
+// the *External listeners. The handlers are identical; only the listener
+// registration differs.
 chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) =>
   routeMessage(message, sendResponse),
 );
@@ -108,7 +108,15 @@ interface BannerFetchResponse {
   error?: string;
 }
 
+// URL allowlist — BANNER_FETCH only forwards to SAIT Banner subdomains.
+// Without this any page on localhost / pages.dev that knows the extension ID
+// could ride the user's session cookies for arbitrary SSRF.
+const SAIT_URL_ALLOWLIST = /^https:\/\/[a-z0-9-]+\.sait\.ca\//i;
+
 async function handleBannerFetch(req: BannerFetchRequest): Promise<BannerFetchResponse> {
+  if (!SAIT_URL_ALLOWLIST.test(req.url)) {
+    return { ok: false, status: 0, contentType: "", body: "", error: "URL not in allowlist" };
+  }
   try {
     const init: RequestInit = {
       method: req.init?.method ?? "GET",
@@ -149,24 +157,16 @@ interface BannerPrimeResponse {
   error?: string;
 }
 
-/**
- * Bootstraps a per-host Banner session by following the CAS/SAML bounce.
- * Distinct from BANNER_FETCH because:
- *   - redirect: "follow" (not "manual") — we WANT the IdP round-trip to
- *     complete so the host mints its JSESSIONID + NLB cookies.
- *   - body is discarded — only the Set-Cookie side effects matter.
- *   - no headers are forwarded; this isn't an XHR-style call.
- * Best-effort: if the priming fetch fails, the caller's real request will
- * surface the actual error.
- */
 async function handleBannerPrime(req: BannerPrimeRequest): Promise<BannerPrimeResponse> {
+  if (!SAIT_URL_ALLOWLIST.test(req.url)) {
+    return { ok: false, error: "URL not in allowlist" };
+  }
   try {
     const res = await fetch(req.url, {
       method: "GET",
       credentials: "include",
       redirect: "follow",
     });
-    // Drain the body to release the connection; we don't care about content.
     await res.text().catch(() => "");
     return { ok: res.ok || res.status > 0 };
   } catch (e) {
@@ -227,7 +227,6 @@ async function runLoginFlow(port: chrome.runtime.Port): Promise<void> {
     // biome-ignore lint/suspicious/noConsole: SW debug logging
     console.log("[sait-ext] settle", result.ok ? "ok" : `${result.error}: ${result.message}`);
     safePost(port, result);
-    // Broadcast to any open app tabs so they update their isLoggedIn state.
     chrome.runtime
       .sendMessage({ type: "LOGIN_STATE_CHANGED", loggedIn: result.ok })
       .catch(() => {});

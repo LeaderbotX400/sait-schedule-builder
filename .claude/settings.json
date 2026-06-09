@@ -1,0 +1,5 @@
+{
+  "autoMemoryEnabled": true,
+  "autoMemoryDirectory": "./docs",
+  "autoDreamEnabled": true
+}

@@ -1,4 +1,6 @@
 import { ssag6Url } from "../../config/hosts";
+import { FORM_URLENCODED, formUrlEncoded } from "../../core/forms";
+import { bannerHeaders } from "../../core/headers";
 import { bannerRequest } from "../../core/request";
 import type { RegistrationSession } from "../../core/session";
 import type { BannerResponse, SearchPerCode } from "./types";
@@ -17,12 +19,30 @@ export interface SearchByCoursesResult {
 
 /** Class-search endpoints under `/ssb/searchResults/`. */
 export function createSearchClient(session: RegistrationSession) {
+  /**
+   * Banner's /searchResults reads its filter from session-side state, not from
+   * the query string. Without clearing that state, the second byCourse() call
+   * in a row returns the FIRST call's sections again (verified live against
+   * ssag6 on 2026-06-08 for both Spring and Fall 2026: `txt_subjectcoursecombo`
+   * in the URL is ignored once the session has a stored filter). resetDataForm
+   * blanks the criteria so each call stands alone.
+   */
+  async function resetSearchForm(): Promise<void> {
+    const body = formUrlEncoded({ uniqueSessionId: session.uniqueSessionId });
+    await session.transport.fetch(ssag6Url(session.hosts, "/ssb/classSearch/resetDataForm"), {
+      method: "POST",
+      headers: bannerHeaders({ contentType: FORM_URLENCODED }),
+      body,
+    });
+  }
+
   async function byCourse(
     code: string,
     term: string,
     opts: SearchOptions = {},
   ): Promise<BannerResponse> {
     await session.ensureTermPrimed(term);
+    await resetSearchForm();
     const params = new URLSearchParams({
       txt_subjectcoursecombo: code,
       txt_term: term,

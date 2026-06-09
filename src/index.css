@@ -1,83 +1,70 @@
 @import "tailwindcss";
 
 /* =================================================================
-   Theme System
-
-   Tokens registered via @theme → Tailwind generates bg-*, text-*,
-   border-*, ring-* utilities automatically.
-
-   Runtime switching: set data-theme="<id>" on <html>.
+   Theme tokens. Each variable is registered with @theme so Tailwind
+   generates the matching `bg-*`, `text-*`, `border-*`, `ring-*`
+   utilities. Switch theme at runtime by setting `data-theme="<id>"`
+   on <html>.
    ================================================================= */
 
 @theme {
-  /* ── Surfaces ───────────────────────────────────────────── */
+  /* surfaces */
   --color-page: var(--th-page);
   --color-surface: var(--th-surface);
   --color-surface-hover: var(--th-surface-hover);
   --color-overlay: var(--th-overlay);
   --color-input: var(--th-input);
 
-  /* ── Borders ────────────────────────────────────────────── */
+  /* borders */
   --color-edge: var(--th-edge);
   --color-edge-hover: var(--th-edge-hover);
   --color-edge-subtle: var(--th-edge-subtle);
 
-  /* ── Text ───────────────────────────────────────────────── */
+  /* text */
   --color-fg: var(--th-fg);
   --color-fg-muted: var(--th-fg-muted);
   --color-fg-faint: var(--th-fg-faint);
 
-  /* ── Primary action ─────────────────────────────────────── */
+  /* primary action */
   --color-primary: var(--th-primary);
   --color-primary-hover: var(--th-primary-hover);
   --color-primary-fg: var(--th-primary-fg);
 
-  /* ── Destructive action ─────────────────────────────────── */
+  /* destructive action */
   --color-destructive: var(--th-destructive);
   --color-destructive-hover: var(--th-destructive-hover);
   --color-destructive-fg: var(--th-destructive-fg);
 
-  /* ── Status indicators ──────────────────────────────────── */
+  /* status */
   --color-success: var(--th-success);
   --color-success-hover: var(--th-success-hover);
   --color-success-fg: var(--th-success-fg);
   --color-warning: var(--th-warning);
   --color-caution: var(--th-caution);
 
-  /* ── Utilities ──────────────────────────────────────────── */
+  /* utilities */
   --color-ring: var(--th-ring);
   --color-indicator: var(--th-indicator);
 
-  /* ── Soft tones: primary ────────────────────────────────── */
+  /* soft tones */
   --color-tint-primary: var(--th-tint-primary);
   --color-tint-primary-fg: var(--th-tint-primary-fg);
   --color-tint-primary-bd: var(--th-tint-primary-bd);
-
-  /* ── Soft tones: success ────────────────────────────────── */
   --color-tint-success: var(--th-tint-success);
   --color-tint-success-fg: var(--th-tint-success-fg);
   --color-tint-success-bd: var(--th-tint-success-bd);
-
-  /* ── Soft tones: warning ────────────────────────────────── */
   --color-tint-warning: var(--th-tint-warning);
   --color-tint-warning-fg: var(--th-tint-warning-fg);
   --color-tint-warning-bd: var(--th-tint-warning-bd);
-
-  /* ── Soft tones: caution ────────────────────────────────── */
   --color-tint-caution: var(--th-tint-caution);
   --color-tint-caution-fg: var(--th-tint-caution-fg);
   --color-tint-caution-bd: var(--th-tint-caution-bd);
-
-  /* ── Soft tones: danger ─────────────────────────────────── */
   --color-tint-danger: var(--th-tint-danger);
   --color-tint-danger-fg: var(--th-tint-danger-fg);
   --color-tint-danger-bd: var(--th-tint-danger-bd);
 }
 
-/* ─────────────────────────────────────────────────────────────
-   SAIT Dark — Midnight Blue base, Sky Blue accent
-   Default theme (applied on :root)
-   ───────────────────────────────────────────────────────────── */
+/* SAIT Dark — Midnight Blue base, Sky Blue accent. Default. */
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
@@ -116,27 +103,21 @@
   --th-tint-primary: #0b2538;
   --th-tint-primary-fg: #55caf0;
   --th-tint-primary-bd: #0e4d6e;
-
   --th-tint-success: #0b2a1f;
   --th-tint-success-fg: #34d399;
   --th-tint-success-bd: #0e5c3a;
-
   --th-tint-warning: #2a2210;
   --th-tint-warning-fg: #fcd34d;
   --th-tint-warning-bd: #854d0e;
-
   --th-tint-caution: #2c1c0a;
   --th-tint-caution-fg: #fdba74;
   --th-tint-caution-bd: #9a3412;
-
   --th-tint-danger: #2c120f;
   --th-tint-danger-fg: #f87171;
   --th-tint-danger-bd: #991b1b;
 }
 
-/* ─────────────────────────────────────────────────────────────
-   SAIT Light — Light Grey base, Blue accent
-   ───────────────────────────────────────────────────────────── */
+/* SAIT Light */
 [data-theme="light"] {
   color-scheme: light;
 
@@ -174,19 +155,15 @@
   --th-tint-primary: #e8f0fa;
   --th-tint-primary-fg: #005eb8;
   --th-tint-primary-bd: #93c5fd;
-
   --th-tint-success: #ecfdf5;
   --th-tint-success-fg: #15803d;
   --th-tint-success-bd: #86efac;
-
   --th-tint-warning: #fefce8;
   --th-tint-warning-fg: #a16207;
   --th-tint-warning-bd: #fde047;
-
   --th-tint-caution: #fff7ed;
   --th-tint-caution-fg: #c2410c;
   --th-tint-caution-bd: #fdba74;
-
   --th-tint-danger: #fef2f2;
   --th-tint-danger-fg: #dc2626;
   --th-tint-danger-bd: #fca5a5;
@@ -422,4 +399,10 @@
   --th-tint-danger: #ededed;
   --th-tint-danger-fg: #555555;
   --th-tint-danger-bd: #c0c0c0;
+}
+
+html,
+body {
+  background-color: var(--color-page);
+  color: var(--color-fg);
 }

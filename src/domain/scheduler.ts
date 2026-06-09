@@ -85,6 +85,11 @@ function parseSectionPrefixes(raw: string): string[] {
 function matchesAllowedPrefix(section: CourseSection, prefixes: string[]): boolean {
   if (prefixes.length === 0) return true;
   const seq = section.sequenceNumber.toUpperCase();
+  // Single-character sequence numbers (e.g. "A", "B") have no meaningful
+  // prefix to filter on — exempt them so courses without sectioned variants
+  // (CPRG305, CPSY300, ITSC320) always pass when alongside a course that does
+  // have prefixed sections (PROJ309's ITB / SDC).
+  if (seq.length <= 1) return true;
   return prefixes.some((p) => seq.startsWith(p));
 }
 

@@ -1,0 +1,17 @@
+{
+  "include": ["extension/**/*"],
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noEmit": true,
+    "types": ["chrome"],
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.extension.tsbuildinfo"
+  }
+}

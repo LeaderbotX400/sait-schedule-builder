@@ -9,7 +9,7 @@ export function bannerHeaders(opts: BannerHeaderOpts = {}): Record<string, strin
     "Cache-Control": "no-cache",
     Pragma: "no-cache",
     "X-Requested-With": "XMLHttpRequest",
-    ...(opts.extra ?? {}),
+    ...opts.extra,
   };
   if (opts.contentType) headers["Content-Type"] = opts.contentType;
   return headers;
