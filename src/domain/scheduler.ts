@@ -147,6 +147,12 @@ export interface GenerateOptions {
   limit?: number;
   /** Progress callback: (completed combinations, total combinations). */
   onProgress?: (done: number, total: number) => void;
+  /**
+   * Map of subjectCourse → CRN. When set, only the pinned section is used
+   * for that course — bypassing the violatesRules filter — so the scheduler
+   * produces only schedules containing that exact section.
+   */
+  pinnedCrns?: Map<string, string>;
 }
 
 /** Generate all valid, conflict-free schedules from grouped course sections. */
@@ -161,15 +167,29 @@ export function generateSchedules(
   const baselineOmitted: OmittedCourse[] = [];
 
   for (const [name, sections] of courseGroups) {
-    const valid = sections.filter((s) => !violatesRules(s, rules));
-    if (valid.length > 0) {
-      filteredGroups.push(valid);
-      courseNames.push(name);
+    const pinnedCrn = options.pinnedCrns?.get(name);
+    if (pinnedCrn !== undefined) {
+      const pinned = sections.find((s) => s.crn === pinnedCrn);
+      if (pinned) {
+        filteredGroups.push([pinned]);
+        courseNames.push(name);
+      } else {
+        baselineOmitted.push({
+          subjectCourse: name,
+          reason: "Pinned section is no longer available.",
+        });
+      }
     } else {
-      baselineOmitted.push({
-        subjectCourse: name,
-        reason: explainFilteredOut(sections, rules),
-      });
+      const valid = sections.filter((s) => !violatesRules(s, rules));
+      if (valid.length > 0) {
+        filteredGroups.push(valid);
+        courseNames.push(name);
+      } else {
+        baselineOmitted.push({
+          subjectCourse: name,
+          reason: explainFilteredOut(sections, rules),
+        });
+      }
     }
   }
 

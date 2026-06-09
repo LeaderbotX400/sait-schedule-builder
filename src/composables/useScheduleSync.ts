@@ -10,6 +10,7 @@ import { useCoursesStore } from "@/features/courses/store";
 import { useCurrentRegStore } from "@/features/current/store";
 import { useRulesStore } from "@/features/rules/store";
 import { useSchedulesStore } from "@/features/schedules/store";
+import { usePinnedSectionsStore } from "@/features/schedules/pinnedSections";
 import { useSelectionStore } from "@/features/selection/store";
 import { useTermStore } from "@/features/term/store";
 import { useUiStore, type SlotWarning } from "@/features/ui-state/store";
@@ -171,6 +172,7 @@ export function useScheduleSync(): void {
   const { courseGroups } = storeToRefs(useCoursesStore());
   const { selectedCourses } = storeToRefs(useSelectionStore());
   const { rules } = storeToRefs(useRulesStore());
+  const { pinnedSections } = storeToRefs(usePinnedSectionsStore());
 
   const schedulesStore = useSchedulesStore();
   const uiStore = useUiStore();
@@ -231,7 +233,7 @@ export function useScheduleSync(): void {
   // so any change re-runs the (cheap) generation step.
   let regenTimer: ReturnType<typeof setTimeout> | null = null;
   const stopRegenWatch = watch(
-    [courseGroups, selectedCourses, rules],
+    [courseGroups, selectedCourses, rules, pinnedSections],
     ([groups, selection]) => {
       if (groups.size === 0 || selection.size === 0) return;
       if (regenTimer != null) clearTimeout(regenTimer);

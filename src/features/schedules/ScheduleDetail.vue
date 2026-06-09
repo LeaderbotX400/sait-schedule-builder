@@ -4,12 +4,15 @@
  * to form the two-level schedule browser: strip selects, this pane explains.
  */
 
-import { computed, ref } from "vue";
-import { formatTime } from "../../domain/time";
-import type { Schedule, ScheduleRules, ScheduleWarning } from "../../domain/types";
-import CalendarGrid from "./CalendarGrid.vue";
 import { useSavedStore } from "@/features/saved/store";
 import UiButton from "@/ui/Button.vue";
+import { computed, ref } from "vue";
+import { formatTime } from "../../domain/time";
+import type { CourseSection, Schedule, ScheduleRules, ScheduleWarning } from "../../domain/types";
+import CalendarGrid from "./CalendarGrid.vue";
+import { usePinnedSectionsStore } from "./pinnedSections";
+
+import { Icon } from "@iconify/vue";
 
 const props = defineProps<{
   schedule: Schedule;
@@ -25,37 +28,37 @@ interface WarningStyle {
 
 const WARNING_STYLES: Record<string, WarningStyle> = {
   early_morning: {
-    icon: "&#x23F0;",
+    icon: "mdi:alarm",
     color: "text-tint-caution-fg",
     bg: "bg-tint-caution",
     border: "border-tint-caution-bd",
   },
   travel_gap: {
-    icon: "&#x1F697;",
+    icon: "mdi:car",
     color: "text-tint-danger-fg",
     bg: "bg-tint-danger",
     border: "border-tint-danger-bd",
   },
   campus_days: {
-    icon: "&#x1F3EB;",
+    icon: "mdi:school",
     color: "text-tint-warning-fg",
     bg: "bg-tint-warning",
     border: "border-tint-warning-bd",
   },
   large_gap: {
-    icon: "&#x23F3;",
+    icon: "mdi:timer-sand",
     color: "text-tint-caution-fg",
     bg: "bg-tint-caution",
     border: "border-tint-caution-bd",
   },
   partial: {
-    icon: "&#x2702;",
+    icon: "mdi:content-cut",
     color: "text-tint-warning-fg",
     bg: "bg-tint-warning",
     border: "border-tint-warning-bd",
   },
   blockout_conflict: {
-    icon: "&#x1F6AB;",
+    icon: "mdi:cancel",
     color: "text-tint-danger-fg",
     bg: "bg-tint-danger",
     border: "border-tint-danger-bd",
@@ -115,8 +118,40 @@ const saved = ref(false);
 function remember(): void {
   savedStore.saveSchedule(props.schedule);
   saved.value = true;
-  setTimeout(() => { saved.value = false; }, 1500);
+  setTimeout(() => {
+    saved.value = false;
+  }, 1500);
 }
+
+const pinnedStore = usePinnedSectionsStore();
+
+function isSectionPinned(course: CourseSection): boolean {
+  return pinnedStore.pinnedSections.get(course.subjectCourse) === course.crn;
+}
+
+function togglePin(course: CourseSection): void {
+  if (isSectionPinned(course)) {
+    pinnedStore.unpin(course.subjectCourse);
+  } else {
+    pinnedStore.pin(course.subjectCourse, course.crn);
+  }
+}
+
+const activePins = computed(() => {
+  const result: { subjectCourse: string; identifier: string }[] = [];
+  for (const course of props.schedule.courses) {
+    if (isSectionPinned(course)) {
+      result.push({ subjectCourse: course.subjectCourse, identifier: course.identifier });
+    }
+  }
+  // Also include pins for courses not in this schedule (set in other schedules).
+  for (const [subjectCourse, crn] of pinnedStore.pinnedSections) {
+    if (!props.schedule.courses.some((c) => c.subjectCourse === subjectCourse)) {
+      result.push({ subjectCourse, identifier: `CRN ${crn}` });
+    }
+  }
+  return result;
+});
 
 const qualityTooltip = computed(() => {
   const s = props.schedule;
@@ -153,12 +188,7 @@ const qualityTooltip = computed(() => {
         </div>
       </div>
       <div class="flex items-center gap-3">
-        <UiButton
-          variant="ghost"
-          size="sm"
-          :disabled="saved"
-          @click="remember"
-        >
+        <UiButton variant="ghost" size="sm" :disabled="saved" @click="remember">
           {{ saved ? "Saved!" : "Remember" }}
         </UiButton>
         <div class="flex items-center gap-2" :title="qualityTooltip">
@@ -170,11 +200,37 @@ const qualityTooltip = computed(() => {
       </div>
     </div>
 
+    <!-- Active locks banner -->
+    <div
+      v-if="pinnedStore.pinnedSections.size > 0"
+      class="flex items-center gap-2 flex-wrap rounded-lg bg-tint-danger border border-tint-danger-bd px-3 py-2"
+      role="region"
+      aria-label="Locked sections"
+    >
+      <span class="text-xs font-semibold text-tint-danger-fg shrink-0">Locked:</span>
+      <span
+        v-for="p in activePins"
+        :key="p.subjectCourse"
+        class="inline-flex items-center gap-1 rounded bg-surface/60 border border-edge px-1.5 py-0.5 text-xs font-mono text-fg"
+      >
+        <Icon icon="mdi:lock" class="text-destructive" aria-hidden="true" />
+        {{ p.identifier }}
+        <button
+          class="text-fg-faint hover:text-destructive transition-colors ml-0.5"
+          :title="`Unlock ${p.identifier}`"
+          :aria-label="`Unlock ${p.identifier}`"
+          @click="pinnedStore.unpin(p.subjectCourse)"
+        >
+          <Icon icon="mdi:close" aria-hidden="true" />
+        </button>
+      </span>
+      <UiButton variant="ghost" size="sm" class="ml-auto text-xs" @click="pinnedStore.clearPins()">
+        Clear all
+      </UiButton>
+    </div>
+
     <!-- Calendar -->
-    <CalendarGrid
-      :schedule="schedule"
-      :blockout="rules?.blockout"
-    />
+    <CalendarGrid :schedule="schedule" :blockout="rules?.blockout" />
 
     <!-- Warnings -->
     <div v-if="dedupedWarnings.length > 0" class="space-y-1.5">
@@ -184,7 +240,11 @@ const qualityTooltip = computed(() => {
         class="rounded-lg border px-3 py-2 flex items-start gap-2"
         :class="[getWarningStyle(w.kind).bg, getWarningStyle(w.kind).border]"
       >
-        <span class="text-sm mt-0.5" v-html="getWarningStyle(w.kind).icon" />
+        <Icon
+          :icon="getWarningStyle(w.kind).icon"
+          :class="['text-sm mt-0.5 shrink-0', getWarningStyle(w.kind).color]"
+          aria-hidden="true"
+        />
         <div class="flex-1 min-w-0">
           <p class="text-xs" :class="getWarningStyle(w.kind).color">{{ w.message }}</p>
           <p v-if="w.courseIds.length > 0" class="text-[10px] text-fg-faint mt-0.5">
@@ -231,10 +291,37 @@ const qualityTooltip = computed(() => {
               <span
                 v-if="courseWarnings.get(course.identifier)?.length"
                 class="text-destructive mr-1"
-              >&#x26A0;</span>
+                role="img"
+                aria-label="Has scheduling warning"
+              >
+                <Icon icon="mdi:alert" aria-hidden="true" />
+              </span>
               {{ course.identifier }}
             </span>
-            <span class="text-xs text-fg-faint">CRN: {{ course.crn }}</span>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-fg-faint">CRN: {{ course.crn }}</span>
+              <button
+                :title="
+                  isSectionPinned(course)
+                    ? `Unlock ${course.identifier} — allow any section`
+                    : `Lock ${course.identifier} — only show schedules with this section`
+                "
+                :aria-label="
+                  isSectionPinned(course)
+                    ? `Unlock ${course.identifier}`
+                    : `Lock ${course.identifier}`
+                "
+                :aria-pressed="isSectionPinned(course)"
+                class="text-base leading-none transition-colors rounded p-0.5 hover:bg-surface-hover/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                @click="togglePin(course)"
+              >
+                <Icon
+                  :icon="isSectionPinned(course) ? 'mdi:lock' : 'mdi:lock-open-variant'"
+                  :class="isSectionPinned(course) ? 'text-destructive' : 'text-success'"
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
           </div>
           <div class="text-sm text-fg-muted">{{ course.title }}</div>
           <div class="text-xs text-fg-faint">
@@ -244,27 +331,24 @@ const qualityTooltip = computed(() => {
             {{ course.seatsAvailable }}/{{ course.maximumEnrollment }} seats available
           </div>
           <div class="mt-1 space-y-0.5">
-            <div
-              v-for="(m, mi) in course.meetings"
-              :key="mi"
-              class="text-xs text-fg-muted"
-            >
+            <div v-for="(m, mi) in course.meetings" :key="mi" class="text-xs text-fg-muted">
               {{ m.days.join(", ") }} {{ formatTime(m.startTime) }}-{{ formatTime(m.endTime) }}
               <span class="text-fg-faint ml-1">{{ m.building }} {{ m.room }}</span>
             </div>
           </div>
           <!-- Per-course warnings -->
-          <div
-            v-if="courseWarnings.get(course.identifier)?.length"
-            class="mt-1.5 space-y-0.5"
-          >
+          <div v-if="courseWarnings.get(course.identifier)?.length" class="mt-1.5 space-y-0.5">
             <div
               v-for="(w, wi) in courseWarnings.get(course.identifier)"
               :key="wi"
               class="text-[10px]"
               :class="getWarningStyle(w.kind).color"
             >
-              <span v-html="getWarningStyle(w.kind).icon" />
+              <Icon
+                :icon="getWarningStyle(w.kind).icon"
+                class="inline-block align-text-bottom"
+                aria-hidden="true"
+              />
               {{ w.message }}
             </div>
           </div>

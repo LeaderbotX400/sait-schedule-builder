@@ -8,6 +8,7 @@
 
 import { computed, ref } from "vue";
 import { storeToRefs } from "pinia";
+import { Icon } from "@iconify/vue";
 import { getExpandedMeetings } from "../../domain/scheduler";
 import { formatHour, formatTime, timeToMinutes } from "../../domain/time";
 import type {
@@ -29,6 +30,7 @@ import {
   COURSE_COLORS,
   HOUR_HEIGHT,
 } from "@/features/schedules/calendarColors";
+import { usePinnedSectionsStore } from "@/features/schedules/pinnedSections";
 
 // ── Props & emits ────────────────────────────────────────────────────────────
 
@@ -250,6 +252,22 @@ function meetingHeight(meeting: MeetingBlock): number {
 
 // ── Suppress unused import warning — ALL_DAYS imported for potential callers ──
 void ALL_DAYS;
+
+// ── Pinned sections ──────────────────────────────────────────────────────────
+
+const pinnedStore = usePinnedSectionsStore();
+
+function isSectionPinned(course: CourseSection): boolean {
+  return pinnedStore.pinnedSections.get(course.subjectCourse) === course.crn;
+}
+
+function togglePin(course: CourseSection): void {
+  if (isSectionPinned(course)) {
+    pinnedStore.unpin(course.subjectCourse);
+  } else {
+    pinnedStore.pin(course.subjectCourse, course.crn);
+  }
+}
 </script>
 
 <template>
@@ -374,29 +392,60 @@ void ALL_DAYS;
               @mouseenter="handleMouseEnter(day, h)"
             />
 
-            <!-- Ghost (alternative section) blocks -->
-            <div
+            <!-- Ghost (alternative section) blocks — click to lock/unlock -->
+            <button
               v-for="({ course, meeting }, idx) in dayGhosts.get(day) ?? []"
               :key="`ghost-${course.crn}-${day}-${meeting.startTime}-${idx}`"
-              class="absolute left-0.5 right-0.5 bg-surface-hover/25 border border-dashed border-edge-hover/50 rounded-r-md overflow-hidden flex flex-col justify-center px-1.5"
+              type="button"
+              :class="[
+                'absolute left-0.5 right-0.5 rounded-r-md overflow-hidden flex flex-col justify-center px-1.5 cursor-pointer transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                isSectionPinned(course)
+                  ? 'bg-tint-danger/60 border border-tint-danger-bd'
+                  : 'bg-surface-hover/25 border border-dashed border-edge-hover/50 hover:bg-tint-success/30 hover:border-tint-success-bd',
+              ]"
               :style="{
                 top: `${meetingTop(meeting)}px`,
                 height: `${meetingHeight(meeting)}px`,
                 zIndex: 1,
-                pointerEvents: 'none',
               }"
-              :title="`Alternative: ${course.identifier} - ${course.title}\n${course.instructor}\n${meeting.building} ${meeting.room}\n${formatTime(meeting.startTime)} - ${formatTime(meeting.endTime)}`"
+              :title="isSectionPinned(course)
+                ? `Locked: ${course.identifier} — click to unlock`
+                : `Alternative: ${course.identifier} - ${course.title}\n${course.instructor}\n${meeting.building} ${meeting.room}\n${formatTime(meeting.startTime)} - ${formatTime(meeting.endTime)}\nClick to lock`"
+              :aria-label="isSectionPinned(course)
+                ? `Unlock ${course.identifier}`
+                : `Lock ${course.identifier} from ${formatTime(meeting.startTime)} to ${formatTime(meeting.endTime)}`"
+              :aria-pressed="isSectionPinned(course)"
+              @mousedown.stop
+              @click.stop="togglePin(course)"
             >
-              <span class="text-[10px] font-medium text-fg-muted truncate leading-tight italic">
-                {{ course.identifier }}
-              </span>
+              <div class="flex items-center gap-0.5 min-w-0">
+                <Icon
+                  :icon="isSectionPinned(course) ? 'mdi:lock' : 'mdi:lock-open-variant'"
+                  :class="[
+                    'text-[10px] shrink-0',
+                    isSectionPinned(course) ? 'text-destructive' : 'text-success',
+                  ]"
+                  aria-hidden="true"
+                />
+                <span
+                  :class="[
+                    'text-[10px] font-medium truncate leading-tight',
+                    isSectionPinned(course) ? 'text-tint-danger-fg' : 'text-fg-muted italic',
+                  ]"
+                >
+                  {{ course.identifier }}
+                </span>
+              </div>
               <div
                 v-if="meetingHeight(meeting) > 35"
-                class="text-[9px] text-fg-faint truncate leading-tight"
+                :class="[
+                  'text-[9px] truncate leading-tight',
+                  isSectionPinned(course) ? 'text-tint-danger-fg/80' : 'text-fg-faint',
+                ]"
               >
                 {{ formatTime(meeting.startTime) }}&ndash;{{ formatTime(meeting.endTime) }}
               </div>
-            </div>
+            </button>
 
             <!-- Active schedule meeting blocks -->
             <template v-if="schedule">
@@ -425,14 +474,23 @@ void ALL_DAYS;
                 :title="`${course.identifier} - ${course.title}\n${course.instructor}\n${meeting.building} ${meeting.room}\n${formatTime(meeting.startTime)} - ${formatTime(meeting.endTime)}`"
               >
                 <div class="flex items-center gap-1">
-                  <span
+                  <Icon
                     v-if="
                       warningKeys.has(`${course.identifier}|${day}|${meeting.startTime}`) ||
                       warnedCourseIds.has(course.identifier)
                     "
+                    icon="mdi:alert"
                     class="text-[10px] text-destructive shrink-0"
-                    >&#x26A0;</span
-                  >
+                    role="img"
+                    aria-label="Scheduling conflict"
+                  />
+                  <Icon
+                  v-if="isSectionPinned(course)"
+                  icon="mdi:lock"
+                  class="text-[10px] shrink-0 text-destructive"
+                  role="img"
+                  aria-label="Locked"
+                />
                   <span class="text-xs font-semibold truncate leading-tight">
                     {{ course.identifier }}
                   </span>
@@ -482,10 +540,12 @@ void ALL_DAYS;
         Outside time window / day off
       </span>
       <span v-if="ghosts.length > 0" class="flex items-center gap-1.5">
-        <span
-          class="inline-block w-3 h-3 rounded-sm bg-surface-hover/40 border border-dashed border-edge-hover/60"
-        />
-        Alternative section
+        <Icon icon="mdi:lock-open-variant" class="text-success" aria-hidden="true" />
+        Alternative (click to lock)
+      </span>
+      <span v-if="pinnedStore.pinnedSections.size > 0" class="flex items-center gap-1.5">
+        <Icon icon="mdi:lock" class="text-destructive" aria-hidden="true" />
+        Locked
       </span>
     </div>
   </div>
