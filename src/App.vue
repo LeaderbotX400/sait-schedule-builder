@@ -10,9 +10,8 @@ import { useRegistrationStatus } from "@/features/registration-status/useRegistr
 import { useTheme } from "@/features/theme/useTheme";
 import { useExtensionIdListener } from "@/lib/extensionIdListener";
 import { computed } from "vue";
-import CalendarGrid from "./components/Calendar/CalendarGrid.vue";
-// import AppShell from "./shell/AppShell.vue";
-// import SignInScreen from "./shell/SignInScreen.vue";
+import AppShell from "./shell/AppShell.vue";
+import SignInScreen from "./shell/SignInScreen.vue";
 
 // Side-effect composables — mounted once at the root.
 useExtensionIdListener();
@@ -30,7 +29,6 @@ const authenticated = computed(() => auth.status === "authenticated");
 </script>
 
 <template>
-  <CalendarGrid />
-  <!-- <SignInScreen v-if="!authenticated" />
-  <AppShell v-else /> -->
+  <SignInScreen v-if="!authenticated" />
+  <AppShell v-else />
 </template>
