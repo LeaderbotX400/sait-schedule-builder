@@ -4,10 +4,12 @@
  * to form the two-level schedule browser: strip selects, this pane explains.
  */
 
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { formatTime } from "../../domain/time";
 import type { Schedule, ScheduleRules, ScheduleWarning } from "../../domain/types";
 import CalendarGrid from "./CalendarGrid.vue";
+import { useSavedStore } from "@/features/saved/store";
+import UiButton from "@/ui/Button.vue";
 
 const props = defineProps<{
   schedule: Schedule;
@@ -107,6 +109,15 @@ function qualityScoreColor(score: number): string {
   return "text-destructive";
 }
 
+const savedStore = useSavedStore();
+const saved = ref(false);
+
+function remember(): void {
+  savedStore.saveSchedule(props.schedule);
+  saved.value = true;
+  setTimeout(() => { saved.value = false; }, 1500);
+}
+
 const qualityTooltip = computed(() => {
   const s = props.schedule;
   return [
@@ -141,11 +152,21 @@ const qualityTooltip = computed(() => {
           </span>
         </div>
       </div>
-      <div class="flex items-center gap-2" :title="qualityTooltip">
-        <span class="text-2xl font-bold" :class="qualityScoreColor(schedule.qualityScore)">
-          {{ schedule.qualityScore }}
-        </span>
-        <span class="text-xs text-fg-faint">/100</span>
+      <div class="flex items-center gap-3">
+        <UiButton
+          variant="ghost"
+          size="sm"
+          :disabled="saved"
+          @click="remember"
+        >
+          {{ saved ? "Saved!" : "Remember" }}
+        </UiButton>
+        <div class="flex items-center gap-2" :title="qualityTooltip">
+          <span class="text-2xl font-bold" :class="qualityScoreColor(schedule.qualityScore)">
+            {{ schedule.qualityScore }}
+          </span>
+          <span class="text-xs text-fg-faint">/100</span>
+        </div>
       </div>
     </div>
 

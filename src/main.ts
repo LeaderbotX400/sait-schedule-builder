@@ -5,6 +5,7 @@ import "./index.css";
 import App from "./App.vue";
 import { persistCurrentRegStore } from "@/features/current/store";
 import { persistRulesStore } from "@/features/rules/store";
+import { persistSavedSchedulesStore } from "@/features/saved/store";
 import { persistSelectionStore } from "@/features/selection/store";
 import { persistTermStore } from "@/features/term/store";
 
@@ -14,4 +15,5 @@ persistRulesStore();
 persistTermStore();
 persistSelectionStore();
 persistCurrentRegStore();
+persistSavedSchedulesStore();
 app.mount("#app");

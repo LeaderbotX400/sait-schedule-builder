@@ -114,3 +114,16 @@ export interface ScheduleRules {
 export const WEEKDAYS: DayOfWeek[] = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 export const ALL_DAYS: DayOfWeek[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 export const GRID_HOURS = Array.from({ length: 15 }, (_, i) => i + 7); // 7am-9pm
+
+export interface SavedSchedulePick {
+  subjectCourse: string;
+  identifier: string; // e.g. "CPRG306-A"
+}
+
+export interface SavedSchedule {
+  id: string;            // nanoid
+  termCode: string;
+  name?: string;
+  savedAt: number;       // Date.now()
+  picks: SavedSchedulePick[];
+}

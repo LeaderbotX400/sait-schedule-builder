@@ -7,6 +7,7 @@ import BlockoutGrid from "@/features/rules/BlockoutGrid.vue";
 import RulesPanel from "@/features/rules/RulesPanel.vue";
 import ScheduleDetail from "@/features/schedules/ScheduleDetail.vue";
 import ScheduleStrip from "@/features/schedules/ScheduleStrip.vue";
+import SavedSchedulesList from "@/features/saved/SavedSchedulesList.vue";
 import { useCoursesStore } from "@/features/courses/store";
 import { useCurrentRegStore } from "@/features/current/store";
 import { useRulesStore } from "@/features/rules/store";
@@ -97,6 +98,8 @@ async function onReauth(): Promise<void> {
     :active-index="activeScheduleIndex"
     @select="schedulesStore.setActiveScheduleIndex"
   />
+
+  <SavedSchedulesList />
 
   <div
     v-if="currentRegistrations.size > 0"
