@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
     branches: [main]
 
@@ -12,15 +13,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          version: 10
+          bun-version: latest
 
-      - uses: actions/setup-node@v4
+      - run: bun install --frozen-lockfile
+
+      - run: bun run check
+
+      - name: Package extension
+        run: |
+          cd dist
+          zip -r ../sait-schedule-builder-${{ github.ref_type == 'tag' && github.ref_name || github.sha }}.zip .
+
+      - uses: actions/upload-artifact@v4
         with:
-          node-version: 22
-          cache: pnpm
+          name: extension
+          path: sait-schedule-builder-*.zip
 
-      - run: pnpm install --frozen-lockfile
+  release:
+    needs: ci
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: extension
 
-      - run: pnpm check
+      - name: Create Forgejo release
+        uses: actions/forgejo-release@v2
+        with:
+          direction: upload
+          tag: ${{ github.ref_name }}
+          title: ${{ github.ref_name }}
+          release-dir: .
+          token: ${{ secrets.GITHUB_TOKEN }}
