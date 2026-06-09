@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { acceptHMRUpdate, defineStore } from "pinia";
 import { ref } from "vue";
 import { DEFAULT_TERM, TERM_OPTIONS, type TermOption } from "@/lib/terms";
 import { useCoursesStore } from "@/features/courses/store";
@@ -49,4 +49,8 @@ export function persistTermStore(): void {
       if (typeof data === "string" && data.length > 0) store.term = data;
     },
   });
+}
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useTermStore, import.meta.hot));
 }

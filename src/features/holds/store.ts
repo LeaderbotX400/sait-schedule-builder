@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { acceptHMRUpdate, defineStore } from "pinia";
 import { ref } from "vue";
 
 /**
@@ -26,3 +26,7 @@ export const useHoldsStore = defineStore("holds", () => {
 
   return { count, loading, setCount, setLoading, reset };
 });
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useHoldsStore, import.meta.hot));
+}

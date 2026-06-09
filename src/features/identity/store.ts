@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { acceptHMRUpdate, defineStore } from "pinia";
 import { ref } from "vue";
 
 /**
@@ -33,3 +33,7 @@ export const useIdentityStore = defineStore("identity", () => {
 
   return { studentId, lastError, validating, setStudentId, setLastError, setValidating, reset };
 });
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useIdentityStore, import.meta.hot));
+}

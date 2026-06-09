@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { acceptHMRUpdate, defineStore } from "pinia";
 import { shallowRef } from "vue";
 import { resolveCurrentSection, sectionsHaveConflict } from "@/domain/conflicts";
 import type { CourseSection, CurrentRegistration, Schedule } from "@/domain/types";
@@ -169,4 +169,8 @@ export function persistCurrentRegStore(): void {
       }
     },
   });
+}
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useCurrentRegStore, import.meta.hot));
 }

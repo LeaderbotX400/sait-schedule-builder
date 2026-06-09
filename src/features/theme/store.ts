@@ -5,7 +5,7 @@
  */
 
 import { computed, ref } from "vue";
-import { defineStore } from "pinia";
+import { acceptHMRUpdate, defineStore } from "pinia";
 
 export type ThemeId =
   | "dark"
@@ -81,4 +81,8 @@ export const useThemeStore = defineStore("theme", () => {
 
 export function getThemeMode(id: ThemeId): ThemeMode {
   return id === "light" || id.endsWith("-light") ? "light" : "dark";
+}
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useThemeStore, import.meta.hot));
 }

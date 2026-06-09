@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { acceptHMRUpdate, defineStore } from "pinia";
 import { ref } from "vue";
 import type { GpaResponse, RegistrationNoticesResponse } from "@/banner-sdk/apps/selfService/types";
 
@@ -35,3 +35,7 @@ export const useProfileStore = defineStore("profile", () => {
 
   return { gpa, registrationNotices, loading, setGpa, setRegistrationNotices, setLoading, reset };
 });
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useProfileStore, import.meta.hot));
+}

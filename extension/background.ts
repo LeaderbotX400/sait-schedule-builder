@@ -108,7 +108,15 @@ interface BannerFetchResponse {
   error?: string;
 }
 
+// URL allowlist — BANNER_FETCH only forwards to SAIT Banner subdomains.
+// Without this any page on localhost / pages.dev that knows the extension ID
+// could ride the user's session cookies for arbitrary SSRF.
+const SAIT_URL_ALLOWLIST = /^https:\/\/[a-z0-9-]+\.sait\.ca\//i;
+
 async function handleBannerFetch(req: BannerFetchRequest): Promise<BannerFetchResponse> {
+  if (!SAIT_URL_ALLOWLIST.test(req.url)) {
+    return { ok: false, status: 0, contentType: "", body: "", error: "URL not in allowlist" };
+  }
   try {
     const init: RequestInit = {
       method: req.init?.method ?? "GET",
@@ -150,6 +158,9 @@ interface BannerPrimeResponse {
 }
 
 async function handleBannerPrime(req: BannerPrimeRequest): Promise<BannerPrimeResponse> {
+  if (!SAIT_URL_ALLOWLIST.test(req.url)) {
+    return { ok: false, error: "URL not in allowlist" };
+  }
   try {
     const res = await fetch(req.url, {
       method: "GET",

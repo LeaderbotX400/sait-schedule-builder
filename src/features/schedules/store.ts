@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { acceptHMRUpdate, defineStore } from "pinia";
 import { ref, shallowRef } from "vue";
 import { generateSchedules } from "@/domain/scheduler";
 import type { CourseSection, Schedule, ScheduleRules } from "@/domain/types";
@@ -153,4 +153,8 @@ function explainEmpty(filtered: Map<string, CourseSection[]>, rules: ScheduleRul
     );
   }
   return reasons.join(" ");
+}
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useSchedulesStore, import.meta.hot));
 }

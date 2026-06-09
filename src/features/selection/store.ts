@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { acceptHMRUpdate, defineStore } from "pinia";
 import { shallowRef } from "vue";
 import { persistStore } from "@/lib/persistence";
 
@@ -36,4 +36,8 @@ export function persistSelectionStore(): void {
       if (Array.isArray(data)) store.setSelectedCourses(new Set(data));
     },
   });
+}
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useSelectionStore, import.meta.hot));
 }

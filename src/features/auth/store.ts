@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { acceptHMRUpdate, defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { AUTH_STALE_AFTER_MS, type AuthStatus } from "./types";
 
@@ -87,3 +87,7 @@ export const useAuthStore = defineStore("auth", () => {
     reset,
   };
 });
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useAuthStore, import.meta.hot));
+}

@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { acceptHMRUpdate, defineStore } from "pinia";
 import { shallowRef } from "vue";
 import type { BannerResponse } from "@/banner-sdk/apps/registration/types";
 import { parseBannerData } from "@/domain/parser";
@@ -97,3 +97,7 @@ export const useCoursesStore = defineStore("courses", () => {
     clearCourses,
   };
 });
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useCoursesStore, import.meta.hot));
+}

@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { acceptHMRUpdate, defineStore } from "pinia";
 import { ref } from "vue";
 import { DEFAULT_RULES } from "@/domain/blockout";
 import type { ScheduleRules } from "@/domain/types";
@@ -38,4 +38,8 @@ export function persistRulesStore(): void {
       store.setRules({ ...DEFAULT_RULES, ...data });
     },
   });
+}
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useRulesStore, import.meta.hot));
 }

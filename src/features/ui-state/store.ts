@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { acceptHMRUpdate, defineStore } from "pinia";
 import { ref } from "vue";
 
 /**
@@ -29,3 +29,7 @@ export const useUiStore = defineStore("ui", () => {
     setAuthRequired,
   };
 });
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useUiStore, import.meta.hot));
+}
