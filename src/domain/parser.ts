@@ -6,6 +6,28 @@ import type {
 } from "../lib/types";
 import type { CourseSection, DayOfWeek, MeetingBlock } from "./types";
 
+/** Banner returns HTML-encoded text in some string fields (e.g. instructor names
+ * with apostrophes come back as "O&#39;Loughlin"). Decode the common entities so
+ * the UI doesn't render the raw codepoints. */
+function decodeHtmlEntities(s: string): string {
+  return s.replace(/&(#x[0-9a-fA-F]+|#[0-9]+|amp|lt|gt|quot|apos);/g, (match, name: string) => {
+    if (name.startsWith("#x")) return String.fromCodePoint(parseInt(name.slice(2), 16));
+    if (name.startsWith("#")) return String.fromCodePoint(parseInt(name.slice(1), 10));
+    switch (name) {
+      case "amp": return "&";
+      case "lt": return "<";
+      case "gt": return ">";
+      case "quot": return '"';
+      case "apos": return "'";
+      default: return match;
+    }
+  });
+}
+
+function clean(s: string | null | undefined): string {
+  return s == null ? "" : decodeHtmlEntities(s);
+}
+
 const DAY_MAP: [keyof BannerMeetingTime, DayOfWeek][] = [
   ["monday", "Mon"],
   ["tuesday", "Tue"],
@@ -32,11 +54,11 @@ function parseMeetingTime(mt: BannerMeetingTime): MeetingBlock | null {
     days,
     startTime: parseInt(mt.beginTime, 10),
     endTime: parseInt(mt.endTime, 10),
-    building: mt.buildingDescription,
-    room: mt.room,
-    campus: mt.campus,
-    campusDescription: mt.campusDescription,
-    type: mt.meetingTypeDescription,
+    building: clean(mt.buildingDescription),
+    room: clean(mt.room),
+    campus: clean(mt.campus),
+    campusDescription: clean(mt.campusDescription),
+    type: clean(mt.meetingTypeDescription),
     isOnline,
   };
 }
@@ -49,12 +71,14 @@ function parseSection(section: BannerSection): CourseSection {
   }
 
   const primaryFaculty = section.faculty.find((f) => f.primaryIndicator);
-  const instructor = primaryFaculty?.displayName ?? section.faculty[0]?.displayName ?? "TBA";
+  const instructor = clean(
+    primaryFaculty?.displayName ?? section.faculty[0]?.displayName ?? "TBA",
+  );
 
   return {
     identifier: `${section.subject}${section.courseNumber}-${section.sequenceNumber}`,
     subjectCourse: section.subjectCourse,
-    title: section.courseTitle,
+    title: clean(section.courseTitle),
     crn: section.courseReferenceNumber,
     instructor,
     sequenceNumber: section.sequenceNumber,
@@ -63,7 +87,7 @@ function parseSection(section: BannerSection): CourseSection {
     enrollment: section.enrollment,
     meetings,
     creditHours: section.creditHours ?? section.creditHourLow,
-    instructionalMethod: section.instructionalMethodDescription,
+    instructionalMethod: clean(section.instructionalMethodDescription),
   };
 }
 
@@ -140,18 +164,19 @@ export function parseActiveRegistrations(
     }
 
     const primaryFaculty = reg.faculty.find((f) => f.primaryIndicator);
-    const instructor =
+    const instructor = clean(
       reg.instructorNames?.[0] ??
-      primaryFaculty?.displayName ??
-      reg.faculty[0]?.displayName ??
-      "TBA";
+        primaryFaculty?.displayName ??
+        reg.faculty[0]?.displayName ??
+        "TBA",
+    );
 
     const subjectCourse = `${reg.subject}${reg.courseNumber}`;
 
     const section: CourseSection = {
       identifier: `${subjectCourse}-${reg.sequenceNumber}`,
       subjectCourse,
-      title: reg.courseTitle,
+      title: clean(reg.courseTitle),
       crn: reg.courseReferenceNumber,
       instructor,
       sequenceNumber: reg.sequenceNumber,
@@ -160,7 +185,7 @@ export function parseActiveRegistrations(
       enrollment: 0,
       meetings,
       creditHours: reg.creditHour,
-      instructionalMethod: reg.instructionalMethodDescription,
+      instructionalMethod: clean(reg.instructionalMethodDescription),
       isCurrentRegistration: true,
     };
 

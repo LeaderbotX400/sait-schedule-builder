@@ -6,9 +6,20 @@
  * Bind via v-model:blockout and v-model:blockout-weight.
  */
 
-import { computed, ref } from "vue";
-import { storeToRefs } from "pinia";
+import {
+  buildColorMap,
+  buildWarnedCourseIds,
+  buildWarningKeys,
+  COURSE_COLORS,
+  HOUR_HEIGHT,
+} from "@/features/schedules/calendarColors";
+import { usePinnedSectionsStore } from "@/features/schedules/pinnedSections";
+import { getThemeMode, useThemeStore } from "@/features/theme/store";
+import Popover from "@/ui/Popover.vue";
 import { Icon } from "@iconify/vue";
+import { storeToRefs } from "pinia";
+import { computed, ref } from "vue";
+import { createEmptyBlockout } from "../../domain/blockout";
 import { getExpandedMeetings } from "../../domain/scheduler";
 import { formatHour, formatTime, timeToMinutes } from "../../domain/time";
 import type {
@@ -20,17 +31,7 @@ import type {
   Schedule,
   ScheduleRules,
 } from "../../domain/types";
-import { createEmptyBlockout } from "../../domain/blockout";
 import { ALL_DAYS, GRID_HOURS, WEEKDAYS } from "../../domain/types";
-import { useThemeStore, getThemeMode } from "@/features/theme/store";
-import {
-  buildColorMap,
-  buildWarnedCourseIds,
-  buildWarningKeys,
-  COURSE_COLORS,
-  HOUR_HEIGHT,
-} from "@/features/schedules/calendarColors";
-import { usePinnedSectionsStore } from "@/features/schedules/pinnedSections";
 
 // ── Props & emits ────────────────────────────────────────────────────────────
 
@@ -47,6 +48,25 @@ const emit = defineEmits<{
   "update:blockout": [next: BlockoutGridType];
   "update:blockoutWeight": [weight: number];
 }>();
+
+// ── Horizontal zoom (widens day columns so narrow tiles become readable) ────
+
+const ZOOM_OPTIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 10;
+const zoom = ref<number>(1);
+
+function zoomOut(): void {
+  const idx = ZOOM_OPTIONS.indexOf(zoom.value);
+  const next = idx > 0 ? ZOOM_OPTIONS[idx - 1] : ZOOM_MIN;
+  if (next !== undefined) zoom.value = next;
+}
+
+function zoomIn(): void {
+  const idx = ZOOM_OPTIONS.indexOf(zoom.value);
+  const next = idx >= 0 && idx < ZOOM_OPTIONS.length - 1 ? ZOOM_OPTIONS[idx + 1] : ZOOM_MAX;
+  if (next !== undefined) zoom.value = next;
+}
 
 // ── Paint mode (used in the toolbar) ────────────────────────────────────────
 
@@ -182,6 +202,141 @@ const dayGhosts = computed(() => {
   return m;
 });
 
+/**
+ * Locked ghost meetings rendered at their TRUE meeting time as full-height
+ * blocks — not tiled. Only appears when a locked section isn't in the active
+ * schedule (e.g. schedule generation failed to fit it); a locked section that
+ * IS in the active schedule renders via dayEvents.
+ */
+const dayLockedGhosts = computed(() => {
+  const m = new Map<DayOfWeek, ExpandedMeeting[]>();
+  for (const day of displayDays.value) {
+    m.set(
+      day,
+      (dayGhosts.value.get(day) ?? []).filter((e) => isSectionPinned(e.course)),
+    );
+  }
+  return m;
+});
+
+/** First 3 overlapping ghosts each get their own column; the 4th column is
+ * always the overflow popover when N>=5. So 4 visible columns total at most. */
+const MAX_VISIBLE_TILES = 3;
+const MAX_TILE_COLUMNS = 4;
+
+interface SingleTile {
+  kind: "single";
+  meeting: ExpandedMeeting;
+  column: number;
+  totalColumns: number;
+}
+
+interface OverflowTile {
+  kind: "overflow";
+  members: ExpandedMeeting[];
+  startTime: number;
+  endTime: number;
+  column: number;
+  totalColumns: number;
+  day: DayOfWeek;
+}
+
+type GhostTile = SingleTile | OverflowTile;
+
+/**
+ * Horizontal-tile layout for unlocked ghost meetings (Google Calendar style).
+ * Sort by start time, walk through them; if the next meeting starts before
+ * the current overlap group ends, it joins the group and gets the next column.
+ * Singletons keep full width. At N>=5 the 4th column collapses into a popover.
+ */
+const dayGhostTiles = computed(() => {
+  const result = new Map<DayOfWeek, GhostTile[]>();
+  for (const day of displayDays.value) {
+    const meetings = (dayGhosts.value.get(day) ?? [])
+      .filter((e) => !isSectionPinned(e.course))
+      .slice()
+      .sort(
+        (a, b) =>
+          a.meeting.startTime - b.meeting.startTime || b.meeting.endTime - a.meeting.endTime,
+      );
+
+    // Group into overlap components (transitive: A∩B, B∩C ⇒ all one group).
+    const groups: ExpandedMeeting[][] = [];
+    let groupEnd = -1;
+    for (const entry of meetings) {
+      if (groups.length === 0 || entry.meeting.startTime >= groupEnd) {
+        groups.push([entry]);
+        groupEnd = entry.meeting.endTime;
+      } else {
+        groups[groups.length - 1]!.push(entry);
+        if (entry.meeting.endTime > groupEnd) groupEnd = entry.meeting.endTime;
+      }
+    }
+
+    const tiles: GhostTile[] = [];
+    for (const group of groups) {
+      const n = group.length;
+      if (n <= MAX_TILE_COLUMNS) {
+        for (let i = 0; i < n; i++) {
+          tiles.push({ kind: "single", meeting: group[i]!, column: i, totalColumns: n });
+        }
+      } else {
+        for (let i = 0; i < MAX_VISIBLE_TILES; i++) {
+          tiles.push({
+            kind: "single",
+            meeting: group[i]!,
+            column: i,
+            totalColumns: MAX_TILE_COLUMNS,
+          });
+        }
+        const overflow = group.slice(MAX_VISIBLE_TILES);
+        let start = overflow[0]!.meeting.startTime;
+        let end = overflow[0]!.meeting.endTime;
+        for (const m of overflow) {
+          if (m.meeting.startTime < start) start = m.meeting.startTime;
+          if (m.meeting.endTime > end) end = m.meeting.endTime;
+        }
+        tiles.push({
+          kind: "overflow",
+          members: overflow,
+          startTime: start,
+          endTime: end,
+          column: MAX_VISIBLE_TILES,
+          totalColumns: MAX_TILE_COLUMNS,
+          day,
+        });
+      }
+    }
+    result.set(day, tiles);
+  }
+  return result;
+});
+
+/** Position helpers for an interval [startTime, endTime] (HHMM). */
+function rangeTop(startTime: number): number {
+  return ((timeToMinutes(startTime) - gridStartMinutes.value) / 60) * HOUR_HEIGHT;
+}
+
+function rangeHeight(startTime: number, endTime: number): number {
+  return ((timeToMinutes(endTime) - timeToMinutes(startTime)) / 60) * HOUR_HEIGHT;
+}
+
+function tileLeftPct(tile: GhostTile): string {
+  return `${(tile.column / tile.totalColumns) * 100}%`;
+}
+
+function tileWidthPct(tile: GhostTile): string {
+  return `${(1 / tile.totalColumns) * 100}%`;
+}
+
+/** Anchor popover to the right edge for late-week columns so it grows leftward
+ * and doesn't clip against the viewport. */
+function popoverAlignForDay(day: DayOfWeek): "left" | "right" {
+  const idx = displayDays.value.indexOf(day);
+  const half = Math.floor(displayDays.value.length / 2);
+  return idx > half ? "right" : "left";
+}
+
 // ── Painting ─────────────────────────────────────────────────────────────────
 
 function paint(day: DayOfWeek, hour: number): void {
@@ -309,6 +464,40 @@ function togglePin(course: CourseSection): void {
         Clear
       </button>
 
+      <!-- Horizontal zoom -->
+      <div
+        class="flex items-center rounded-lg border border-edge-subtle overflow-hidden shrink-0"
+        role="group"
+        aria-label="Horizontal zoom"
+      >
+        <button
+          type="button"
+          class="px-2 py-1.5 text-xs text-fg-muted hover:text-fg hover:bg-surface-hover/60 disabled:opacity-30 transition-colors"
+          :disabled="zoom <= ZOOM_MIN"
+          aria-label="Zoom out"
+          title="Zoom out"
+          @click="zoomOut"
+        >
+          <Icon icon="mdi:magnify-minus-outline" aria-hidden="true" />
+        </button>
+        <span
+          class="px-2 text-[11px] font-medium text-fg-muted tabular-nums border-x border-edge-subtle"
+          aria-live="polite"
+          :aria-label="`Zoom level ${zoom} times`"
+          >{{ zoom }}&times;</span
+        >
+        <button
+          type="button"
+          class="px-2 py-1.5 text-xs text-fg-muted hover:text-fg hover:bg-surface-hover/60 disabled:opacity-30 transition-colors"
+          :disabled="zoom >= ZOOM_MAX"
+          aria-label="Zoom in"
+          title="Zoom in"
+          @click="zoomIn"
+        >
+          <Icon icon="mdi:magnify-plus-outline" aria-hidden="true" />
+        </button>
+      </div>
+
       <div class="flex-1" />
 
       <!-- Blockout weight slider -->
@@ -346,7 +535,8 @@ function togglePin(course: CourseSection): void {
     <!-- Grid -->
     <div class="overflow-x-auto overflow-y-auto max-h-[calc(100vh-300px)]">
       <div
-        class="flex min-w-[560px] select-none"
+        class="flex select-none"
+        :style="{ minWidth: `${560 * zoom}px` }"
         @mouseup="handleMouseUp"
         @mouseleave="handleMouseUp"
       >
@@ -392,60 +582,168 @@ function togglePin(course: CourseSection): void {
               @mouseenter="handleMouseEnter(day, h)"
             />
 
-            <!-- Ghost (alternative section) blocks — click to lock/unlock -->
+            <!-- Locked ghosts — render at full meeting time, always visible -->
             <button
-              v-for="({ course, meeting }, idx) in dayGhosts.get(day) ?? []"
-              :key="`ghost-${course.crn}-${day}-${meeting.startTime}-${idx}`"
+              v-for="({ course, meeting }, idx) in dayLockedGhosts.get(day) ?? []"
+              :key="`locked-${course.crn}-${day}-${meeting.startTime}-${idx}`"
               type="button"
-              :class="[
-                'absolute left-0.5 right-0.5 rounded-r-md overflow-hidden flex flex-col justify-center px-1.5 cursor-pointer transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                isSectionPinned(course)
-                  ? 'bg-tint-danger/60 border border-tint-danger-bd'
-                  : 'bg-surface-hover/25 border border-dashed border-edge-hover/50 hover:bg-tint-success/30 hover:border-tint-success-bd',
-              ]"
+              class="absolute left-0.5 right-0.5 rounded-r-md overflow-hidden flex flex-col justify-center px-1.5 cursor-pointer transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-tint-danger/60 border-l-[3px] border-l-destructive border border-tint-danger-bd hover:bg-tint-danger/80"
               :style="{
                 top: `${meetingTop(meeting)}px`,
                 height: `${meetingHeight(meeting)}px`,
-                zIndex: 1,
+                zIndex: 2,
               }"
-              :title="isSectionPinned(course)
-                ? `Locked: ${course.identifier} — click to unlock`
-                : `Alternative: ${course.identifier} - ${course.title}\n${course.instructor}\n${meeting.building} ${meeting.room}\n${formatTime(meeting.startTime)} - ${formatTime(meeting.endTime)}\nClick to lock`"
-              :aria-label="isSectionPinned(course)
-                ? `Unlock ${course.identifier}`
-                : `Lock ${course.identifier} from ${formatTime(meeting.startTime)} to ${formatTime(meeting.endTime)}`"
-              :aria-pressed="isSectionPinned(course)"
+              :title="`Locked: ${course.identifier} - ${course.title}\n${course.instructor}\n${meeting.building} ${meeting.room}\n${formatTime(meeting.startTime)} - ${formatTime(meeting.endTime)}\nClick to unlock`"
+              :aria-label="`Unlock ${course.identifier}`"
+              :aria-pressed="true"
               @mousedown.stop
               @click.stop="togglePin(course)"
             >
-              <div class="flex items-center gap-0.5 min-w-0">
+              <div class="flex items-center gap-1 min-w-0">
                 <Icon
-                  :icon="isSectionPinned(course) ? 'mdi:lock' : 'mdi:lock-open-variant'"
-                  :class="[
-                    'text-[10px] shrink-0',
-                    isSectionPinned(course) ? 'text-destructive' : 'text-success',
-                  ]"
+                  icon="mdi:lock"
+                  class="text-[11px] shrink-0 text-destructive"
                   aria-hidden="true"
                 />
-                <span
-                  :class="[
-                    'text-[10px] font-medium truncate leading-tight',
-                    isSectionPinned(course) ? 'text-tint-danger-fg' : 'text-fg-muted italic',
-                  ]"
-                >
+                <span class="text-xs font-semibold truncate leading-tight text-tint-danger-fg">
                   {{ course.identifier }}
                 </span>
               </div>
               <div
                 v-if="meetingHeight(meeting) > 35"
-                :class="[
-                  'text-[9px] truncate leading-tight',
-                  isSectionPinned(course) ? 'text-tint-danger-fg/80' : 'text-fg-faint',
-                ]"
+                class="text-[10px] text-tint-danger-fg/80 truncate leading-tight"
+              >
+                {{ meeting.building }} {{ meeting.room }}
+              </div>
+              <div
+                v-if="meetingHeight(meeting) > 50"
+                class="text-[10px] text-tint-danger-fg/70 truncate leading-tight"
               >
                 {{ formatTime(meeting.startTime) }}&ndash;{{ formatTime(meeting.endTime) }}
               </div>
             </button>
+
+            <!-- Ghost tiles (alternative sections) — tile horizontally; overflow popover at 5+ -->
+            <template v-for="(tile, idx) in dayGhostTiles.get(day) ?? []">
+              <!-- Single section tile -->
+              <button
+                v-if="tile.kind === 'single'"
+                :key="`gtile-${tile.meeting.course.crn}-${day}-${tile.meeting.meeting.startTime}-${idx}`"
+                type="button"
+                class="absolute rounded-r-md overflow-hidden flex flex-col justify-center px-1 cursor-pointer transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-surface-hover/25 border border-dashed border-edge-hover/50 hover:bg-tint-success/30 hover:border-tint-success-bd"
+                :style="{
+                  top: `${rangeTop(tile.meeting.meeting.startTime)}px`,
+                  height: `${rangeHeight(tile.meeting.meeting.startTime, tile.meeting.meeting.endTime)}px`,
+                  left: `calc(${tileLeftPct(tile)} + 2px)`,
+                  width: `calc(${tileWidthPct(tile)} - 4px)`,
+                  zIndex: 1,
+                }"
+                :title="`Alternative: ${tile.meeting.course.identifier} - ${tile.meeting.course.title}\n${tile.meeting.course.instructor}\n${tile.meeting.meeting.building} ${tile.meeting.meeting.room}\n${formatTime(tile.meeting.meeting.startTime)} - ${formatTime(tile.meeting.meeting.endTime)}\nClick to lock`"
+                :aria-label="`Lock ${tile.meeting.course.identifier} from ${formatTime(tile.meeting.meeting.startTime)} to ${formatTime(tile.meeting.meeting.endTime)}`"
+                :aria-pressed="false"
+                @mousedown.stop
+                @click.stop="togglePin(tile.meeting.course)"
+              >
+                <div class="flex items-center gap-0.5 min-w-0">
+                  <Icon
+                    icon="mdi:lock-open-variant"
+                    class="text-[10px] shrink-0 text-success"
+                    aria-hidden="true"
+                  />
+                  <span class="text-[10px] font-medium leading-tight text-fg-muted italic">
+                    {{ tile.meeting.course.identifier }}
+                  </span>
+                </div>
+                <div
+                  v-if="
+                    rangeHeight(tile.meeting.meeting.startTime, tile.meeting.meeting.endTime) >
+                      35 && tile.totalColumns <= 2
+                  "
+                  class="text-[9px] leading-tight text-fg-faint"
+                >
+                  {{ formatTime(tile.meeting.meeting.startTime) }}&ndash;{{
+                    formatTime(tile.meeting.meeting.endTime)
+                  }}
+                </div>
+              </button>
+
+              <!-- Overflow tile: popover lists members 4..N -->
+              <div
+                v-else
+                :key="`gtile-overflow-${day}-${tile.startTime}-${idx}`"
+                class="absolute"
+                :style="{
+                  top: `${rangeTop(tile.startTime)}px`,
+                  height: `${rangeHeight(tile.startTime, tile.endTime)}px`,
+                  left: `calc(${tileLeftPct(tile)} + 2px)`,
+                  width: `calc(${tileWidthPct(tile)} - 4px)`,
+                  zIndex: 1,
+                }"
+              >
+                <Popover :align="popoverAlignForDay(tile.day)" widthClass="w-72">
+                  <template #trigger="{ toggle, expanded }">
+                    <button
+                      type="button"
+                      class="w-full h-full rounded-r-md overflow-hidden flex items-center justify-center cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-surface-hover/40 border border-dashed border-edge-hover/60 hover:bg-tint-success/20 hover:border-tint-success-bd"
+                      :title="`${tile.members.length} more alternatives at this time — click to view`"
+                      :aria-label="`${tile.members.length} more alternative sections`"
+                      :aria-haspopup="true"
+                      :aria-expanded="expanded"
+                      @mousedown.stop
+                      @click.stop="toggle"
+                    >
+                      <span class="text-[11px] font-bold text-fg-muted tabular-nums leading-none">
+                        +{{ tile.members.length }}
+                      </span>
+                    </button>
+                  </template>
+
+                  <!-- Popover body: list overflowed members -->
+                  <div class="space-y-1.5">
+                    <div
+                      class="flex items-baseline justify-between border-b border-edge pb-1.5 mb-1"
+                    >
+                      <span class="text-xs font-semibold text-fg">
+                        {{ tile.members.length }} more sections
+                      </span>
+                      <span class="text-[10px] text-fg-faint tabular-nums">{{ day }}</span>
+                    </div>
+                    <button
+                      v-for="m in tile.members"
+                      :key="`${m.course.crn}-${m.meeting.startTime}`"
+                      type="button"
+                      class="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-input/50 hover:bg-tint-success/20"
+                      :aria-label="`Lock ${m.course.identifier}`"
+                      @click="togglePin(m.course)"
+                    >
+                      <Icon
+                        icon="mdi:lock-open-variant"
+                        class="shrink-0 text-success"
+                        aria-hidden="true"
+                      />
+                      <div class="min-w-0 flex-1">
+                        <div class="flex items-baseline gap-1.5">
+                          <span class="font-mono text-xs font-semibold text-fg truncate">
+                            {{ m.course.identifier }}
+                          </span>
+                          <span class="text-[10px] text-fg-faint tabular-nums shrink-0">
+                            {{ formatTime(m.meeting.startTime) }}&ndash;{{
+                              formatTime(m.meeting.endTime)
+                            }}
+                          </span>
+                        </div>
+                        <div class="text-[10px] text-fg-muted truncate">
+                          {{ m.course.instructor || "TBA" }}
+                          <span v-if="m.meeting.building" class="text-fg-faint">
+                            &middot; {{ m.meeting.building }} {{ m.meeting.room }}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </Popover>
+              </div>
+            </template>
 
             <!-- Active schedule meeting blocks -->
             <template v-if="schedule">
@@ -485,12 +783,12 @@ function togglePin(course: CourseSection): void {
                     aria-label="Scheduling conflict"
                   />
                   <Icon
-                  v-if="isSectionPinned(course)"
-                  icon="mdi:lock"
-                  class="text-[10px] shrink-0 text-destructive"
-                  role="img"
-                  aria-label="Locked"
-                />
+                    v-if="isSectionPinned(course)"
+                    icon="mdi:lock"
+                    class="text-[10px] shrink-0 text-destructive"
+                    role="img"
+                    aria-label="Locked"
+                  />
                   <span class="text-xs font-semibold truncate leading-tight">
                     {{ course.identifier }}
                   </span>

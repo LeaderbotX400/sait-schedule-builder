@@ -137,22 +137,6 @@ function togglePin(course: CourseSection): void {
   }
 }
 
-const activePins = computed(() => {
-  const result: { subjectCourse: string; identifier: string }[] = [];
-  for (const course of props.schedule.courses) {
-    if (isSectionPinned(course)) {
-      result.push({ subjectCourse: course.subjectCourse, identifier: course.identifier });
-    }
-  }
-  // Also include pins for courses not in this schedule (set in other schedules).
-  for (const [subjectCourse, crn] of pinnedStore.pinnedSections) {
-    if (!props.schedule.courses.some((c) => c.subjectCourse === subjectCourse)) {
-      result.push({ subjectCourse, identifier: `CRN ${crn}` });
-    }
-  }
-  return result;
-});
-
 const qualityTooltip = computed(() => {
   const s = props.schedule;
   return [
@@ -198,35 +182,6 @@ const qualityTooltip = computed(() => {
           <span class="text-xs text-fg-faint">/100</span>
         </div>
       </div>
-    </div>
-
-    <!-- Active locks banner -->
-    <div
-      v-if="pinnedStore.pinnedSections.size > 0"
-      class="flex items-center gap-2 flex-wrap rounded-lg bg-tint-danger border border-tint-danger-bd px-3 py-2"
-      role="region"
-      aria-label="Locked sections"
-    >
-      <span class="text-xs font-semibold text-tint-danger-fg shrink-0">Locked:</span>
-      <span
-        v-for="p in activePins"
-        :key="p.subjectCourse"
-        class="inline-flex items-center gap-1 rounded bg-surface/60 border border-edge px-1.5 py-0.5 text-xs font-mono text-fg"
-      >
-        <Icon icon="mdi:lock" class="text-destructive" aria-hidden="true" />
-        {{ p.identifier }}
-        <button
-          class="text-fg-faint hover:text-destructive transition-colors ml-0.5"
-          :title="`Unlock ${p.identifier}`"
-          :aria-label="`Unlock ${p.identifier}`"
-          @click="pinnedStore.unpin(p.subjectCourse)"
-        >
-          <Icon icon="mdi:close" aria-hidden="true" />
-        </button>
-      </span>
-      <UiButton variant="ghost" size="sm" class="ml-auto text-xs" @click="pinnedStore.clearPins()">
-        Clear all
-      </UiButton>
     </div>
 
     <!-- Calendar -->

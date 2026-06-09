@@ -5,6 +5,7 @@ import { useAuth } from "@/features/auth/useAuth";
 import CurrentScheduleEditor from "@/features/current/CurrentScheduleEditor.vue";
 import BlockoutGrid from "@/features/rules/BlockoutGrid.vue";
 import RulesPanel from "@/features/rules/RulesPanel.vue";
+import LockedSectionsBanner from "@/features/schedules/LockedSectionsBanner.vue";
 import ScheduleDetail from "@/features/schedules/ScheduleDetail.vue";
 import ScheduleStrip from "@/features/schedules/ScheduleStrip.vue";
 import SavedSchedulesList from "@/features/saved/SavedSchedulesList.vue";
@@ -92,6 +93,8 @@ async function onReauth(): Promise<void> {
       &times;
     </button>
   </div>
+
+  <LockedSectionsBanner />
 
   <ScheduleStrip
     :schedules="schedules"
