@@ -1,12 +1,12 @@
 import { defineStore } from "pinia";
 import { shallowRef } from "vue";
-import type { BannerResponse } from "../banner-sdk/apps/registration/types";
-import { parseBannerData } from "../domain/parser";
-import type { CourseSection } from "../domain/types";
-import { useCurrentRegStore } from "./currentReg";
-import { useSchedulesStore } from "./schedules";
-import { useSelectionStore } from "./selection";
-import { useUiStore } from "./ui";
+import type { BannerResponse } from "@/banner-sdk/apps/registration/types";
+import { parseBannerData } from "@/domain/parser";
+import type { CourseSection } from "@/domain/types";
+import { useCurrentRegStore } from "@/features/current/store";
+import { useSchedulesStore } from "@/features/schedules/store";
+import { useSelectionStore } from "@/features/selection/store";
+import { useUiStore } from "@/features/ui-state/store";
 
 /**
  * Course catalog for the active term. Indexed by `subjectCourse`

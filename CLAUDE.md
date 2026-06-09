@@ -28,6 +28,11 @@ ranked by quality.
 
 The app is layered so each concern lives in exactly one place:
 
+Organized as a **feature module pattern**: each named domain owns its
+store + composable + components under `src/features/<name>/`. Pure /
+framework-agnostic layers and cross-cutting plumbing stay at the top
+level.
+
 ```
 src/
   banner-sdk/       # typed Banner client (transport, session, app facades)
@@ -35,39 +40,44 @@ src/
   lib/              # cross-cutting plumbing — extension bridge, term
                     #   constants, Banner-shape types, SDK singleton
                     #   (lib/sdk.ts), Vue composable for extension-ID
-                    #   handshake
-  auth/             # auth Pinia store + service + composable + credential
-                    #   stores (extension cookies + demo)
-  stores/           # planner Pinia stores: term, selection, rules, ui,
-                    #   courses, currentReg, schedules. One store per
-                    #   concern; persistence wired via shared
-                    #   `$subscribe` helper.
-  identity/         # student-ID resolution after auth — Pinia store +
-                    #   useIdentity() composable
-  profile/          # GPA + registration notices — store + useProfile()
-                    #   composable + GpaChip header badge
-  holds/            # holds count — store + useHolds() composable
-  registration-status/  # thin derived view of profile.registrationNotices;
-                    #   composable returns a typed ComputedRef
+                    #   handshake, shared $subscribe persistence helper
+                    #   (lib/persistence.ts)
   demo/             # demo-mode bootstrap — isDemoMode(), fixtures, and
                     #   createDemoTransport() (a seeded MockTransport)
-  composables/      # cross-store side-effect composables
+  composables/      # cross-feature side-effect composables
                     #   (useScheduleSync, useDemoBootstrap)
-  theme/            # theme store + useTheme() composable + theme list
   ui/               # shared UI primitives (Button, Card, Spinner,
                     #   EmptyState, StatusDot, Popover) as Vue SFCs
   shell/            # top-level layout: SignInScreen, AppShell, AppHeader,
                     #   CoursesPanel, MainArea
-  features/         # feature-grouped components: search, selection,
-                    #   rules, schedule, current, auth, theme
+  features/         # one folder per domain — store.ts + use<X>.ts +
+                    #   components/tests live together:
+                    #     auth/             store + service + useAuth + ConnectionStatus
+                    #     identity/         studentId resolution
+                    #     profile/          GPA + notices + GpaChip
+                    #     holds/            holds count
+                    #     registration-status/   derived composable, no store
+                    #     theme/            theme store + ThemePicker
+                    #     term/             active term + cascade-wipe setTerm
+                    #     courses/          course catalog (Map<subjectCourse, …>)
+                    #     selection/        selected courses + CourseSelector
+                    #     rules/            ScheduleRules + RulesPanel + BlockoutGrid
+                    #     schedules/        generated schedules + Calendar/Strip/Detail
+                    #     current/          current registration editor
+                    #     search/           CourseSearch component (reads courses)
+                    #     ui-state/         transient loadError / loading / authRequired
   App.vue           # mounts side-effect composables + swaps between
                     #   SignInScreen and AppShell
-  main.ts           # createApp + Pinia + persistence
+  main.ts           # createApp + Pinia + persist*Store() calls
 extension/
   background.ts     # service worker — credential capture + cookie mgmt
                     #   + BANNER_FETCH bridge (no Banner-app awareness)
   inject.ts         # announces extension ID to localhost / pages.dev
 ```
+
+Convention: cross-feature and feature → top-level imports use the `@/`
+alias (`@/features/<x>/store`, `@/lib/sdk`, `@/domain/types`). Within
+a feature, imports stay relative (`./store`, `./useFoo`).
 
 ### Banner SDK (`src/banner-sdk/`)
 
@@ -103,9 +113,10 @@ from `lib/types`) get converted to domain shapes.
 
 Tests live in `src/domain/tests/` (vitest).
 
-### Stores (`src/stores/`)
+### Planner stores (under `src/features/<name>/store.ts`)
 
-Seven Pinia setup-style stores, one concern each:
+Seven Pinia setup-style stores, one concern each, each colocated with
+its UI under `src/features/`:
 
 - `term` — active term + picker options. `setTerm` cascades a wipe to
   every per-term store, so a subjectCourse key never leaks across terms.
@@ -116,22 +127,21 @@ Seven Pinia setup-style stores, one concern each:
   Survives term switches — these are real cross-term preferences.
 - `schedules` — generated schedules + activeIndex + `GenerationStatus`,
   with `generate()` and the `explainEmpty` diagnostic helper.
-- `currentReg` — `currentRegistrations`, `sectionOverrides`,
-  `includedCourses`, `swapSection`, `getCurrentSchedule`.
-- `ui` — `loadError`, `registrationsLoading`, `authRequired` (transient,
-  not persisted).
+- `current` — `currentRegistrations`, `sectionOverrides`,
+  `includedCourses`, `swapSection`, `getCurrentSchedule` (store ID stays
+  `"currentReg"` to preserve the localStorage key).
+- `ui-state` — `loadError`, `registrationsLoading`, `authRequired`
+  (transient, not persisted).
 
 Map and Set state lives in `shallowRef` and is replaced wholesale on
 mutation (`courseGroups.value = new Map(courseGroups.value); …`) — the
-same immutable-update discipline the legacy Zustand store used. The
-auth store is separate, under `src/auth/store.ts`, since it pairs with
-the auth service singleton.
+same immutable-update discipline the legacy Zustand store used.
 
-### Persistence (`src/stores/persistence.ts`)
+### Persistence (`src/lib/persistence.ts`)
 
-A tiny `$subscribe`-based helper. Each store opts in via
-`persist<Store>Store()` (called from `installStorePersistence()` in
-`main.ts`). Persisted today:
+A tiny `$subscribe`-based helper. Each store exports its own
+`persist<Store>Store()` function; `main.ts` calls them once after
+`createPinia()`. Persisted today:
 
 - `rules` (whole object)
 - `term` (string)
@@ -143,9 +153,9 @@ under `sait-auth-v1` so login state survives reloads.
 
 Generated schedules and transient UI flags are intentionally NOT
 persisted. To wipe local prefs: `clearPersistedState("sait-sb-v1:")`
-from `stores/persistence.ts`.
+from `lib/persistence.ts`.
 
-### Auth (`src/auth/`)
+### Auth (`src/features/auth/`)
 
 - `store.ts` — Pinia store for auth state (status, busy, lastError,
   acquiredAt, liveChecked, tick + age-derived `computed`s).
@@ -160,7 +170,7 @@ from `stores/persistence.ts`.
 - `useAuthInit.ts` — mounted once at the root; kicks off init + the
   60s live-check poll + the 10s age-tick + `visibilitychange` refresh.
 
-### Profile / identity / holds (`src/identity/`, `src/profile/`, `src/holds/`, `src/registration-status/`)
+### Profile / identity / holds (`src/features/identity/`, `src/features/profile/`, `src/features/holds/`, `src/features/registration-status/`)
 
 Four chained modules, each shaped as `store.ts + use<Module>.ts + index.ts`:
 
@@ -228,16 +238,17 @@ when demo mode is active.
 
 ### Testing
 
-`bun run test:run` runs vitest. 84 tests today across 14 files:
+`bun run test:run` runs vitest. 88 tests today across 15 files. Tests
+live in a `tests/` subfolder of the module they cover:
 
 - `src/domain/tests/` — scheduler, scoring, conflicts, time, parser
 - `src/banner-sdk/tests/` — request chokepoint (errors / classification),
   search byCourses, registration listActive, selfService priming
-- `src/stores/tests/` — term cascade, courses loadBannerResponse +
-  removeCourse, schedules generate, currentReg swapSection +
-  forgetCourse
-- `src/auth/tests/` — AuthService init / login / reauth / disconnect /
-  notifySessionExpired + subscribe propagation
+- `src/features/term/tests/`, `courses/tests/`, `schedules/tests/`,
+  `current/tests/` — store-level tests for each planner concern
+- `src/features/auth/tests/` — AuthService init / login / reauth /
+  disconnect / notifySessionExpired + subscribe propagation
+- `src/features/identity/tests/` — useIdentity composable
 
 `MockTransport` (`src/banner-sdk/transport/mock.ts`) records every call
 and returns canned responses; pass it to `createBannerSdk` to test SDK

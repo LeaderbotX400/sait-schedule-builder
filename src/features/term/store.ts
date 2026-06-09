@@ -1,12 +1,12 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { DEFAULT_TERM, TERM_OPTIONS, type TermOption } from "../lib/terms";
-import { useCoursesStore } from "./courses";
-import { useCurrentRegStore } from "./currentReg";
-import { persistStore } from "./persistence";
-import { useSchedulesStore } from "./schedules";
-import { useSelectionStore } from "./selection";
-import { useUiStore } from "./ui";
+import { DEFAULT_TERM, TERM_OPTIONS, type TermOption } from "@/lib/terms";
+import { useCoursesStore } from "@/features/courses/store";
+import { useCurrentRegStore } from "@/features/current/store";
+import { persistStore } from "@/lib/persistence";
+import { useSchedulesStore } from "@/features/schedules/store";
+import { useSelectionStore } from "@/features/selection/store";
+import { useUiStore } from "@/features/ui-state/store";
 
 /**
  * Active term + the picker option list. A subjectCourse key has no

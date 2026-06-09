@@ -10,7 +10,7 @@ import { resolveCurrentSection } from "../../domain/conflicts";
 import { formatTimeCompact } from "../../domain/time";
 import type { CourseSection, CurrentRegistration, Schedule } from "../../domain/types";
 import Card from "../../ui/Card.vue";
-import CalendarGrid from "../schedule/CalendarGrid.vue";
+import CalendarGrid from "@/features/schedules/CalendarGrid.vue";
 
 const props = defineProps<{
   currentRegistrations: Map<string, CurrentRegistration>;

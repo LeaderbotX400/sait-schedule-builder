@@ -1,8 +1,8 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { DEFAULT_RULES } from "../domain/blockout";
-import type { ScheduleRules } from "../domain/types";
-import { persistStore } from "./persistence";
+import { DEFAULT_RULES } from "@/domain/blockout";
+import type { ScheduleRules } from "@/domain/types";
+import { persistStore } from "@/lib/persistence";
 
 /**
  * Scheduling rules — time bounds, blockout grid, weights, section

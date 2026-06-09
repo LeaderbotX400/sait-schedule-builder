@@ -7,12 +7,12 @@
 
 import { nextTick, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
-import { BannerAuthRequiredError } from "../../banner-sdk";
-import { getSdk } from "../../lib/sdk";
-import { useTermStore } from "../../stores/term";
-import { useCoursesStore } from "../../stores/courses";
-import { useUiStore } from "../../stores/ui";
-import Spinner from "../../ui/Spinner.vue";
+import { BannerAuthRequiredError } from "@/banner-sdk";
+import { getSdk } from "@/lib/sdk";
+import { useTermStore } from "@/features/term/store";
+import { useCoursesStore } from "@/features/courses/store";
+import { useUiStore } from "@/features/ui-state/store";
+import Spinner from "@/ui/Spinner.vue";
 
 interface Suggestion {
   code: string;

@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { shallowRef } from "vue";
-import { persistStore } from "./persistence";
+import { persistStore } from "@/lib/persistence";
 
 /**
  * Set of currently-selected `subjectCourse` keys — the courses the

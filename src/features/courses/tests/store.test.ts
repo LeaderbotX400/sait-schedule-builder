@@ -1,10 +1,10 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { BannerResponse, BannerSection } from "../../lib/types";
-import { useCoursesStore } from "../courses";
-import { useCurrentRegStore } from "../currentReg";
-import { useSelectionStore } from "../selection";
-import { useUiStore } from "../ui";
+import type { BannerResponse, BannerSection } from "@/lib/types";
+import { useCoursesStore } from "../store";
+import { useCurrentRegStore } from "@/features/current/store";
+import { useSelectionStore } from "@/features/selection/store";
+import { useUiStore } from "@/features/ui-state/store";
 
 function makeBannerSection(over: Partial<BannerSection> = {}): BannerSection {
   return {

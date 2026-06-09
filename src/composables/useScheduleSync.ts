@@ -6,13 +6,13 @@ import { parseActiveRegistrations } from "../domain/parser";
 import type { CourseSection } from "../domain/types";
 import { getSdk } from "../lib/sdk";
 import { mergeTermOptions } from "../lib/terms";
-import { useCoursesStore } from "../stores/courses";
-import { useCurrentRegStore } from "../stores/currentReg";
-import { useRulesStore } from "../stores/rules";
-import { useSchedulesStore } from "../stores/schedules";
-import { useSelectionStore } from "../stores/selection";
-import { useTermStore } from "../stores/term";
-import { useUiStore } from "../stores/ui";
+import { useCoursesStore } from "@/features/courses/store";
+import { useCurrentRegStore } from "@/features/current/store";
+import { useRulesStore } from "@/features/rules/store";
+import { useSchedulesStore } from "@/features/schedules/store";
+import { useSelectionStore } from "@/features/selection/store";
+import { useTermStore } from "@/features/term/store";
+import { useUiStore } from "@/features/ui-state/store";
 
 /** Drop these Banner term flavours from the picker — they can't be planned against. */
 const SKIP_TERMS = ["(View Only)", "(View only)", "Non-Credit", "Apprentice"];

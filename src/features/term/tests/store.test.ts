@@ -1,11 +1,11 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { CourseSection } from "../../domain/types";
-import { useCoursesStore } from "../courses";
-import { useCurrentRegStore } from "../currentReg";
-import { useSchedulesStore } from "../schedules";
-import { useSelectionStore } from "../selection";
-import { useTermStore } from "../term";
+import type { CourseSection } from "@/domain/types";
+import { useCoursesStore } from "@/features/courses/store";
+import { useCurrentRegStore } from "@/features/current/store";
+import { useSchedulesStore } from "@/features/schedules/store";
+import { useSelectionStore } from "@/features/selection/store";
+import { useTermStore } from "../store";
 
 function makeSection(id: string): CourseSection {
   return {

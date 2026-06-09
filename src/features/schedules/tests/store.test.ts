@@ -1,9 +1,9 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CourseSection } from "../../domain/types";
-import { useCoursesStore } from "../courses";
-import { useSchedulesStore } from "../schedules";
-import { useSelectionStore } from "../selection";
+import type { CourseSection } from "@/domain/types";
+import { useCoursesStore } from "@/features/courses/store";
+import { useSchedulesStore } from "../store";
+import { useSelectionStore } from "@/features/selection/store";
 
 function makeSection(id: string, day: "Mon" | "Tue"): CourseSection {
   const subjectCourse = id.split("-")[0] ?? id;

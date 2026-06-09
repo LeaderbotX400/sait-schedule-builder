@@ -28,7 +28,7 @@ import {
   buildWarningKeys,
   COURSE_COLORS,
   HOUR_HEIGHT,
-} from "../schedule/calendarColors";
+} from "@/features/schedules/calendarColors";
 
 // ── Props & emits ────────────────────────────────────────────────────────────
 

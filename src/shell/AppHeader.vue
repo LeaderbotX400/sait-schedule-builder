@@ -7,11 +7,11 @@ import ConnectionStatus from "@/features/auth/ConnectionStatus.vue";
 import ThemePicker from "@/features/theme/ThemePicker.vue";
 import { describeTerm } from "@/lib/terms";
 import GpaChip from "@/features/profile/GpaChip.vue";
-import { useCoursesStore } from "@/stores/courses";
-import { useSchedulesStore } from "@/stores/schedules";
-import { useSelectionStore } from "@/stores/selection";
-import { useTermStore } from "@/stores/term";
-import { useUiStore } from "@/stores/ui";
+import { useCoursesStore } from "@/features/courses/store";
+import { useSchedulesStore } from "@/features/schedules/store";
+import { useSelectionStore } from "@/features/selection/store";
+import { useTermStore } from "@/features/term/store";
+import { useUiStore } from "@/features/ui-state/store";
 import UiButton from "@/ui/Button.vue";
 import StatusDot from "@/ui/StatusDot.vue";
 

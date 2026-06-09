@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import CourseSearch from "../features/search/CourseSearch.vue";
-import CourseSelector from "../features/selection/CourseSelector.vue";
-import { useCoursesStore } from "../stores/courses";
-import { useSelectionStore } from "../stores/selection";
+import CourseSearch from "@/features/search/CourseSearch.vue";
+import CourseSelector from "@/features/selection/CourseSelector.vue";
+import { useCoursesStore } from "@/features/courses/store";
+import { useSelectionStore } from "@/features/selection/store";
 
 /**
  * Expandable panel under the header. Houses the search input on the

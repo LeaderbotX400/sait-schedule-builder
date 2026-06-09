@@ -1,11 +1,11 @@
 import { defineStore } from "pinia";
 import { ref, shallowRef } from "vue";
-import { generateSchedules } from "../domain/scheduler";
-import type { CourseSection, Schedule, ScheduleRules } from "../domain/types";
-import { useCoursesStore } from "./courses";
-import { useRulesStore } from "./rules";
-import { useSelectionStore } from "./selection";
-import { useUiStore } from "./ui";
+import { generateSchedules } from "@/domain/scheduler";
+import type { CourseSection, Schedule, ScheduleRules } from "@/domain/types";
+import { useCoursesStore } from "@/features/courses/store";
+import { useRulesStore } from "@/features/rules/store";
+import { useSelectionStore } from "@/features/selection/store";
+import { useUiStore } from "@/features/ui-state/store";
 
 export type GenerationStatus =
   | { kind: "idle" }

@@ -1,9 +1,9 @@
 import { defineStore } from "pinia";
 import { shallowRef } from "vue";
-import { resolveCurrentSection, sectionsHaveConflict } from "../domain/conflicts";
-import type { CourseSection, CurrentRegistration, Schedule } from "../domain/types";
-import { useCoursesStore } from "./courses";
-import { persistStore } from "./persistence";
+import { resolveCurrentSection, sectionsHaveConflict } from "@/domain/conflicts";
+import type { CourseSection, CurrentRegistration, Schedule } from "@/domain/types";
+import { useCoursesStore } from "@/features/courses/store";
+import { persistStore } from "@/lib/persistence";
 
 /**
  * Tracks the student's currently-registered sections plus any
