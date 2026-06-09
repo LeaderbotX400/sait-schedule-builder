@@ -1,29 +1,23 @@
 import { createLogger } from "../../../lib/logger";
-import { type BannerHostConfig, ssag1Url } from "../../config/hosts";
-import { bannerRequest } from "../../core/request";
-import type { BannerTransport } from "../../transport/types";
+import { ssag1Url } from "../../config/hosts";
+import { bannerRequest, type RequestContext } from "../../core/request";
+import { withNullFallback } from "./fallback";
 import type { HoldsCount } from "./types";
 
 const log = createLogger("holds");
 
-export function createHoldsClient(transport: BannerTransport, hosts: BannerHostConfig) {
-  const ctx = { transport, hosts };
+export function createHoldsClient(ctx: RequestContext) {
   return {
-    async getHoldsCount(studentId: string): Promise<HoldsCount | null> {
-      try {
-        return await bannerRequest<HoldsCount>(
+    getHoldsCount(studentId: string): Promise<HoldsCount | null> {
+      return withNullFallback(log, `getHoldsCount(${studentId})`, () =>
+        bannerRequest<HoldsCount>(
           ctx,
           ssag1Url(
             ctx.hosts,
             `/studentHolds/getHoldsCountCacheHolds?studentId=${encodeURIComponent(studentId)}`,
           ),
-        );
-      } catch (err) {
-        log.warn(
-          `getHoldsCount(${studentId}) failed — ${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`,
-        );
-        return null;
-      }
+        ),
+      );
     },
   };
 }

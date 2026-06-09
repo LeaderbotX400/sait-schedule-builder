@@ -1,6 +1,6 @@
 import { createLogger } from "../../../lib/logger";
 import { type BannerHostConfig, ssag1Url } from "../../config/hosts";
-import { bannerRequestRaw } from "../../core/request";
+import { type BannerSdkHooks, bannerRequestRaw } from "../../core/request";
 import { BannerHttpError } from "../../transport/errors";
 import type { BannerRequestInit, BannerTransport, RawResponse } from "../../transport/types";
 import { createHoldsClient } from "./holds";
@@ -21,8 +21,12 @@ const PRIME_URL_PATH = "/ssb/studentProfile/studentProfile";
 // but NOT /StudentSelfService/ssb/studentProfile/studentProfile (the prime URL itself).
 const NEEDS_PRIME = /\/StudentSelfService\/(studentProfile|studentHolds)\//;
 
-export function createSelfServiceClient(transport: BannerTransport, hosts: BannerHostConfig) {
-  const ctx = { transport, hosts };
+export function createSelfServiceClient(
+  transport: BannerTransport,
+  hosts: BannerHostConfig,
+  hooks?: BannerSdkHooks,
+) {
+  const ctx = { transport, hosts, hooks };
   let primedPromise: Promise<void> | null = null;
 
   function prime(): Promise<void> {
@@ -56,11 +60,13 @@ export function createSelfServiceClient(transport: BannerTransport, hosts: Banne
     },
   };
 
+  const dataCtx = { transport: dataTransport, hosts, hooks };
+
   return {
     prime,
     invalidate,
-    profile: createProfileClient(dataTransport, hosts),
-    holds: createHoldsClient(dataTransport, hosts),
+    profile: createProfileClient(dataCtx),
+    holds: createHoldsClient(dataCtx),
     picture: {
       url: (bannerId: string) => pictureUrl(hosts, bannerId),
     },

@@ -1,7 +1,6 @@
-import { resetSdk, setSessionExpiredHandler } from "@/lib/sdk";
-import { isDemoMode } from "@/demo";
+import { BannerSessionExpiredError } from "@/banner-sdk";
+import { resetSdk, setSdkErrorHandler } from "@/lib/sdk";
 import type { CredentialStore } from "./credentialStore";
-import { DemoCredentialStore } from "./demoStore";
 import { ExtensionCookieCredentialStore } from "./extensionCookieStore";
 import { useAuthStore } from "./store";
 import type { CredentialState, LoginResult } from "./types";
@@ -23,7 +22,9 @@ export class AuthService {
   /** Hydrate from persisted state, then fire a live check. Idempotent. */
   async init(): Promise<void> {
     this.ensureSubscribed();
-    setSessionExpiredHandler(() => this.notifySessionExpired());
+    setSdkErrorHandler((err) => {
+      if (err instanceof BannerSessionExpiredError) this.notifySessionExpired();
+    });
 
     const persisted = this.store.readPersisted();
     if (persisted) this.applyState(persisted);
@@ -58,7 +59,7 @@ export class AuthService {
     this.store.cancelLogin?.();
   }
 
-  /** Called by the SDK proxy when a request fails with BannerSessionExpiredError. */
+  /** Called via the SDK error hook when a request fails with BannerSessionExpiredError. */
   notifySessionExpired(): void {
     useAuthStore().setStatus("unauthenticated", null);
   }
@@ -98,9 +99,7 @@ let _service: AuthService | null = null;
 /** Module-level singleton — constructed on first call. */
 export function getAuthService(): AuthService {
   if (!_service) {
-    const store: CredentialStore = isDemoMode()
-      ? new DemoCredentialStore()
-      : new ExtensionCookieCredentialStore();
+    const store: CredentialStore = new ExtensionCookieCredentialStore();
     _service = new AuthService(store);
   }
   return _service;

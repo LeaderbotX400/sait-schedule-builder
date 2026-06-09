@@ -1,15 +1,14 @@
 import { createLogger } from "../../../lib/logger";
 import { type BannerHostConfig, ssag2Url } from "../../config/hosts";
-import { bannerHeaders } from "../../core/headers";
 import { parseJsonOrThrow } from "../../core/json";
+import { bannerRequestRaw } from "../../core/request";
 import {
   BannerAuthRequiredError,
   BannerNetworkError,
   BannerNotPermittedError,
   BannerSessionExpiredError,
-  looksLikeAccessDenied,
 } from "../../transport/errors";
-import type { BannerTransport } from "../../transport/types";
+import type { BannerTransport, RawResponse } from "../../transport/types";
 import type { BannerIdResponse } from "./types";
 
 const log = createLogger("identity");
@@ -28,9 +27,7 @@ export type LoginValidation =
  *
  * Hits getBannerId on ssag2. Any of: network failure, non-2xx, redirect
  * to login (HTML response), empty body, missing/falsy bannerId — counts
- * as logged out. ssag2 only returns 404/200 so the access-denied JSON
- * heuristic doesn't apply here, but we still guard against the ssag6
- * edge case for future-proofing.
+ * as logged out.
  */
 const CAS_WARMUP_URL =
   "https://sait-sust-prd-prd1-eid-idm-wso2.sait.ca/cas-web/login?TARGET=https%3A%2F%2Fsait-sust-prd-prd1-ban-ss-ssag1.sait.ca%2FStudentSelfService%2Flogin%2Fcas";
@@ -51,54 +48,19 @@ export async function validateLogin(
   }
 
   const url = ssag2Url(hosts, "/ssb/PersonalInformationDetails/getBannerId");
-  let raw: Awaited<ReturnType<BannerTransport["fetch"]>>;
+
+  // Deliberately hookless context: validateLogin is the auth *probe* — its
+  // failures are expected outcomes mapped into LoginValidation, not global
+  // session-expiry events. (BannerNotPermittedError still propagates.)
+  let raw: RawResponse;
   try {
-    raw = await transport.fetch(url, { headers: bannerHeaders() });
+    raw = await bannerRequestRaw({ transport, hosts }, url);
   } catch (e) {
-    if (e instanceof BannerSessionExpiredError) {
-      return {
-        valid: false,
-        reason: "NOT_LOGGED_IN",
-        error: "Session has expired — please reconnect.",
-      };
-    }
-    if (e instanceof BannerAuthRequiredError) {
-      return {
-        valid: false,
-        reason: "NETWORK",
-        error: "Banner returned 0. Sign in and refresh your credentials.",
-      };
-    }
-    return {
-      valid: false,
-      reason: "NETWORK",
-      error: e instanceof BannerNetworkError ? e.message : `Could not reach Banner: ${String(e)}`,
-    };
+    return loginFailureFrom(e);
   }
 
-  if (raw.status === 403 && looksLikeAccessDenied(raw)) {
-    throw new BannerNotPermittedError(url, raw);
-  }
-  if (raw.error) {
-    return {
-      valid: false,
-      reason: "NETWORK",
-      error: `Could not reach Banner: ${raw.error}`,
-    };
-  }
   if (!raw.ok) {
-    // Best-effort: ping the URL in a background tab to trigger any pending
-    // SAML refresh that XHR can't satisfy. Only available from the extension's
-    // own page — chrome.tabs is undefined in web/localhost context.
-    if (typeof chrome !== "undefined" && chrome.tabs?.create) {
-      chrome.tabs.create({ url, active: false }, (win) => {
-        if (!win) return;
-        setTimeout(() => {
-          chrome.tabs.remove(win.id!);
-        }, 200);
-      });
-    }
-
+    bestEffortSamlNudge(url);
     return {
       valid: false,
       reason: "NOT_LOGGED_IN",
@@ -135,4 +97,47 @@ export async function validateLogin(
     };
   }
   return { valid: true, studentId: String(bannerId) };
+}
+
+/** Map errors raised by the request chokepoint into a logged-out result. */
+function loginFailureFrom(e: unknown): LoginValidation {
+  if (e instanceof BannerSessionExpiredError) {
+    return {
+      valid: false,
+      reason: "NOT_LOGGED_IN",
+      error: "Session has expired — please reconnect.",
+    };
+  }
+  if (e instanceof BannerAuthRequiredError) {
+    return {
+      valid: false,
+      reason: "NETWORK",
+      error: "Banner returned 0. Sign in and refresh your credentials.",
+    };
+  }
+  if (e instanceof BannerNotPermittedError) throw e;
+  return {
+    valid: false,
+    reason: "NETWORK",
+    error:
+      e instanceof BannerNetworkError
+        ? `Could not reach Banner: ${e.message}`
+        : `Could not reach Banner: ${String(e)}`,
+  };
+}
+
+/**
+ * Best-effort: ping the URL in a background tab to trigger any pending
+ * SAML refresh that XHR can't satisfy. Only available from the extension's
+ * own page — chrome.tabs is undefined in web/localhost context.
+ */
+function bestEffortSamlNudge(url: string): void {
+  if (typeof chrome !== "undefined" && chrome.tabs?.create) {
+    chrome.tabs.create({ url, active: false }, (win) => {
+      if (!win) return;
+      setTimeout(() => {
+        chrome.tabs.remove(win.id!);
+      }, 200);
+    });
+  }
 }

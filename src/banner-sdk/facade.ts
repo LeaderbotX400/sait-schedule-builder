@@ -4,12 +4,15 @@ import { createRegistrationClient } from "./apps/registration";
 import { createSelfServiceClient } from "./apps/selfService";
 import { type BannerHostConfig, DEFAULT_HOSTS } from "./config/hosts";
 import { HostPrimer, primedTransport } from "./core/primer";
+import type { BannerSdkHooks } from "./core/request";
 import { RegistrationSession } from "./core/session";
 import type { BannerTransport } from "./transport/types";
 
 export interface BannerSdkOptions {
   hosts?: BannerHostConfig;
   uniqueSessionId?: string;
+  /** Optional global observers (e.g. session-expiry detection). Additive — no wire impact. */
+  hooks?: BannerSdkHooks;
 }
 
 export function createBannerSdk(transport: BannerTransport, opts: BannerSdkOptions = {}) {
@@ -18,6 +21,7 @@ export function createBannerSdk(transport: BannerTransport, opts: BannerSdkOptio
     transport,
     hosts,
     opts.uniqueSessionId ?? `sched-${nanoid()}`,
+    opts.hooks,
   );
 
   // ssag1 (StudentSelfService) and ssag2 (BannerGeneralSsb) need a one-shot
@@ -28,7 +32,7 @@ export function createBannerSdk(transport: BannerTransport, opts: BannerSdkOptio
   const selfServiceTransport = primedTransport(transport, primer, `${hosts.selfService}/`);
   const generalTransport = primedTransport(transport, primer, `${hosts.general}/`);
 
-  const selfService = createSelfServiceClient(selfServiceTransport, hosts);
+  const selfService = createSelfServiceClient(selfServiceTransport, hosts, opts.hooks);
 
   return {
     session,

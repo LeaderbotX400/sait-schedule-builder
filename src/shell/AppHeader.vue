@@ -6,7 +6,6 @@ import { downloadICal } from "@/domain/ical";
 import ConnectionStatus from "@/features/auth/ConnectionStatus.vue";
 import ThemePicker from "@/features/theme/ThemePicker.vue";
 import { describeTerm } from "@/lib/terms";
-import GpaChip from "@/features/profile/GpaChip.vue";
 import { useCoursesStore } from "@/features/courses/store";
 import { useSchedulesStore } from "@/features/schedules/store";
 import { useSelectionStore } from "@/features/selection/store";
@@ -127,8 +126,6 @@ function onExport(): void {
             ↻
           </span>
         </UiButton>
-
-        <GpaChip />
 
         <ConnectionStatus :term-label="termLabel" :loading="registrationsLoading" />
 

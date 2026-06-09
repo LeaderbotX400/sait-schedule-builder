@@ -2,18 +2,26 @@ import { type BannerHostConfig, ssag6Url } from "../config/hosts";
 import type { BannerTransport } from "../transport/types";
 import { FORM_URLENCODED, formUrlEncoded } from "./forms";
 import { bannerHeaders } from "./headers";
+import type { BannerSdkHooks } from "./request";
 
 export class RegistrationSession {
   readonly transport: BannerTransport;
   readonly hosts: BannerHostConfig;
+  readonly hooks?: BannerSdkHooks;
   uniqueSessionId: string;
 
   private primedTerm: string | null = null;
 
-  constructor(transport: BannerTransport, hosts: BannerHostConfig, uniqueSessionId: string) {
+  constructor(
+    transport: BannerTransport,
+    hosts: BannerHostConfig,
+    uniqueSessionId: string,
+    hooks?: BannerSdkHooks,
+  ) {
     this.transport = transport;
     this.hosts = hosts;
     this.uniqueSessionId = uniqueSessionId;
+    this.hooks = hooks;
   }
 
   invalidate(): void {
