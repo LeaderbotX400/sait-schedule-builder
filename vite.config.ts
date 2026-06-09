@@ -25,6 +25,6 @@ export default defineConfig({
     rollupOptions: {
       input: { app: "index.html" },
     },
-    sourcemap: true,
+    sourcemap: false,
   },
 });
