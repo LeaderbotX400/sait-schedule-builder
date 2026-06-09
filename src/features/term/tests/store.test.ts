@@ -29,14 +29,14 @@ describe("useTermStore.setTerm", () => {
     setActivePinia(createPinia());
   });
 
-  it("wipes every per-term store when the term changes", () => {
+  it("isolates per-term state across term switches and restores it on return", () => {
     const term = useTermStore();
     const courses = useCoursesStore();
     const selection = useSelectionStore();
     const schedules = useSchedulesStore();
     const currentReg = useCurrentRegStore();
 
-    // Seed every per-term store as if a sync run just populated them.
+    const originalTerm = term.term;
     courses.setCourseGroups(new Map([["CPRG306", [makeSection("CPRG306-A")]]]));
     selection.setSelectedCourses(new Set(["CPRG306"]));
     schedules.setSchedules([
@@ -66,13 +66,18 @@ describe("useTermStore.setTerm", () => {
 
     term.setTerm("202610");
 
+    // Different term → empty active slot; schedules are wiped (derived view).
     expect(term.term).toBe("202610");
     expect(courses.courseGroups.size).toBe(0);
     expect(selection.selectedCourses.size).toBe(0);
     expect(schedules.schedules.length).toBe(0);
     expect(currentReg.currentRegistrations.size).toBe(0);
-    expect(currentReg.sectionOverrides.size).toBe(0);
-    expect(currentReg.includedCourses.size).toBe(0);
+
+    // Switching back restores the original slot.
+    term.setTerm(originalTerm);
+    expect(courses.courseGroups.size).toBe(1);
+    expect(selection.selectedCourses.size).toBe(1);
+    expect(currentReg.currentRegistrations.size).toBe(1);
   });
 
   it("is a no-op when setting the same term twice", () => {

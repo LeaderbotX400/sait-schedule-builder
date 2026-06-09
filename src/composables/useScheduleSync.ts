@@ -2,7 +2,7 @@ import { storeToRefs } from "pinia";
 import { onUnmounted, watch } from "vue";
 import { useAuthStore } from "@/features/auth/store";
 import { BannerAuthRequiredError } from "../banner-sdk";
-import { parseActiveRegistrations } from "../domain/parser";
+import { parseActiveRegistrations, parseBannerData } from "../domain/parser";
 import type { CourseSection } from "../domain/types";
 import { getSdk } from "../lib/sdk";
 import { mergeTermOptions } from "../lib/terms";
@@ -12,7 +12,7 @@ import { useRulesStore } from "@/features/rules/store";
 import { useSchedulesStore } from "@/features/schedules/store";
 import { useSelectionStore } from "@/features/selection/store";
 import { useTermStore } from "@/features/term/store";
-import { useUiStore } from "@/features/ui-state/store";
+import { useUiStore, type SlotWarning } from "@/features/ui-state/store";
 
 /** Drop these Banner term flavours from the picker — they can't be planned against. */
 const SKIP_TERMS = ["(View Only)", "(View only)", "Non-Credit", "Apprentice"];
@@ -36,12 +36,18 @@ type SnapshotOutcome =
   | { kind: "loaded"; termCode: string; groups: Map<string, CourseSection[]> }
   | { kind: "term-switched"; newTerm: string }
   | { kind: "no-targets" }
-  | { kind: "no-registrations"; termCode: string };
+  | { kind: "no-registrations"; termCode: string }
+  | { kind: "validate-slot"; termCode: string; codes: string[] };
 
 /**
  * Pull terms + registrations from Banner. The terms picker IS updated
  * here (idempotent + harmless even if the caller bails afterwards);
  * everything else is returned as data for the caller to apply.
+ *
+ * When the requested term has zero active registrations but the user
+ * has a persisted selection slot for it (e.g. a future planning term
+ * like Fall 2026), returns `validate-slot` so the caller can revalidate
+ * those subjectCourse keys against a fresh class-search call.
  */
 async function fetchBannerSnapshot(currentTerm: string): Promise<SnapshotOutcome> {
   const sdk = getSdk();
@@ -57,15 +63,22 @@ async function fetchBannerSnapshot(currentTerm: string): Promise<SnapshotOutcome
   const targetCode = currentIsPlannable ? currentTerm : plannable[0]?.code;
   if (!targetCode) return { kind: "no-targets" };
   if (targetCode !== currentTerm) {
-    // setTerm cascades a wipe across every per-term store and re-fires
-    // the watcher — bail and let the new run pick up the registrations.
+    // setTerm fires the watcher again — bail and let the new run pick up data.
     useTermStore().setTerm(targetCode);
     return { kind: "term-switched", newTerm: targetCode };
   }
 
   const registrations = await sdk.registration.registrations.listActive(targetCode);
   const groups = parseActiveRegistrations(registrations, targetCode);
-  if (groups.size === 0) return { kind: "no-registrations", termCode: targetCode };
+  if (groups.size === 0) {
+    // No live registrations — check whether the user has a planning
+    // slot for this term that we should revalidate against a search.
+    const persistedSelection = useSelectionStore().slots.get(targetCode);
+    if (persistedSelection && persistedSelection.size > 0) {
+      return { kind: "validate-slot", termCode: targetCode, codes: [...persistedSelection] };
+    }
+    return { kind: "no-registrations", termCode: targetCode };
+  }
   return { kind: "loaded", termCode: targetCode, groups };
 }
 
@@ -77,6 +90,58 @@ function applyLoadedSnapshot(groups: Map<string, CourseSection[]>): void {
     return restored.size > 0 ? restored : new Set(groups.keys());
   });
   useCurrentRegStore().initializeFromGroups(groups);
+
+  const swapped = useCurrentRegStore().reconcileOverrides(groups);
+  if (swapped.length > 0) {
+    useUiStore().setSlotWarnings(
+      swapped.map(
+        (s): SlotWarning => ({
+          kind: "section-swapped",
+          subjectCourse: s.subjectCourse,
+          fromIdentifier: s.fromIdentifier,
+        }),
+      ),
+    );
+  }
+}
+
+/**
+ * Revalidate a persisted future-term selection against a fresh
+ * class-search call. Drops any subjectCourse keys Banner no longer
+ * offers and reconciles stale section overrides; warnings surface in
+ * the UI banner so the user knows what changed since they last looked.
+ */
+async function validateAndApplySlot(termCode: string, codes: string[]): Promise<void> {
+  const sdk = getSdk();
+  const result = await sdk.registration.search.byCourses(codes, termCode);
+  const groups = parseBannerData(result.response);
+
+  const warnings: SlotWarning[] = [];
+
+  // Drop courses Banner no longer offers for this term.
+  const validSelection = new Set<string>();
+  for (const code of codes) {
+    if (groups.has(code)) {
+      validSelection.add(code);
+    } else {
+      warnings.push({ kind: "course-dropped", subjectCourse: code });
+    }
+  }
+
+  useCoursesStore().setCourseGroups(groups);
+  useSelectionStore().setSelectedCourses(validSelection);
+
+  // Swap stale section overrides (course exists, that specific section doesn't).
+  const swapped = useCurrentRegStore().reconcileOverrides(groups);
+  for (const s of swapped) {
+    warnings.push({
+      kind: "section-swapped",
+      subjectCourse: s.subjectCourse,
+      fromIdentifier: s.fromIdentifier,
+    });
+  }
+
+  useUiStore().setSlotWarnings(warnings);
 }
 
 /** Translate a thrown error into a user-facing string + auth-required flip. */
@@ -124,6 +189,10 @@ export function useScheduleSync(): void {
 
       if (outcome.kind === "loaded") {
         applyLoadedSnapshot(outcome.groups);
+        return;
+      }
+      if (outcome.kind === "validate-slot") {
+        await validateAndApplySlot(outcome.termCode, outcome.codes);
         return;
       }
       // term-switched: setTerm already fired the watcher again — bail.
@@ -195,6 +264,8 @@ export async function refreshAllData(): Promise<void> {
   try {
     const outcome = await fetchBannerSnapshot(useTermStore().term);
     if (outcome.kind === "loaded") applyLoadedSnapshot(outcome.groups);
+    else if (outcome.kind === "validate-slot")
+      await validateAndApplySlot(outcome.termCode, outcome.codes);
   } catch (err) {
     reportError(err, "Could not refresh your registrations");
   } finally {

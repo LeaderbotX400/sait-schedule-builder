@@ -49,7 +49,7 @@ const rulesStore = useRulesStore();
 const { rules } = storeToRefs(rulesStore);
 
 const uiStore = useUiStore();
-const { registrationsLoading, loadError, authRequired } = storeToRefs(uiStore);
+const { registrationsLoading, loadError, authRequired, slotWarnings } = storeToRefs(uiStore);
 
 const { status: authStatus, reauth } = useAuth();
 const isLoggedIn = computed(() => authStatus.value === "authenticated");
@@ -64,6 +64,34 @@ async function onReauth(): Promise<void> {
 </script>
 
 <template>
+  <div
+    v-if="slotWarnings.length > 0"
+    class="mb-3 rounded-lg bg-tint-warning border border-tint-warning-bd px-3 py-2 text-xs text-tint-warning-fg flex items-start gap-2"
+  >
+    <span class="font-semibold shrink-0">!</span>
+    <div class="flex-1 min-w-0 space-y-0.5">
+      <p class="font-medium">Your saved plan changed since you last opened it.</p>
+      <ul class="list-disc pl-4">
+        <li v-for="(w, i) in slotWarnings" :key="i">
+          <template v-if="w.kind === 'course-dropped'">
+            <span class="font-mono">{{ w.subjectCourse }}</span> is no longer offered this term and was removed.
+          </template>
+          <template v-else>
+            <span class="font-mono">{{ w.subjectCourse }}</span> section <span class="font-mono">{{ w.fromIdentifier }}</span> is gone — fell back to the default section.
+          </template>
+        </li>
+      </ul>
+    </div>
+    <button
+      type="button"
+      class="shrink-0 text-tint-warning-fg/70 hover:text-tint-warning-fg leading-none"
+      aria-label="Dismiss warnings"
+      @click="uiStore.clearSlotWarnings"
+    >
+      &times;
+    </button>
+  </div>
+
   <ScheduleStrip
     :schedules="schedules"
     :active-index="activeScheduleIndex"

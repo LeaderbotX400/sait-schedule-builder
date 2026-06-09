@@ -1,18 +1,20 @@
 import { acceptHMRUpdate, defineStore } from "pinia";
 import { ref } from "vue";
 import { DEFAULT_TERM, TERM_OPTIONS, type TermOption } from "@/lib/terms";
-import { useCoursesStore } from "@/features/courses/store";
-import { useCurrentRegStore } from "@/features/current/store";
 import { persistStore } from "@/lib/persistence";
 import { useSchedulesStore } from "@/features/schedules/store";
-import { useSelectionStore } from "@/features/selection/store";
 import { useUiStore } from "@/features/ui-state/store";
 
 /**
- * Active term + the picker option list. A subjectCourse key has no
- * meaning across terms (sections differ, prereqs differ, the course
- * may not even exist) — so changing the term wipes all per-term state.
- * Only `rules` survives, since those are real cross-term preferences.
+ * Active term + the picker option list. Each per-term store (courses,
+ * selection, current-reg) keeps its own slot keyed by termCode, so
+ * switching the active term swaps which slot is exposed — it does NOT
+ * wipe state. That lets the user plan a future term (e.g. Fall 2026),
+ * leave, come back, and pick up where they left off.
+ *
+ * Schedules ARE wiped on term switch: they're a derived view of the
+ * active slot and would otherwise flash stale data while the sync
+ * watcher refetches.
  */
 export const useTermStore = defineStore("term", () => {
   const term = ref<string>(DEFAULT_TERM);
@@ -22,13 +24,13 @@ export const useTermStore = defineStore("term", () => {
     if (term.value === nextTerm) return;
     term.value = nextTerm;
 
-    // Cascade-wipe every per-term slice. Each store owns its own
-    // "clear" so we don't have to know its internal shape from here.
-    useCoursesStore().clearCourses();
+    // Schedules are a derived view of the active slot — wipe so the
+    // user doesn't see the previous term's schedules during refetch.
     useSchedulesStore().clearSchedules();
-    useSelectionStore().setSelectedCourses(new Set());
-    useCurrentRegStore().clearCurrentReg();
-    useUiStore().setLoadError(null);
+
+    const ui = useUiStore();
+    ui.setLoadError(null);
+    ui.setSlotWarnings([]);
   }
 
   function setTermOptions(options: TermOption[]): void {

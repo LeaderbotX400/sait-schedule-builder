@@ -1,30 +1,47 @@
 import { acceptHMRUpdate, defineStore } from "pinia";
-import { shallowRef } from "vue";
+import { computed, shallowRef } from "vue";
 import type { BannerResponse } from "@/banner-sdk/apps/registration/types";
 import { parseBannerData } from "@/domain/parser";
 import type { CourseSection } from "@/domain/types";
 import { useCurrentRegStore } from "@/features/current/store";
 import { useSchedulesStore } from "@/features/schedules/store";
 import { useSelectionStore } from "@/features/selection/store";
+import { useTermStore } from "@/features/term/store";
 import { useUiStore } from "@/features/ui-state/store";
 
 /**
- * Course catalog for the active term. Indexed by `subjectCourse`
- * (Banner's group key — see [[sait-data-model]]). Mutations are
- * immutable: a new Map is assigned to trigger reactivity, mirroring
- * the Zustand `set((s) => new Map(s.courseGroups))` pattern.
+ * Per-term course catalog. Each term owns its own slot:
+ * `Map<subjectCourse, CourseSection[]>`. The active term's slot is
+ * exposed as `courseGroups`. Slot data is NOT persisted — it's a
+ * cache rebuilt from live Banner data (listActive for the live term,
+ * search.byCourses for future planning terms).
  */
 export const useCoursesStore = defineStore("courses", () => {
-  const courseGroups = shallowRef<Map<string, CourseSection[]>>(new Map());
+  const termStore = useTermStore();
+  const slots = shallowRef<Map<string, Map<string, CourseSection[]>>>(new Map());
+
+  /** Shared empty so reads on a missing slot are reference-stable. */
+  const EMPTY: Map<string, CourseSection[]> = new Map();
+
+  const courseGroups = computed<Map<string, CourseSection[]>>(
+    () => slots.value.get(termStore.term) ?? EMPTY,
+  );
+
+  function writeSlot(termCode: string, next: Map<string, CourseSection[]>): void {
+    const map = new Map(slots.value);
+    map.set(termCode, next);
+    slots.value = map;
+  }
 
   function setCourseGroups(groups: Map<string, CourseSection[]>): void {
-    courseGroups.value = groups;
+    writeSlot(termStore.term, groups);
   }
 
   /**
-   * Merge a Banner search response into the existing catalog; also
-   * adds the new subjectCourse keys to the selection set and resets
-   * the generated-schedules pane. Returns the count of new sections.
+   * Merge a Banner search response into the active term's catalog;
+   * also unions the new subjectCourse keys into the selection slot
+   * and resets the generated-schedules pane. Returns the section
+   * count from the response.
    */
   function loadBannerResponse(response: BannerResponse): number {
     const ui = useUiStore();
@@ -43,7 +60,7 @@ export const useCoursesStore = defineStore("courses", () => {
 
     const merged = new Map(courseGroups.value);
     for (const [name, sections] of newGroups) merged.set(name, sections);
-    courseGroups.value = merged;
+    writeSlot(termStore.term, merged);
 
     const selection = useSelectionStore();
     selection.setSelectedCourses((prev) => {
@@ -59,16 +76,17 @@ export const useCoursesStore = defineStore("courses", () => {
   }
 
   /**
-   * Drop a single course from the catalog plus every dependent slice
-   * (selection, currentReg, sectionOverrides, includedCourses) so the
-   * planner stops considering it. Re-running search adds it back.
+   * Drop a single course from the active-term catalog plus every
+   * dependent slice (selection, currentReg, sectionOverrides). Re-
+   * running search adds it back.
    */
   function removeCourse(subjectCourse: string): void {
-    if (!courseGroups.value.has(subjectCourse)) return;
+    const cur = courseGroups.value;
+    if (!cur.has(subjectCourse)) return;
 
-    const next = new Map(courseGroups.value);
+    const next = new Map(cur);
     next.delete(subjectCourse);
-    courseGroups.value = next;
+    writeSlot(termStore.term, next);
 
     useSelectionStore().setSelectedCourses((prev) => {
       if (!prev.has(subjectCourse)) return prev;
@@ -81,20 +99,27 @@ export const useCoursesStore = defineStore("courses", () => {
     useSchedulesStore().clearSchedules();
   }
 
+  /** Wipe the active term's slot and every dependent slice. */
   function clearCourses(): void {
-    courseGroups.value = new Map();
+    writeSlot(termStore.term, new Map());
     useSelectionStore().setSelectedCourses(new Set());
     useSchedulesStore().clearSchedules();
     useCurrentRegStore().clearCurrentReg();
     useUiStore().setLoadError(null);
   }
 
+  function setSlots(next: Map<string, Map<string, CourseSection[]>>): void {
+    slots.value = next;
+  }
+
   return {
+    slots,
     courseGroups,
     setCourseGroups,
     loadBannerResponse,
     removeCourse,
     clearCourses,
+    setSlots,
   };
 });
 
