@@ -4,6 +4,7 @@
  * to form the two-level schedule browser: strip selects, this pane explains.
  */
 
+import { useCoursesStore } from "@/features/courses/store";
 import { useSavedStore } from "@/features/saved/store";
 import UiButton from "@/ui/Button.vue";
 import { computed, ref } from "vue";
@@ -124,6 +125,7 @@ function remember(): void {
 }
 
 const pinnedStore = usePinnedSectionsStore();
+const coursesStore = useCoursesStore();
 
 function isSectionPinned(course: CourseSection): boolean {
   return pinnedStore.pinnedSections.get(course.subjectCourse) === course.crn;
@@ -135,6 +137,35 @@ function togglePin(course: CourseSection): void {
   } else {
     pinnedStore.pin(course.subjectCourse, course.crn);
   }
+}
+
+/** All sections available for a course this term, sorted by sequence number. */
+function sectionsForCourse(subjectCourse: string): CourseSection[] {
+  const sections = coursesStore.courseGroups.get(subjectCourse) ?? [];
+  return sections.slice().sort((a, b) => a.sequenceNumber.localeCompare(b.sequenceNumber));
+}
+
+/** Pick a section by CRN — pins it so the next regeneration uses it. Picking
+ * the currently-displayed section unpins instead (back to "any section"). */
+function onSelectSection(course: CourseSection, crn: string): void {
+  if (!crn || crn === course.crn) {
+    pinnedStore.unpin(course.subjectCourse);
+    return;
+  }
+  pinnedStore.pin(course.subjectCourse, crn);
+}
+
+/** Short summary of a section for the dropdown option label. */
+function sectionOptionLabel(section: CourseSection): string {
+  const first = section.meetings[0];
+  const time = first ? `${formatTime(first.startTime)}–${formatTime(first.endTime)}` : "";
+  const days = first?.days.join("") ?? "";
+  const instructor = section.instructor ? ` · ${section.instructor}` : "";
+  const seats = section.seatsAvailable > 0 ? "" : " (full)";
+  return [section.identifier, days && time ? `${days} ${time}` : ""]
+    .filter(Boolean)
+    .join(" — ")
+    .concat(instructor, seats);
 }
 
 const qualityTooltip = computed(() => {
@@ -290,6 +321,36 @@ const qualityTooltip = computed(() => {
               {{ m.days.join(", ") }} {{ formatTime(m.startTime) }}-{{ formatTime(m.endTime) }}
               <span class="text-fg-faint ml-1">{{ m.building }} {{ m.room }}</span>
             </div>
+          </div>
+
+          <!-- Section swap dropdown -->
+          <div
+            v-if="sectionsForCourse(course.subjectCourse).length > 1"
+            class="mt-2 flex items-center gap-1.5"
+          >
+            <label
+              :for="`section-swap-${course.subjectCourse}`"
+              class="text-[10px] uppercase tracking-widest text-fg-faint shrink-0"
+            >
+              Swap
+            </label>
+            <select
+              :id="`section-swap-${course.subjectCourse}`"
+              :value="course.crn"
+              class="flex-1 min-w-0 rounded-md bg-input border border-edge px-1.5 py-1 text-xs text-fg focus:outline-none focus:ring-2 focus:ring-ring"
+              :title="isSectionPinned(course)
+                ? `Currently locked to ${course.identifier} — picking another section will lock that one instead`
+                : `Pick another section to lock it (only schedules with that section will show)`"
+              @change="onSelectSection(course, ($event.target as HTMLSelectElement).value)"
+            >
+              <option
+                v-for="s in sectionsForCourse(course.subjectCourse)"
+                :key="s.crn"
+                :value="s.crn"
+              >
+                {{ sectionOptionLabel(s) }}
+              </option>
+            </select>
           </div>
           <!-- Per-course warnings -->
           <div v-if="courseWarnings.get(course.identifier)?.length" class="mt-1.5 space-y-0.5">

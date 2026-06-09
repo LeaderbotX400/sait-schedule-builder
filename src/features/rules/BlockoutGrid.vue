@@ -602,7 +602,7 @@ function togglePin(course: CourseSection): void {
               <div class="flex items-center gap-1 min-w-0">
                 <Icon
                   icon="mdi:lock"
-                  class="text-[11px] shrink-0 text-destructive"
+                  class="w-3 h-3 shrink-0 text-destructive"
                   aria-hidden="true"
                 />
                 <span class="text-xs font-semibold truncate leading-tight text-tint-danger-fg">
@@ -647,10 +647,10 @@ function togglePin(course: CourseSection): void {
                 <div class="flex items-center gap-0.5 min-w-0">
                   <Icon
                     icon="mdi:lock-open-variant"
-                    class="text-[10px] shrink-0 text-success"
+                    class="w-3 h-3 shrink-0 text-success"
                     aria-hidden="true"
                   />
-                  <span class="text-[10px] font-medium leading-tight text-fg-muted italic">
+                  <span class="text-[10px] font-medium leading-tight text-fg-muted italic truncate min-w-0">
                     {{ tile.meeting.course.identifier }}
                   </span>
                 </div>
