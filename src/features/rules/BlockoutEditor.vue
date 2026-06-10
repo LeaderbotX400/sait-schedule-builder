@@ -8,6 +8,19 @@
  * Bind via v-model:blockout and v-model:blockout-weight.
  */
 
+import { createEmptyBlockout } from "@/domain/blockout";
+import { getExpandedMeetings } from "@/domain/scheduler";
+import { formatHour, formatTime } from "@/domain/time";
+import type {
+  BlockoutCell,
+  BlockoutGrid as BlockoutGridType,
+  CourseSection,
+  DayOfWeek,
+  MeetingBlock,
+  Schedule,
+  ScheduleRules,
+} from "@/domain/types";
+import { GRID_HOURS, WEEKDAYS } from "@/domain/types";
 import {
   buildColorMap,
   buildWarnedCourseIds,
@@ -23,19 +36,6 @@ import { Icon } from "@iconify/vue";
 import { onKeyStroke } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
-import { createEmptyBlockout } from "@/domain/blockout";
-import { getExpandedMeetings } from "@/domain/scheduler";
-import { formatHour, formatTime } from "@/domain/time";
-import type {
-  BlockoutCell,
-  BlockoutGrid as BlockoutGridType,
-  CourseSection,
-  DayOfWeek,
-  MeetingBlock,
-  Schedule,
-  ScheduleRules,
-} from "@/domain/types";
-import { GRID_HOURS, WEEKDAYS } from "@/domain/types";
 
 // ── Props & emits ────────────────────────────────────────────────────────────
 
@@ -65,10 +65,10 @@ type Brush = BlockoutCell;
 const brush = ref<Brush>("preferred");
 const isPainting = ref(false);
 
-const BRUSHES: { value: Brush; label: string }[] = [
-  { value: "preferred", label: "Classes here" },
-  { value: "blocked", label: "No classes" },
-  { value: "neutral", label: "Erase" },
+const BRUSHES: { value: Brush; label: string; activeClass: string }[] = [
+  { value: "preferred", label: "Classes here", activeClass: "bg-success text-success-fg" },
+  { value: "blocked", label: "No classes", activeClass: "bg-destructive text-destructive-fg" },
+  { value: "neutral", label: "Erase", activeClass: "bg-fg-faint text-page" },
 ];
 
 /**
@@ -436,12 +436,16 @@ function togglePin(course: CourseSection): void {
           :class="[
             'px-3 py-1.5 transition-colors',
             i > 0 ? 'border-l border-edge-subtle' : '',
+            // brush === mode.value
+            //   ? mode.value === 'preferred'
+            //     ? 'bg-success text-success-fg'
+            //     : mode.value === 'blocked'
+            //       ? 'bg-destructive text-destructive-fg'
+            //       : 'bg-fg-faint text-page'
+            //   : 'bg-input/80 text-fg-muted hover:text-fg hover:bg-surface-hover/60',
+
             brush === mode.value
-              ? mode.value === 'preferred'
-                ? 'bg-success text-success-fg'
-                : mode.value === 'blocked'
-                  ? 'bg-destructive text-destructive-fg'
-                  : 'bg-fg-faint text-page'
+              ? mode.activeClass
               : 'bg-input/80 text-fg-muted hover:text-fg hover:bg-surface-hover/60',
           ]"
           @click="brush = mode.value"
@@ -597,7 +601,11 @@ function togglePin(course: CourseSection): void {
               @click.stop="togglePin(course)"
             >
               <div class="flex items-center gap-1 min-w-0">
-                <Icon icon="mdi:lock" class="w-3 h-3 shrink-0 text-destructive" aria-hidden="true" />
+                <Icon
+                  icon="mdi:lock"
+                  class="w-3 h-3 shrink-0 text-destructive"
+                  aria-hidden="true"
+                />
                 <span class="text-xs font-semibold truncate leading-tight text-tint-danger-fg">
                   {{ course.identifier }}
                 </span>
@@ -653,10 +661,8 @@ function togglePin(course: CourseSection): void {
                 </div>
                 <div
                   v-if="
-                    layout.heightRem(
-                      tile.meeting.meeting.startTime,
-                      tile.meeting.meeting.endTime,
-                    ) > 2.1875 && tile.totalColumns <= 2
+                    layout.heightRem(tile.meeting.meeting.startTime, tile.meeting.meeting.endTime) >
+                      2.1875 && tile.totalColumns <= 2
                   "
                   class="text-[0.5625rem] leading-tight text-fg-faint"
                 >

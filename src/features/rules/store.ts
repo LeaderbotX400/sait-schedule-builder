@@ -1,5 +1,5 @@
 import { acceptHMRUpdate, defineStore } from "pinia";
-import { ref } from "vue";
+import { shallowRef } from "vue";
 import { DEFAULT_RULES } from "@/domain/blockout";
 import type { ScheduleRules } from "@/domain/types";
 
@@ -11,7 +11,10 @@ import type { ScheduleRules } from "@/domain/types";
 export const useRulesStore = defineStore(
   "rules",
   () => {
-    const rules = ref<ScheduleRules>({ ...DEFAULT_RULES });
+    // shallowRef so reads stay raw (no reactive Proxy): rules cross the
+    // schedule-worker boundary via structured clone, which rejects Proxies.
+    // Updates always replace the whole object, never mutate in place.
+    const rules = shallowRef<ScheduleRules>({ ...DEFAULT_RULES });
 
     function setRules(next: ScheduleRules | ((prev: ScheduleRules) => ScheduleRules)): void {
       rules.value = typeof next === "function" ? next(rules.value) : next;

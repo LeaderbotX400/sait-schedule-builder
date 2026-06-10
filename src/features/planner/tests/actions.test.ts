@@ -5,6 +5,7 @@ import { MockTransport } from "@/banner-sdk/transport/mock";
 import type { BannerResponse, BannerSection } from "@/lib/types";
 import { useCatalogStore } from "@/features/catalog/store";
 import { useCurrentRegStore } from "@/features/current/store";
+import { useRulesStore } from "@/features/rules/store";
 import { useSchedulesStore } from "@/features/schedules/store";
 import { useSelectionStore } from "@/features/selection/store";
 import { useTermStore } from "@/features/term/store";
@@ -12,6 +13,7 @@ import { useUiStore } from "@/features/ui-state/store";
 import { _setSdkForTesting } from "@/lib/sdk";
 import {
   addSearchResults,
+  currentGenerateInput,
   loadSavedSchedule,
   removeCourse,
   switchTerm,
@@ -121,6 +123,23 @@ describe("planner actions", () => {
       expect(selection.selectedCourses.has("CPRG306")).toBe(false);
       expect(selection.pinnedSections.has("CPRG306")).toBe(false);
       expect(currentReg.currentRegistrations.has("CPRG306")).toBe(false);
+    });
+  });
+
+  describe("currentGenerateInput", () => {
+    it("returns structured-cloneable data (the worker executor posts it)", () => {
+      const selection = useSelectionStore();
+      const rules = useRulesStore();
+
+      addSearchResults(response(makeBannerSection()));
+      selection.pin("CPRG306", "10000");
+      // Patch through the store so any reactive wrapping would leak into
+      // the new rules object — the worker-boundary regression case.
+      rules.patchRules({ freeDays: ["Fri"], maxOnCampusDays: 4 });
+
+      const input = currentGenerateInput();
+      expect(input.courses.size).toBe(1);
+      expect(() => structuredClone(input)).not.toThrow();
     });
   });
 
