@@ -1,3 +1,4 @@
+import { toRaw } from "vue";
 import { generateSchedules } from "@/domain/scheduler";
 import type { CourseSection, Schedule, ScheduleRules } from "@/domain/types";
 import { createLogger } from "@/lib/logger";
@@ -12,6 +13,26 @@ export interface GenerateInput {
 }
 
 export type ScheduleExecutor = (input: GenerateInput) => Promise<Schedule[]>;
+
+/**
+ * Strip Vue reactive proxies so the input survives structured clone.
+ * Planner inputs are read through Pinia stores, which hand back proxied
+ * Maps/arrays — a Proxy has no [[MapData]]/[[ArrayData]] internal slots,
+ * so Worker postMessage rejects it with "could not be cloned". The
+ * underlying targets are plain data (stores use immutable replacement),
+ * so unwrapping each layer is enough.
+ */
+export function toClonableInput(input: GenerateInput): GenerateInput {
+  const courses = new Map<string, CourseSection[]>();
+  for (const [name, sections] of toRaw(input.courses)) {
+    courses.set(name, toRaw(sections).map((s) => toRaw(s)));
+  }
+  return {
+    courses,
+    rules: toRaw(input.rules),
+    pinnedCrns: new Map(toRaw(input.pinnedCrns)),
+  };
+}
 
 /** Direct call on the current thread — used in tests and as the fallback. */
 export const syncExecutor: ScheduleExecutor = (input) =>
@@ -81,7 +102,7 @@ export function createWorkerExecutor(): ScheduleExecutor {
     const id = ++nextId;
     const reply = await new Promise<WorkerReply>((resolve) => {
       pending.set(id, resolve);
-      w.postMessage({ id, ...input });
+      w.postMessage({ id, ...toClonableInput(input) });
     });
     if (!reply.ok || !reply.schedules) {
       if (broken) return syncExecutor(input);
