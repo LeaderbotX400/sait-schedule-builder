@@ -10,7 +10,7 @@ import { storeToRefs } from "pinia";
 import { BannerAuthRequiredError } from "@/banner-sdk";
 import { getSdk } from "@/lib/sdk";
 import { useTermStore } from "@/features/term/store";
-import { useCoursesStore } from "@/features/courses/store";
+import { addSearchResults, switchTerm } from "@/features/planner/actions";
 import { useUiStore } from "@/features/ui-state/store";
 import Spinner from "@/ui/Spinner.vue";
 import { Icon } from "@iconify/vue";
@@ -117,7 +117,7 @@ async function handleSearch(): Promise<void> {
     results.value = searchResult.perCode;
 
     if (searchResult.response.data.length > 0) {
-      useCoursesStore().loadBannerResponse(searchResult.response);
+      addSearchResults(searchResult.response);
       tags.value = tags.value.filter(
         (t) => !searchResult.perCode.some((r) => r.code === t && r.count > 0),
       );
@@ -201,7 +201,7 @@ function highlightParts(text: string, query: string): { before: string; match: s
 }
 
 function onTermChange(e: Event): void {
-  termStore.setTerm((e.target as HTMLSelectElement).value);
+  void switchTerm((e.target as HTMLSelectElement).value);
   results.value = null;
   suggestions.value = [];
   showSuggestions.value = false;

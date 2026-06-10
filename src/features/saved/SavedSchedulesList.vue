@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import UiButton from "@/ui/Button.vue";
 import { ref } from "vue";
+import { loadSavedSchedule } from "@/features/planner/actions";
 import { useSavedStore } from "./store";
 
 const savedStore = useSavedStore();
@@ -39,7 +40,7 @@ async function load(id: string): Promise<void> {
   if (!entry) return;
   loadingId.value = id;
   try {
-    await savedStore.loadSaved(entry);
+    await loadSavedSchedule(entry);
   } finally {
     loadingId.value = null;
   }

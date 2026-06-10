@@ -9,8 +9,9 @@ import LockedSectionsBanner from "@/features/schedules/LockedSectionsBanner.vue"
 import ScheduleDetail from "@/features/schedules/ScheduleDetail.vue";
 import ScheduleStrip from "@/features/schedules/ScheduleStrip.vue";
 import SavedSchedulesList from "@/features/saved/SavedSchedulesList.vue";
-import { useCoursesStore } from "@/features/courses/store";
+import { useCatalogStore } from "@/features/catalog/store";
 import { useCurrentRegStore } from "@/features/current/store";
+import { regenerate, swapSection } from "@/features/planner/actions";
 import { useRulesStore } from "@/features/rules/store";
 import { useSchedulesStore } from "@/features/schedules/store";
 import { useSelectionStore } from "@/features/selection/store";
@@ -31,7 +32,7 @@ import Spinner from "@/ui/Spinner.vue";
 
 type Tab = "current" | "browse";
 
-const coursesStore = useCoursesStore();
+const coursesStore = useCatalogStore();
 const { courseGroups } = storeToRefs(coursesStore);
 
 const selectionStore = useSelectionStore();
@@ -62,6 +63,10 @@ const activeTab = ref<Tab>(currentRegistrations.value.size > 0 ? "current" : "br
 
 async function onReauth(): Promise<void> {
   await reauth();
+}
+
+function onSwapSection(subjectCourse: string, newSectionId: string): void {
+  swapSection(subjectCourse, newSectionId);
 }
 </script>
 
@@ -155,7 +160,7 @@ async function onReauth(): Promise<void> {
         :course-groups="courseGroups"
         :included-courses="includedCourses"
         :section-overrides="sectionOverrides"
-        @swap-section="currentRegStore.swapSection"
+        @swap-section="onSwapSection"
         @toggle-course="currentRegStore.toggleCurrentCourse"
       />
       <template v-else>
@@ -220,7 +225,7 @@ async function onReauth(): Promise<void> {
           variant="primary"
           size="md"
           :disabled="selectedCourses.size === 0"
-          @click="schedulesStore.generate"
+          @click="() => regenerate()"
         >
           Generate Schedules
         </UiButton>

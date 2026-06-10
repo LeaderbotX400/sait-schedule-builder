@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
-import { refreshAllData } from "@/composables/useScheduleSync";
+import { clearTermData, refreshAllData, regenerate, switchTerm } from "@/features/planner/actions";
 import { downloadICal } from "@/domain/ical";
 import ConnectionStatus from "@/features/auth/ConnectionStatus.vue";
 import ThemePicker from "@/features/theme/ThemePicker.vue";
 import { describeTerm } from "@/lib/terms";
-import { useCoursesStore } from "@/features/courses/store";
+import { useCatalogStore } from "@/features/catalog/store";
 import { useSchedulesStore } from "@/features/schedules/store";
 import { useSelectionStore } from "@/features/selection/store";
 import { useTermStore } from "@/features/term/store";
@@ -27,7 +27,7 @@ const termStore = useTermStore();
 const { term, termOptions } = storeToRefs(termStore);
 const termLabel = computed(() => describeTerm(term.value, termOptions.value));
 
-const coursesStore = useCoursesStore();
+const coursesStore = useCatalogStore();
 const { courseGroups } = storeToRefs(coursesStore);
 
 const selectionStore = useSelectionStore();
@@ -51,7 +51,7 @@ const canGenerate = computed(
 
 function onTermChange(event: Event): void {
   const target = event.target as HTMLSelectElement;
-  termStore.setTerm(target.value);
+  void switchTerm(target.value);
 }
 
 function onExport(): void {
@@ -129,7 +129,7 @@ function onExport(): void {
 
         <ConnectionStatus :term-label="termLabel" :loading="registrationsLoading" />
 
-        <UiButton v-if="hasData" @click="coursesStore.clearCourses">
+        <UiButton v-if="hasData" @click="() => clearTermData()">
           Clear
         </UiButton>
 
@@ -146,7 +146,7 @@ function onExport(): void {
           variant="primary"
           size="md"
           :disabled="!canGenerate"
-          @click="schedulesStore.generate"
+          @click="() => regenerate()"
         >
           {{ generating ? "Generating…" : "Generate" }}
         </UiButton>

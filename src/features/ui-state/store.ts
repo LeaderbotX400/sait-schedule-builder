@@ -41,6 +41,12 @@ export const useUiStore = defineStore("ui", () => {
     slotWarnings.value = [];
   }
 
+  /** Reset everything transient — called when the active term changes. */
+  function resetTransient(): void {
+    loadError.value = null;
+    slotWarnings.value = [];
+  }
+
   return {
     loadError,
     registrationsLoading,
@@ -51,6 +57,7 @@ export const useUiStore = defineStore("ui", () => {
     setAuthRequired,
     setSlotWarnings,
     clearSlotWarnings,
+    resetTransient,
   };
 });
 

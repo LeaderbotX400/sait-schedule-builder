@@ -1,4 +1,8 @@
-import { onMounted, onUnmounted } from "vue";
+import { useDocumentVisibility, useIntervalFn } from "@vueuse/core";
+import { storeToRefs } from "pinia";
+import { onMounted, watch } from "vue";
+import { useAsyncTask } from "@/composables/useAsyncTask";
+import { getSdk } from "@/lib/sdk";
 import { getAuthService } from "./service";
 import { useAuthStore } from "./store";
 
@@ -8,38 +12,50 @@ const POLL_INTERVAL_MS = 60 * 1000;
 const AGE_TICK_INTERVAL_MS = 10 * 1000;
 
 /**
- * Mount once at the root component (App.vue). Hydrates auth state and
- * starts the background tickers (live-status poll, age clock, and
- * `visibilitychange` re-check).
+ * Mount once at the root component (App.vue). Hydrates auth state,
+ * starts the background tickers (live-status poll, age clock,
+ * visibility re-check), and resolves the Banner-level studentId via
+ * validateLogin whenever the session becomes live-checked authenticated.
  */
 export function useAuthInit(): void {
-  let pollId: ReturnType<typeof setInterval> | null = null;
-  let tickId: ReturnType<typeof setInterval> | null = null;
+  const auth = useAuthStore();
+  const { status, liveChecked } = storeToRefs(auth);
 
-  const onVisibility = (): void => {
-    if (document.visibilityState === "visible") {
-      void getAuthService().refresh();
-    }
-  };
+  onMounted(() => void getAuthService().init());
 
-  onMounted(() => {
-    const service = getAuthService();
-    void service.init();
+  useIntervalFn(() => void getAuthService().refresh(), POLL_INTERVAL_MS);
+  useIntervalFn(() => auth.bumpTick(), AGE_TICK_INTERVAL_MS);
 
-    pollId = setInterval(() => {
-      void service.refresh();
-    }, POLL_INTERVAL_MS);
-
-    tickId = setInterval(() => {
-      useAuthStore().bumpTick();
-    }, AGE_TICK_INTERVAL_MS);
-
-    document.addEventListener("visibilitychange", onVisibility);
+  const visibility = useDocumentVisibility();
+  watch(visibility, (state) => {
+    if (state === "visible") void getAuthService().refresh();
   });
 
-  onUnmounted(() => {
-    if (pollId != null) clearInterval(pollId);
-    if (tickId != null) clearInterval(tickId);
-    document.removeEventListener("visibilitychange", onVisibility);
-  });
+  const validateTask = useAsyncTask(
+    async (ctx) => {
+      auth.setValidating(true);
+      try {
+        const result = await getSdk().general.identity.validateLogin();
+        if (ctx.isStale()) return null;
+        auth.setStudentId(result.valid ? result.studentId : null);
+        return result;
+      } finally {
+        if (!ctx.isStale()) auth.setValidating(false);
+      }
+    },
+  );
+
+  watch(
+    [status, liveChecked],
+    ([s, checked]) => {
+      if (checked && s === "authenticated") {
+        void validateTask.run();
+      } else {
+        validateTask.cancel();
+        auth.setStudentId(null);
+        auth.setValidating(false);
+      }
+    },
+    { immediate: true },
+  );
 }

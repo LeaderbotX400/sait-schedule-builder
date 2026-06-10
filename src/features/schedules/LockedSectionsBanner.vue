@@ -7,12 +7,12 @@
 
 import { computed } from "vue";
 import { Icon } from "@iconify/vue";
-import { useCoursesStore } from "@/features/courses/store";
-import { usePinnedSectionsStore } from "./pinnedSections";
+import { useCatalogStore } from "@/features/catalog/store";
+import { useSelectionStore } from "@/features/selection/store";
 import UiButton from "@/ui/Button.vue";
 
-const pinnedStore = usePinnedSectionsStore();
-const coursesStore = useCoursesStore();
+const pinnedStore = useSelectionStore();
+const coursesStore = useCatalogStore();
 
 interface PinEntry {
   subjectCourse: string;

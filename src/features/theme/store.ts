@@ -1,11 +1,11 @@
 /**
- * Pinia store for theme selection. Persists the user's choice to
- * localStorage under `sait-sb-theme` and tracks the OS color-scheme
- * preference so `resolved` stays reactive when `choice === "auto"`.
+ * Pinia store for theme selection. Persisted via the shared persistence
+ * plugin (`sait-sb-v2:theme`); tracks the OS color-scheme preference so
+ * `resolved` stays reactive when `choice === "auto"`.
  */
 
-import { computed, ref } from "vue";
 import { acceptHMRUpdate, defineStore } from "pinia";
+import { computed, ref } from "vue";
 
 export type ThemeId =
   | "dark"
@@ -20,64 +20,61 @@ export type ThemeChoice = ThemeId | "auto";
 
 export type ThemeMode = "light" | "dark";
 
-const STORAGE_KEY = "sait-sb-theme";
+const KNOWN_THEMES: readonly ThemeId[] = [
+  "dark",
+  "light",
+  "plum-dark",
+  "plum-light",
+  "mono-dark",
+  "mono-light",
+];
+
+function isThemeChoice(v: unknown): v is ThemeChoice {
+  return v === "auto" || (KNOWN_THEMES as readonly string[]).includes(v as string);
+}
 
 const AUTO_LIGHT: ThemeId = "light";
 const AUTO_DARK: ThemeId = "dark";
 
-function readPersistedChoice(): ThemeChoice {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === "auto" || raw === null) return "auto";
-    // Validate it's a known ThemeId
-    const known: ThemeId[] = [
-      "dark",
-      "light",
-      "plum-dark",
-      "plum-light",
-      "mono-dark",
-      "mono-light",
-    ];
-    return (known as string[]).includes(raw) ? (raw as ThemeId) : "auto";
-  } catch {
-    return "auto";
-  }
-}
+export const useThemeStore = defineStore(
+  "theme",
+  () => {
+    const choice = ref<ThemeChoice>("auto");
 
-export const useThemeStore = defineStore("theme", () => {
-  // Hydrate from localStorage once at store init.
-  const initialChoice = readPersistedChoice();
+    // Tracks OS preference so `resolved` reacts to system changes.
+    const systemPrefersDark = ref(
+      typeof window !== "undefined"
+        ? window.matchMedia("(prefers-color-scheme: dark)").matches
+        : false,
+    );
 
-  const choice = ref<ThemeChoice>(initialChoice);
+    const resolved = computed<ThemeId>(() => {
+      if (choice.value !== "auto") return choice.value;
+      return systemPrefersDark.value ? AUTO_DARK : AUTO_LIGHT;
+    });
 
-  // Tracks OS preference so `resolved` reacts to system changes.
-  const systemPrefersDark = ref(
-    typeof window !== "undefined"
-      ? window.matchMedia("(prefers-color-scheme: dark)").matches
-      : false,
-  );
-
-  const resolved = computed<ThemeId>(() => {
-    if (choice.value !== "auto") return choice.value;
-    return systemPrefersDark.value ? AUTO_DARK : AUTO_LIGHT;
-  });
-
-  function setTheme(next: ThemeChoice): void {
-    choice.value = next;
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // Storage may be unavailable in private browsing.
+    function setTheme(next: ThemeChoice): void {
+      choice.value = next;
     }
-  }
 
-  /** Called by the `useTheme` composable's matchMedia listener. */
-  function setSystemPrefersDark(dark: boolean): void {
-    systemPrefersDark.value = dark;
-  }
+    /** Called by the `useTheme` composable's matchMedia listener. */
+    function setSystemPrefersDark(dark: boolean): void {
+      systemPrefersDark.value = dark;
+    }
 
-  return { choice, resolved, setTheme, setSystemPrefersDark };
-});
+    return { choice, resolved, setTheme, setSystemPrefersDark };
+  },
+  {
+    persist: {
+      key: "theme",
+      version: 1,
+      pick: (store) => store.choice,
+      apply: (store, data) => {
+        if (isThemeChoice(data)) store.setTheme(data);
+      },
+    },
+  },
+);
 
 export function getThemeMode(id: ThemeId): ThemeMode {
   return id === "light" || id.endsWith("-light") ? "light" : "dark";

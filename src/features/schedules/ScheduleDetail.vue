@@ -4,14 +4,14 @@
  * to form the two-level schedule browser: strip selects, this pane explains.
  */
 
-import { useCoursesStore } from "@/features/courses/store";
+import { useCatalogStore } from "@/features/catalog/store";
 import { useSavedStore } from "@/features/saved/store";
 import UiButton from "@/ui/Button.vue";
 import { computed, ref } from "vue";
 import { formatTime } from "../../domain/time";
 import type { CourseSection, Schedule, ScheduleRules, ScheduleWarning } from "../../domain/types";
 import CalendarGrid from "./CalendarGrid.vue";
-import { usePinnedSectionsStore } from "./pinnedSections";
+import { useSelectionStore } from "@/features/selection/store";
 
 import { Icon } from "@iconify/vue";
 
@@ -124,8 +124,8 @@ function remember(): void {
   }, 1500);
 }
 
-const pinnedStore = usePinnedSectionsStore();
-const coursesStore = useCoursesStore();
+const pinnedStore = useSelectionStore();
+const coursesStore = useCatalogStore();
 
 function isSectionPinned(course: CourseSection): boolean {
   return pinnedStore.pinnedSections.get(course.subjectCourse) === course.crn;

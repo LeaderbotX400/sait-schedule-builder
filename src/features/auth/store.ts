@@ -24,6 +24,13 @@ export const useAuthStore = defineStore("auth", () => {
    */
   const liveChecked = ref(false);
   const tick = ref(0);
+  /**
+   * Banner-level identity, resolved by validateLogin once authenticated
+   * (the deeper check behind the cookie-level CHECK_LOGIN). Cleared on
+   * logout/expiry. Folded in from the old identity feature.
+   */
+  const studentId = ref<string | null>(null);
+  const validating = ref(false);
 
   const sessionAgeSeconds = computed(() => {
     if (acquiredAt.value == null) return 0;
@@ -62,12 +69,22 @@ export const useAuthStore = defineStore("auth", () => {
     tick.value++;
   }
 
+  function setStudentId(id: string | null): void {
+    studentId.value = id;
+  }
+
+  function setValidating(value: boolean): void {
+    validating.value = value;
+  }
+
   function reset(): void {
     status.value = "unauthenticated";
     acquiredAt.value = null;
     lastError.value = null;
     busy.value = false;
     liveChecked.value = true;
+    studentId.value = null;
+    validating.value = false;
   }
 
   return {
@@ -77,6 +94,8 @@ export const useAuthStore = defineStore("auth", () => {
     busy,
     liveChecked,
     tick,
+    studentId,
+    validating,
     sessionAgeSeconds,
     isStale,
     setStatus,
@@ -84,6 +103,8 @@ export const useAuthStore = defineStore("auth", () => {
     setError,
     markLiveChecked,
     bumpTick,
+    setStudentId,
+    setValidating,
     reset,
   };
 });

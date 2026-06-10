@@ -2,7 +2,8 @@
 import { storeToRefs } from "pinia";
 import CourseSearch from "@/features/search/CourseSearch.vue";
 import CourseSelector from "@/features/selection/CourseSelector.vue";
-import { useCoursesStore } from "@/features/courses/store";
+import { useCatalogStore } from "@/features/catalog/store";
+import { removeCourse } from "@/features/planner/actions";
 import { useSelectionStore } from "@/features/selection/store";
 
 /**
@@ -12,7 +13,7 @@ import { useSelectionStore } from "@/features/selection/store";
  */
 defineProps<{ open: boolean }>();
 
-const coursesStore = useCoursesStore();
+const coursesStore = useCatalogStore();
 const { courseGroups } = storeToRefs(coursesStore);
 
 const selectionStore = useSelectionStore();
@@ -37,7 +38,7 @@ const { selectedCourses } = storeToRefs(selectionStore);
             :course-groups="courseGroups"
             :selected-courses="selectedCourses"
             @toggle="selectionStore.toggleCourse"
-            @remove="coursesStore.removeCourse"
+            @remove="removeCourse"
           />
         </div>
       </div>

@@ -13,7 +13,7 @@ import {
   COURSE_COLORS,
   HOUR_HEIGHT,
 } from "@/features/schedules/calendarColors";
-import { usePinnedSectionsStore } from "@/features/schedules/pinnedSections";
+import { useSelectionStore } from "@/features/selection/store";
 import { getThemeMode, useThemeStore } from "@/features/theme/store";
 import Popover from "@/ui/Popover.vue";
 import { Icon } from "@iconify/vue";
@@ -410,7 +410,7 @@ void ALL_DAYS;
 
 // ── Pinned sections ──────────────────────────────────────────────────────────
 
-const pinnedStore = usePinnedSectionsStore();
+const pinnedStore = useSelectionStore();
 
 function isSectionPinned(course: CourseSection): boolean {
   return pinnedStore.pinnedSections.get(course.subjectCourse) === course.crn;

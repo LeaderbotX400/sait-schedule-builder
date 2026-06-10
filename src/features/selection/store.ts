@@ -1,104 +1,132 @@
 import { acceptHMRUpdate, defineStore } from "pinia";
-import { computed, shallowRef } from "vue";
-import { persistStore } from "@/lib/persistence";
+import { computed } from "vue";
 import { useTermStore } from "@/features/term/store";
+import { createTermSlots } from "@/lib/termSlots";
+import { codecs, type PersistCodec } from "@/plugins/persistence";
 
 /**
- * Per-term selection of `subjectCourse` keys. Each term owns its own
- * slot, so the user can plan a future term (e.g. Fall 2026), switch
- * back to the live registration term, and return without losing the
- * picks. The active slot is exposed as `selectedCourses`; mutations
- * target the active slot.
+ * Per-term planner input: which courses are selected, and which
+ * sections are pinned. Each term owns its own slot, so the user can
+ * plan a future term, switch back, and return without losing picks.
+ *
+ * A pin locks a specific CRN for a subjectCourse so the scheduler only
+ * generates schedules containing that exact section.
  */
-export const useSelectionStore = defineStore("selection", () => {
-  const termStore = useTermStore();
-  const slots = shallowRef<Map<string, Set<string>>>(new Map());
+export interface SelectionSlot {
+  courses: Set<string>;
+  pinned: Map<string, string>;
+}
 
-  /** Stable empty value so `computed` returns reference-equal Sets between reads on missing slots. */
-  const EMPTY: Set<string> = new Set();
+const slotCodec: PersistCodec<SelectionSlot, { courses: string[]; pinned: Record<string, string> }> = {
+  serialize: (slot) => ({
+    courses: [...slot.courses],
+    pinned: Object.fromEntries(slot.pinned),
+  }),
+  deserialize: (raw) => {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+    const obj = raw as { courses?: unknown; pinned?: unknown };
+    const courses = codecs.stringSet().deserialize(obj.courses ?? []) ?? new Set<string>();
+    const pinned = codecs.stringMap().deserialize(obj.pinned ?? {}) ?? new Map<string, string>();
+    return { courses, pinned };
+  },
+};
 
-  const selectedCourses = computed<Set<string>>(
-    () => slots.value.get(termStore.term) ?? EMPTY,
-  );
-
-  function writeSlot(termCode: string, next: Set<string>): void {
-    const map = new Map(slots.value);
-    map.set(termCode, next);
-    slots.value = map;
-  }
-
-  function setSelectedCourses(
-    next: Set<string> | ((prev: Set<string>) => Set<string>),
-  ): void {
-    const prev = slots.value.get(termStore.term) ?? EMPTY;
-    const resolved = typeof next === "function" ? next(prev) : next;
-    writeSlot(termStore.term, resolved);
-  }
-
-  function toggleCourse(subjectCourse: string): void {
-    const prev = slots.value.get(termStore.term) ?? EMPTY;
-    const nextSet = new Set(prev);
-    if (nextSet.has(subjectCourse)) nextSet.delete(subjectCourse);
-    else nextSet.add(subjectCourse);
-    writeSlot(termStore.term, nextSet);
-  }
-
-  function setSlots(next: Map<string, Set<string>>): void {
-    slots.value = next;
-  }
-
-  return {
-    slots,
-    selectedCourses,
-    setSelectedCourses,
-    toggleCourse,
-    setSlots,
-  };
+const slotsCodec = codecs.termSlots(slotCodec, {
+  skipEmpty: (slot) => slot.courses.size === 0 && slot.pinned.size === 0,
 });
 
-const NEW_KEY = "sait-sb-v1:selectionSlots";
-const LEGACY_KEY = "sait-sb-v1:selectedCourses";
+export const useSelectionStore = defineStore(
+  "selection",
+  () => {
+    const termStore = useTermStore();
+    const s = createTermSlots<SelectionSlot>({
+      term: () => termStore.term,
+      empty: () => ({ courses: new Set(), pinned: new Map() }),
+    });
 
-export function persistSelectionStore(): void {
-  // One-shot migration: if pre-slot key exists and new key doesn't,
-  // attribute the legacy selection to the currently-active term.
-  // termStore is persisted+hydrated before this runs (see main.ts).
-  if (typeof localStorage !== "undefined" && localStorage.getItem(NEW_KEY) === null) {
-    const legacy = localStorage.getItem(LEGACY_KEY);
-    if (legacy) {
-      try {
-        const arr = JSON.parse(legacy);
-        if (Array.isArray(arr) && arr.length > 0) {
-          const activeTerm = useTermStore().term;
-          localStorage.setItem(NEW_KEY, JSON.stringify({ [activeTerm]: arr }));
-        }
-      } catch {
-        /* corrupt legacy — ignore */
-      }
+    const selectedCourses = computed<Set<string>>(() => s.active.value.courses);
+    const pinnedSections = computed<Map<string, string>>(() => s.active.value.pinned);
+
+    function setSelectedCourses(
+      next: Set<string> | ((prev: Set<string>) => Set<string>),
+    ): void {
+      s.update((prev) => ({
+        ...prev,
+        courses: typeof next === "function" ? next(prev.courses) : next,
+      }));
     }
-  }
 
-  const store = useSelectionStore();
-  persistStore({
-    store,
-    key: NEW_KEY,
-    pickState: () => {
-      const out: Record<string, string[]> = {};
-      for (const [termCode, set] of store.slots) {
-        if (set.size > 0) out[termCode] = [...set];
-      }
-      return out;
+    function toggleCourse(subjectCourse: string): void {
+      setSelectedCourses((prev) => {
+        const next = new Set(prev);
+        if (next.has(subjectCourse)) next.delete(subjectCourse);
+        else next.add(subjectCourse);
+        return next;
+      });
+    }
+
+    /** Drop a course from both the selection and its pin, if present. */
+    function forgetCourse(subjectCourse: string): void {
+      s.update((prev) => {
+        if (!prev.courses.has(subjectCourse) && !prev.pinned.has(subjectCourse)) return prev;
+        const courses = new Set(prev.courses);
+        courses.delete(subjectCourse);
+        const pinned = new Map(prev.pinned);
+        pinned.delete(subjectCourse);
+        return { courses, pinned };
+      });
+    }
+
+    function pin(subjectCourse: string, crn: string): void {
+      s.update((prev) => {
+        const pinned = new Map(prev.pinned);
+        pinned.set(subjectCourse, crn);
+        return { ...prev, pinned };
+      });
+    }
+
+    function unpin(subjectCourse: string): void {
+      s.update((prev) => {
+        if (!prev.pinned.has(subjectCourse)) return prev;
+        const pinned = new Map(prev.pinned);
+        pinned.delete(subjectCourse);
+        return { ...prev, pinned };
+      });
+    }
+
+    function clearPins(): void {
+      s.update((prev) => (prev.pinned.size === 0 ? prev : { ...prev, pinned: new Map() }));
+    }
+
+    function setAll(next: Map<string, SelectionSlot>): void {
+      s.setAll(next);
+    }
+
+    return {
+      slots: s.slots,
+      selectedCourses,
+      pinnedSections,
+      setSelectedCourses,
+      toggleCourse,
+      forgetCourse,
+      pin,
+      unpin,
+      clearPins,
+      setAll,
+    };
+  },
+  {
+    persist: {
+      key: "selection",
+      version: 1,
+      pick: (store) => slotsCodec.serialize(store.slots as Map<string, SelectionSlot>),
+      apply: (store, data) => {
+        const slots = slotsCodec.deserialize(data);
+        if (slots) store.setAll(slots);
+      },
     },
-    hydrate: (data) => {
-      if (!data || typeof data !== "object" || Array.isArray(data)) return;
-      const map = new Map<string, Set<string>>();
-      for (const [termCode, arr] of Object.entries(data as Record<string, unknown>)) {
-        if (Array.isArray(arr)) map.set(termCode, new Set(arr.filter((v) => typeof v === "string")));
-      }
-      store.setSlots(map);
-    },
-  });
-}
+  },
+);
 
 if (import.meta.hot) {
   import.meta.hot.accept(acceptHMRUpdate(useSelectionStore, import.meta.hot));

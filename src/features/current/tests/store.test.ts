@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { CourseSection } from "@/domain/types";
-import { useCoursesStore } from "@/features/courses/store";
+import { useCatalogStore } from "@/features/catalog/store";
 import { useCurrentRegStore } from "../store";
 
 function makeSection(id: string, day: "Mon" | "Tue", start = 900, end = 1000): CourseSection {
@@ -51,7 +51,7 @@ describe("useCurrentRegStore", () => {
   });
 
   it("swapSection records the override and reports conflicts", () => {
-    const courses = useCoursesStore();
+    const courses = useCatalogStore();
     const store = useCurrentRegStore();
 
     const a1 = makeSection("CPRG306-A", "Mon", 900, 1000);
@@ -65,7 +65,7 @@ describe("useCurrentRegStore", () => {
     );
     store.initializeFromGroups(courses.courseGroups);
 
-    const result = store.swapSection("CPRG306", "CPRG306-B");
+    const result = store.swapSection("CPRG306", "CPRG306-B", courses.courseGroups);
 
     expect(result.success).toBe(true);
     expect(result.conflicts.map((s) => s.identifier)).toContain("MATH240-A");
