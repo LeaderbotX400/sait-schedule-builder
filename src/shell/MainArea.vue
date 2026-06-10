@@ -3,7 +3,7 @@ import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { useAuth } from "@/features/auth/useAuth";
 import CurrentScheduleEditor from "@/features/current/CurrentScheduleEditor.vue";
-import BlockoutGrid from "@/features/rules/BlockoutGrid.vue";
+import BlockoutEditor from "@/features/rules/BlockoutEditor.vue";
 import RulesPanel from "@/features/rules/RulesPanel.vue";
 import LockedSectionsBanner from "@/features/schedules/LockedSectionsBanner.vue";
 import ScheduleDetail from "@/features/schedules/ScheduleDetail.vue";
@@ -24,7 +24,7 @@ import Spinner from "@/ui/Spinner.vue";
  * Main content area for the authenticated app. Hosts:
  *   - the schedule strip (when generated schedules exist)
  *   - the planner/current tabs (only when current registrations exist)
- *   - the RulesPanel sidebar + BlockoutGrid + ScheduleDetail
+ *   - the RulesPanel sidebar + BlockoutEditor + ScheduleDetail
  *
  * The "current schedule" editor will land in a follow-up; today the
  * Current tab shows a placeholder.
@@ -164,7 +164,7 @@ function onSwapSection(subjectCourse: string, newSectionId: string): void {
         @toggle-course="currentRegStore.toggleCurrentCourse"
       />
       <template v-else>
-      <BlockoutGrid
+      <BlockoutEditor
         :blockout="rules.blockout"
         :blockout-weight="rules.blockoutWeight"
         :rules="rules"

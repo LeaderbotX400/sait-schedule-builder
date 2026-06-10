@@ -1,8 +1,10 @@
 <script setup lang="ts">
 /**
  * Paintable week-grid for setting blockout preferences (preferred / blocked /
- * neutral cells). Overlay the active schedule's meetings for context and
- * show ghost blocks for alternative sections not in the current schedule.
+ * neutral cells). Overlays the active schedule's meetings for context and
+ * shows ghost blocks for alternative sections not in the current schedule.
+ * Layout chrome and positioning come from the shared WeekGrid; this file
+ * owns painting, ghost tiling, and pin toggles.
  * Bind via v-model:blockout and v-model:blockout-weight.
  */
 
@@ -11,17 +13,18 @@ import {
   buildWarnedCourseIds,
   buildWarningKeys,
   COURSE_COLORS,
-  HOUR_HEIGHT,
 } from "@/features/schedules/calendarColors";
 import { useSelectionStore } from "@/features/selection/store";
 import { getThemeMode, useThemeStore } from "@/features/theme/store";
 import Popover from "@/ui/Popover.vue";
+import WeekGrid from "@/ui/week-grid/WeekGrid.vue";
+import { useWeekGridLayout, type WeekGridEvent } from "@/ui/week-grid/useWeekGridLayout";
 import { Icon } from "@iconify/vue";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
-import { createEmptyBlockout } from "../../domain/blockout";
-import { getExpandedMeetings } from "../../domain/scheduler";
-import { formatHour, formatTime, timeToMinutes } from "../../domain/time";
+import { createEmptyBlockout } from "@/domain/blockout";
+import { getExpandedMeetings } from "@/domain/scheduler";
+import { formatHour, formatTime } from "@/domain/time";
 import type {
   BlockoutCell,
   BlockoutGrid as BlockoutGridType,
@@ -30,8 +33,8 @@ import type {
   MeetingBlock,
   Schedule,
   ScheduleRules,
-} from "../../domain/types";
-import { ALL_DAYS, GRID_HOURS, WEEKDAYS } from "../../domain/types";
+} from "@/domain/types";
+import { GRID_HOURS, WEEKDAYS } from "@/domain/types";
 
 // ── Props & emits ────────────────────────────────────────────────────────────
 
@@ -51,22 +54,9 @@ const emit = defineEmits<{
 
 // ── Horizontal zoom (widens day columns so narrow tiles become readable) ────
 
-const ZOOM_OPTIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const ZOOM_MIN = 1;
 const ZOOM_MAX = 10;
 const zoom = ref<number>(1);
-
-function zoomOut(): void {
-  const idx = ZOOM_OPTIONS.indexOf(zoom.value);
-  const next = idx > 0 ? ZOOM_OPTIONS[idx - 1] : ZOOM_MIN;
-  if (next !== undefined) zoom.value = next;
-}
-
-function zoomIn(): void {
-  const idx = ZOOM_OPTIONS.indexOf(zoom.value);
-  const next = idx >= 0 && idx < ZOOM_OPTIONS.length - 1 ? ZOOM_OPTIONS[idx + 1] : ZOOM_MAX;
-  if (next !== undefined) zoom.value = next;
-}
 
 // ── Paint mode (used in the toolbar) ────────────────────────────────────────
 
@@ -130,40 +120,25 @@ const ghosts = computed<ExpandedMeeting[]>(() => {
   return out;
 });
 
-// ── Hours range (expand to cover all meetings) ───────────────────────────────
+// ── Shared layout: paintable base range, expanded to cover all meetings ─────
 
-const hours = computed<number[]>(() => {
-  let minHour = GRID_HOURS[0] ?? 7;
-  let maxHour = (GRID_HOURS[GRID_HOURS.length - 1] ?? 21) + 1;
+const layoutEvents = computed<WeekGridEvent<ExpandedMeeting>[]>(() =>
+  [...expanded.value, ...ghosts.value].map((entry, i) => ({
+    id: `${entry.course.crn}-${entry.day}-${entry.meeting.startTime}-${i}`,
+    day: entry.day,
+    startTime: entry.meeting.startTime,
+    endTime: entry.meeting.endTime,
+    meta: entry,
+  })),
+);
 
-  function consider(m: MeetingBlock): void {
-    const sh = Math.floor(m.startTime / 100);
-    const eh = Math.ceil(m.endTime / 100);
-    if (sh < minHour) minHour = sh;
-    if (eh > maxHour) maxHour = eh;
-  }
-
-  for (const { meeting } of expanded.value) consider(meeting);
-  for (const { meeting } of ghosts.value) consider(meeting);
-
-  return Array.from({ length: maxHour - minHour }, (_, i) => minHour + i);
-});
-
-const gridStartMinutes = computed(() => (hours.value[0] ?? 7) * 60);
-const totalHeight = computed(() => hours.value.length * HOUR_HEIGHT);
-
-// ── Display days (add Sat/Sun only when meetings fall on them) ───────────────
-
-const displayDays = computed<DayOfWeek[]>(() => {
-  const hasSat =
-    expanded.value.some((e) => e.day === "Sat") || ghosts.value.some((g) => g.day === "Sat");
-  const hasSun =
-    expanded.value.some((e) => e.day === "Sun") || ghosts.value.some((g) => g.day === "Sun");
-  return [
-    ...WEEKDAYS,
-    ...(hasSat ? (["Sat"] as DayOfWeek[]) : []),
-    ...(hasSun ? (["Sun"] as DayOfWeek[]) : []),
-  ];
+const layout = useWeekGridLayout<ExpandedMeeting>({
+  events: layoutEvents,
+  baseHours: {
+    startHour: GRID_HOURS[0] ?? 7,
+    endHour: (GRID_HOURS[GRID_HOURS.length - 1] ?? 21) + 1,
+  },
+  weekendMode: "auto",
 });
 
 // ── Color map for schedule meetings ─────────────────────────────────────────
@@ -178,12 +153,30 @@ const colorMap = computed(() => buildColorMap(courseIds.value));
 const warningKeys = computed(() => buildWarningKeys(props.schedule?.warnings ?? []));
 const warnedCourseIds = computed(() => buildWarnedCourseIds(props.schedule?.warnings ?? []));
 
+function eventBlockClass(course: CourseSection, day: DayOfWeek, meeting: MeetingBlock): string {
+  const colorSlot = colorMap.value.get(course.identifier) ?? COURSE_COLORS[0];
+  if (!colorSlot) return "";
+  const mode = getThemeMode(resolvedTheme.value);
+  const color = mode === "light" ? colorSlot.light : colorSlot.dark;
+  const isWarned =
+    warningKeys.value.has(`${course.identifier}|${day}|${meeting.startTime}`) ||
+    warnedCourseIds.value.has(course.identifier);
+  return `${isWarned ? color.bgWarn : color.bg} ${isWarned ? color.borderWarn : color.border} ${color.text}`;
+}
+
+function isEventWarned(course: CourseSection, day: DayOfWeek, meeting: MeetingBlock): boolean {
+  return (
+    warningKeys.value.has(`${course.identifier}|${day}|${meeting.startTime}`) ||
+    warnedCourseIds.value.has(course.identifier)
+  );
+}
+
 // ── Per-day event/ghost maps ─────────────────────────────────────────────────
 
 const dayEvents = computed(() => {
   const m = new Map<DayOfWeek, ExpandedMeeting[]>();
   for (const entry of expanded.value) {
-    if (!displayDays.value.includes(entry.day)) continue;
+    if (!layout.days.value.includes(entry.day)) continue;
     const existing = m.get(entry.day) ?? [];
     existing.push(entry);
     m.set(entry.day, existing);
@@ -194,7 +187,7 @@ const dayEvents = computed(() => {
 const dayGhosts = computed(() => {
   const m = new Map<DayOfWeek, ExpandedMeeting[]>();
   for (const entry of ghosts.value) {
-    if (!displayDays.value.includes(entry.day)) continue;
+    if (!layout.days.value.includes(entry.day)) continue;
     const existing = m.get(entry.day) ?? [];
     existing.push(entry);
     m.set(entry.day, existing);
@@ -210,7 +203,7 @@ const dayGhosts = computed(() => {
  */
 const dayLockedGhosts = computed(() => {
   const m = new Map<DayOfWeek, ExpandedMeeting[]>();
-  for (const day of displayDays.value) {
+  for (const day of layout.days.value) {
     m.set(
       day,
       (dayGhosts.value.get(day) ?? []).filter((e) => isSectionPinned(e.course)),
@@ -251,7 +244,7 @@ type GhostTile = SingleTile | OverflowTile;
  */
 const dayGhostTiles = computed(() => {
   const result = new Map<DayOfWeek, GhostTile[]>();
-  for (const day of displayDays.value) {
+  for (const day of layout.days.value) {
     const meetings = (dayGhosts.value.get(day) ?? [])
       .filter((e) => !isSectionPinned(e.course))
       .slice()
@@ -312,15 +305,6 @@ const dayGhostTiles = computed(() => {
   return result;
 });
 
-/** Position helpers for an interval [startTime, endTime] (HHMM). */
-function rangeTop(startTime: number): number {
-  return ((timeToMinutes(startTime) - gridStartMinutes.value) / 60) * HOUR_HEIGHT;
-}
-
-function rangeHeight(startTime: number, endTime: number): number {
-  return ((timeToMinutes(endTime) - timeToMinutes(startTime)) / 60) * HOUR_HEIGHT;
-}
-
 function tileLeftPct(tile: GhostTile): string {
   return `${(tile.column / tile.totalColumns) * 100}%`;
 }
@@ -332,8 +316,8 @@ function tileWidthPct(tile: GhostTile): string {
 /** Anchor popover to the right edge for late-week columns so it grows leftward
  * and doesn't clip against the viewport. */
 function popoverAlignForDay(day: DayOfWeek): "left" | "right" {
-  const idx = displayDays.value.indexOf(day);
-  const half = Math.floor(displayDays.value.length / 2);
+  const idx = layout.days.value.indexOf(day);
+  const half = Math.floor(layout.days.value.length / 2);
   return idx > half ? "right" : "left";
 }
 
@@ -373,10 +357,10 @@ function cellClass(day: DayOfWeek, hour: number): string {
   return "";
 }
 
-function cellStyle(day: DayOfWeek, hour: number, rowIndex: number): Record<string, string> {
+function cellStyle(day: DayOfWeek, hour: number, topRem: number): Record<string, string> {
   const base: Record<string, string> = {
-    top: `${rowIndex * HOUR_HEIGHT}rem`,
-    height: `${HOUR_HEIGHT}rem`,
+    top: `${topRem}rem`,
+    height: `${layout.hourHeightRem}rem`,
     zIndex: "0",
     cursor: isHardBlocked(day, hour) ? "not-allowed" : "crosshair",
   };
@@ -393,20 +377,13 @@ function fitBadgeClass(score: number): string {
   return "bg-tint-danger text-tint-danger-fg border border-tint-danger-bd";
 }
 
-// ── Meeting block position helpers ───────────────────────────────────────────
-
-function meetingTop(meeting: MeetingBlock): number {
-  return ((timeToMinutes(meeting.startTime) - gridStartMinutes.value) / 60) * HOUR_HEIGHT;
+function dayHeaderClass(day: DayOfWeek): string {
+  const dimmed = hardBlockedDays.value.has(day) || !WEEKDAYS.includes(day);
+  return [
+    "sticky top-0 bg-surface/10 z-50 backdrop-blur-md !border-edge-subtle",
+    dimmed ? "opacity-40" : "",
+  ].join(" ");
 }
-
-function meetingHeight(meeting: MeetingBlock): number {
-  const startMin = timeToMinutes(meeting.startTime);
-  const endMin = timeToMinutes(meeting.endTime);
-  return ((endMin - startMin) / 60) * HOUR_HEIGHT;
-}
-
-// ── Suppress unused import warning — ALL_DAYS imported for potential callers ──
-void ALL_DAYS;
 
 // ── Pinned sections ──────────────────────────────────────────────────────────
 
@@ -476,7 +453,7 @@ function togglePin(course: CourseSection): void {
           :disabled="zoom <= ZOOM_MIN"
           aria-label="Zoom out"
           title="Zoom out"
-          @click="zoomOut"
+          @click="zoom = Math.max(ZOOM_MIN, zoom - 1)"
         >
           <Icon icon="mdi:magnify-minus-outline" aria-hidden="true" />
         </button>
@@ -492,7 +469,7 @@ function togglePin(course: CourseSection): void {
           :disabled="zoom >= ZOOM_MAX"
           aria-label="Zoom in"
           title="Zoom in"
-          @click="zoomIn"
+          @click="zoom = Math.min(ZOOM_MAX, zoom + 1)"
         >
           <Icon icon="mdi:magnify-plus-outline" aria-hidden="true" />
         </button>
@@ -534,68 +511,38 @@ function togglePin(course: CourseSection): void {
 
     <!-- Grid -->
     <div class="overflow-x-auto overflow-y-auto max-h-[calc(100vh-18.75rem)]">
-      <div
-        class="flex select-none"
-        :style="{ minWidth: `${35 * zoom}rem` }"
-        @mouseup="handleMouseUp"
-        @mouseleave="handleMouseUp"
-      >
-        <!-- Time labels column -->
-        <div class="min-w-14 shrink-0">
-          <div class="min-h-8" />
-          <div class="relative" :style="{ height: `${totalHeight}rem` }">
-            <div
-              v-for="(h, i) in hours"
-              :key="h"
-              class="absolute right-2 text-[0.625rem] text-fg-faint leading-none"
-              :style="{ top: `${i * HOUR_HEIGHT - 0.375}rem` }"
-            >
-              {{ formatHour(h) }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Day columns -->
-        <div v-for="day in displayDays" :key="day" class="flex-1 min-w-20">
-          <!-- Day header -->
-          <div
-            :class="[
-              'min-h-8 flex flex-col items-center justify-center border-b border-edge-subtle sticky top-0 bg-surface/10 z-50 backdrop-blur-md',
-              hardBlockedDays.has(day) || !WEEKDAYS.includes(day) ? 'opacity-40' : '',
-            ]"
-          >
+      <div class="select-none" @mouseup="handleMouseUp" @mouseleave="handleMouseUp">
+        <WeekGrid
+          :layout="layout"
+          :min-day-width-rem="5 * zoom"
+          :hour-label="formatHour"
+          :header-class="dayHeaderClass"
+        >
+          <template #day-header="{ day }">
             <span class="text-xs font-medium text-fg-muted">{{ day }}</span>
             <span v-if="hardBlockedDays.has(day)" class="text-2 text-destructive leading-none">
               day off
             </span>
-          </div>
+          </template>
 
-          <!-- Cell column -->
-          <div
-            class="relative border-l border-edge-subtle"
-            :style="{ height: `${totalHeight}rem` }"
-          >
-            <!-- Blockout cells -->
+          <!-- Paintable blockout cells -->
+          <template #cell="{ day, hour, topRem }">
             <div
-              v-for="(h, i) in hours"
-              :key="`cell-${h}`"
-              :class="['absolute w-full border-b border-edge-subtle', cellClass(day, h)]"
-              :style="cellStyle(day, h, i)"
-              @mousedown="handleMouseDown(day, h)"
-              @mouseenter="handleMouseEnter(day, h)"
+              :class="['absolute w-full', cellClass(day, hour)]"
+              :style="cellStyle(day, hour, topRem)"
+              @mousedown="handleMouseDown(day, hour)"
+              @mouseenter="handleMouseEnter(day, hour)"
             />
+          </template>
 
+          <template #day="{ day }">
             <!-- Locked ghosts — render at full meeting time, always visible -->
             <button
               v-for="({ course, meeting }, idx) in dayLockedGhosts.get(day) ?? []"
               :key="`locked-${course.crn}-${day}-${meeting.startTime}-${idx}`"
               type="button"
               class="absolute left-0.5 right-0.5 rounded-r-md overflow-hidden flex flex-col justify-center px-1.5 cursor-pointer transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-tint-danger/60 border-l-[0.1875rem] border-l-destructive border border-tint-danger-bd hover:bg-tint-danger/80"
-              :style="{
-                top: `${meetingTop(meeting)}rem`,
-                height: `${meetingHeight(meeting)}rem`,
-                zIndex: 2,
-              }"
+              :style="{ ...layout.blockStyle(meeting), zIndex: 2 }"
               :title="`Locked: ${course.identifier} - ${course.title}\n${course.instructor}\n${meeting.building} ${meeting.room}\n${formatTime(meeting.startTime)} - ${formatTime(meeting.endTime)}\nClick to unlock`"
               :aria-label="`Unlock ${course.identifier}`"
               :aria-pressed="true"
@@ -603,23 +550,19 @@ function togglePin(course: CourseSection): void {
               @click.stop="togglePin(course)"
             >
               <div class="flex items-center gap-1 min-w-0">
-                <Icon
-                  icon="mdi:lock"
-                  class="w-3 h-3 shrink-0 text-destructive"
-                  aria-hidden="true"
-                />
+                <Icon icon="mdi:lock" class="w-3 h-3 shrink-0 text-destructive" aria-hidden="true" />
                 <span class="text-xs font-semibold truncate leading-tight text-tint-danger-fg">
                   {{ course.identifier }}
                 </span>
               </div>
               <div
-                v-if="meetingHeight(meeting) > 2.1875"
+                v-if="layout.heightRem(meeting.startTime, meeting.endTime) > 2.1875"
                 class="text-[0.625rem] text-tint-danger-fg/80 truncate leading-tight"
               >
                 {{ meeting.building }} {{ meeting.room }}
               </div>
               <div
-                v-if="meetingHeight(meeting) > 3.125"
+                v-if="layout.heightRem(meeting.startTime, meeting.endTime) > 3.125"
                 class="text-[0.625rem] text-tint-danger-fg/70 truncate leading-tight"
               >
                 {{ formatTime(meeting.startTime) }}&ndash;{{ formatTime(meeting.endTime) }}
@@ -635,8 +578,7 @@ function togglePin(course: CourseSection): void {
                 type="button"
                 class="absolute rounded-r-md overflow-hidden flex flex-col justify-center px-1 cursor-pointer transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-surface-hover/25 border border-dashed border-edge-hover/50 hover:bg-tint-success/30 hover:border-tint-success-bd"
                 :style="{
-                  top: `${rangeTop(tile.meeting.meeting.startTime)}rem`,
-                  height: `${rangeHeight(tile.meeting.meeting.startTime, tile.meeting.meeting.endTime)}rem`,
+                  ...layout.blockStyle(tile.meeting.meeting),
                   left: `calc(${tileLeftPct(tile)} + 0.125rem)`,
                   width: `calc(${tileWidthPct(tile)} - 0.25rem)`,
                   zIndex: 1,
@@ -661,8 +603,10 @@ function togglePin(course: CourseSection): void {
                 </div>
                 <div
                   v-if="
-                    rangeHeight(tile.meeting.meeting.startTime, tile.meeting.meeting.endTime) >
-                      2.1875 && tile.totalColumns <= 2
+                    layout.heightRem(
+                      tile.meeting.meeting.startTime,
+                      tile.meeting.meeting.endTime,
+                    ) > 2.1875 && tile.totalColumns <= 2
                   "
                   class="text-[0.5625rem] leading-tight text-fg-faint"
                 >
@@ -678,8 +622,7 @@ function togglePin(course: CourseSection): void {
                 :key="`gtile-overflow-${day}-${tile.startTime}-${idx}`"
                 class="absolute"
                 :style="{
-                  top: `${rangeTop(tile.startTime)}rem`,
-                  height: `${rangeHeight(tile.startTime, tile.endTime)}rem`,
+                  ...layout.blockStyle(tile),
                   left: `calc(${tileLeftPct(tile)} + 0.125rem)`,
                   width: `calc(${tileWidthPct(tile)} - 0.25rem)`,
                   zIndex: 1,
@@ -751,69 +694,50 @@ function togglePin(course: CourseSection): void {
             </template>
 
             <!-- Active schedule meeting blocks -->
-            <template v-if="schedule">
-              <div
-                v-for="{ course, meeting } in dayEvents.get(day) ?? []"
-                :key="`${course.crn}-${day}-${meeting.startTime}`"
-                :class="[
-                  'absolute left-0.5 right-0.5 border-l-[0.1875rem] rounded-r-md overflow-hidden flex flex-col justify-center px-1.5',
-                  (() => {
-                    const colorSlot = colorMap.get(course.identifier) ?? COURSE_COLORS[0];
-                    if (!colorSlot) return '';
-                    const mode = getThemeMode(resolvedTheme);
-                    const color = mode === 'light' ? colorSlot.light : colorSlot.dark;
-                    const isWarned =
-                      warningKeys.has(`${course.identifier}|${day}|${meeting.startTime}`) ||
-                      warnedCourseIds.has(course.identifier);
-                    return `${isWarned ? color.bgWarn : color.bg} ${isWarned ? color.borderWarn : color.border} ${color.text}`;
-                  })(),
-                ]"
-                :style="{
-                  top: `${meetingTop(meeting)}rem`,
-                  height: `${meetingHeight(meeting)}rem`,
-                  zIndex: 2,
-                  pointerEvents: 'none',
-                }"
-                :title="`${course.identifier} - ${course.title}\n${course.instructor}\n${meeting.building} ${meeting.room}\n${formatTime(meeting.startTime)} - ${formatTime(meeting.endTime)}`"
-              >
-                <div class="flex items-center gap-1">
-                  <Icon
-                    v-if="
-                      warningKeys.has(`${course.identifier}|${day}|${meeting.startTime}`) ||
-                      warnedCourseIds.has(course.identifier)
-                    "
-                    icon="mdi:alert"
-                    class="text-[0.625rem] text-destructive shrink-0"
-                    role="img"
-                    aria-label="Scheduling conflict"
-                  />
-                  <Icon
-                    v-if="isSectionPinned(course)"
-                    icon="mdi:lock"
-                    class="text-[0.625rem] shrink-0 text-destructive"
-                    role="img"
-                    aria-label="Locked"
-                  />
-                  <span class="text-xs font-semibold truncate leading-tight">
-                    {{ course.identifier }}
-                  </span>
-                </div>
-                <div
-                  v-if="meetingHeight(meeting) > 2.1875"
-                  class="text-[0.625rem] text-fg-muted truncate leading-tight"
-                >
-                  {{ meeting.building }} {{ meeting.room }}
-                </div>
-                <div
-                  v-if="meetingHeight(meeting) > 3.125"
-                  class="text-[0.625rem] text-fg-faint truncate leading-tight"
-                >
-                  {{ formatTime(meeting.startTime) }}&ndash;{{ formatTime(meeting.endTime) }}
-                </div>
+            <div
+              v-for="{ course, meeting } in dayEvents.get(day) ?? []"
+              :key="`${course.crn}-${day}-${meeting.startTime}`"
+              :class="[
+                'absolute left-0.5 right-0.5 border-l-[0.1875rem] rounded-r-md overflow-hidden flex flex-col justify-center px-1.5',
+                eventBlockClass(course, day, meeting),
+              ]"
+              :style="{ ...layout.blockStyle(meeting), zIndex: 2, pointerEvents: 'none' }"
+              :title="`${course.identifier} - ${course.title}\n${course.instructor}\n${meeting.building} ${meeting.room}\n${formatTime(meeting.startTime)} - ${formatTime(meeting.endTime)}`"
+            >
+              <div class="flex items-center gap-1">
+                <Icon
+                  v-if="isEventWarned(course, day, meeting)"
+                  icon="mdi:alert"
+                  class="text-[0.625rem] text-destructive shrink-0"
+                  role="img"
+                  aria-label="Scheduling conflict"
+                />
+                <Icon
+                  v-if="isSectionPinned(course)"
+                  icon="mdi:lock"
+                  class="text-[0.625rem] shrink-0 text-destructive"
+                  role="img"
+                  aria-label="Locked"
+                />
+                <span class="text-xs font-semibold truncate leading-tight">
+                  {{ course.identifier }}
+                </span>
               </div>
-            </template>
-          </div>
-        </div>
+              <div
+                v-if="layout.heightRem(meeting.startTime, meeting.endTime) > 2.1875"
+                class="text-[0.625rem] text-fg-muted truncate leading-tight"
+              >
+                {{ meeting.building }} {{ meeting.room }}
+              </div>
+              <div
+                v-if="layout.heightRem(meeting.startTime, meeting.endTime) > 3.125"
+                class="text-[0.625rem] text-fg-faint truncate leading-tight"
+              >
+                {{ formatTime(meeting.startTime) }}&ndash;{{ formatTime(meeting.endTime) }}
+              </div>
+            </div>
+          </template>
+        </WeekGrid>
       </div>
     </div>
 
