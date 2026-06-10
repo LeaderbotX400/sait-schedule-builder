@@ -7,8 +7,8 @@
 
 import { computed } from "vue";
 import { resolveCurrentSection } from "../../domain/conflicts";
-import { formatTimeCompact } from "../../domain/time";
 import type { CourseSection, CurrentRegistration, Schedule } from "../../domain/types";
+import { meetingsSummary } from "@/ui/course/format";
 import Card from "../../ui/Card.vue";
 import CalendarGrid from "@/features/schedules/CalendarGrid.vue";
 
@@ -60,12 +60,6 @@ function getActiveSectionId(subjectCourse: string): string {
   if (override !== undefined) return override;
   const reg = props.currentRegistrations.get(subjectCourse);
   return reg?.currentSection.identifier ?? "";
-}
-
-function meetingSummary(section: CourseSection): string {
-  return section.meetings
-    .map((m) => `${m.days.join("")} ${formatTimeCompact(m.startTime)}–${formatTimeCompact(m.endTime)}`)
-    .join(", ");
 }
 
 function onSelectChange(subjectCourse: string, event: Event): void {
@@ -134,7 +128,7 @@ function onSelectChange(subjectCourse: string, event: Event): void {
           :key="section?.identifier ?? `none-${subjectCourse}`"
         >
           <p v-if="section" class="text-[0.6875rem] text-fg-faint leading-snug">
-            {{ meetingSummary(section) }}
+            {{ meetingsSummary(section) }}
           </p>
           <p v-else class="text-[0.6875rem] text-fg-faint italic">
             Section not found

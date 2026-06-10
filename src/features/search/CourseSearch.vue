@@ -5,12 +5,15 @@
  * in the courses panel to let the user add courses to the catalog.
  */
 
+import { watchDebounced } from "@vueuse/core";
 import { nextTick, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { BannerAuthRequiredError } from "@/banner-sdk";
+import { useAsyncTask } from "@/composables/useAsyncTask";
 import { getSdk } from "@/lib/sdk";
+import TermPicker from "@/features/term/TermPicker.vue";
 import { useTermStore } from "@/features/term/store";
-import { addSearchResults, switchTerm } from "@/features/planner/actions";
+import { addSearchResults } from "@/features/planner/actions";
 import { useUiStore } from "@/features/ui-state/store";
 import Spinner from "@/ui/Spinner.vue";
 import { Icon } from "@iconify/vue";
@@ -27,8 +30,7 @@ interface PerCodeResult {
 }
 
 // --- Store reads ---
-const termStore = useTermStore();
-const { term, termOptions } = storeToRefs(termStore);
+const { term } = storeToRefs(useTermStore());
 
 // --- Local state ---
 const tags = ref<string[]>([]);
@@ -44,32 +46,41 @@ const results = ref<PerCodeResult[] | null>(null);
 const inputEl = ref<HTMLInputElement | null>(null);
 const listboxId = `course-search-listbox-${Math.random().toString(36).slice(2)}`;
 
-// --- Autocomplete ---
-let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-watch([inputValue, term, tags], () => {
-  if (debounceTimer !== null) clearTimeout(debounceTimer);
+// --- Autocomplete — latest-wins so a slow stale response can't overwrite newer suggestions ---
+const suggestTask = useAsyncTask(async (ctx) => {
   const trimmed = inputValue.value.trim().toUpperCase();
-  if (trimmed.length < 2) {
-    suggestions.value = [];
-    showSuggestions.value = false;
-    suggestionIndex.value = -1;
-    return;
-  }
-  debounceTimer = setTimeout(async () => {
-    try {
-      const raw = await getSdk().registration.lookups.subjectCourseCombo({
-        term: term.value,
-        searchTerm: trimmed,
-      });
-      const filtered = raw.filter((s) => !tags.value.includes(s.code)).slice(0, 8);
-      suggestions.value = filtered;
-      showSuggestions.value = filtered.length > 0;
+  const raw = await getSdk().registration.lookups.subjectCourseCombo({
+    term: term.value,
+    searchTerm: trimmed,
+  });
+  if (ctx.isStale()) return;
+  const filtered = raw.filter((s) => !tags.value.includes(s.code)).slice(0, 8);
+  suggestions.value = filtered;
+  showSuggestions.value = filtered.length > 0;
+  suggestionIndex.value = -1;
+});
+
+watchDebounced(
+  [inputValue, term, tags],
+  () => {
+    if (inputValue.value.trim().length < 2) {
+      suggestTask.cancel();
+      suggestions.value = [];
+      showSuggestions.value = false;
       suggestionIndex.value = -1;
-    } catch {
-      // Autocomplete is best-effort; ignore errors.
+      return;
     }
-  }, 280);
+    // Best-effort: failures leave the previous suggestions in place.
+    void suggestTask.run();
+  },
+  { debounce: 280 },
+);
+
+// Term changes invalidate the per-term results breakdown.
+watch(term, () => {
+  results.value = null;
+  suggestions.value = [];
+  showSuggestions.value = false;
 });
 
 // --- Tag management ---
@@ -199,13 +210,6 @@ function highlightParts(text: string, query: string): { before: string; match: s
     after: text.slice(idx + query.length),
   };
 }
-
-function onTermChange(e: Event): void {
-  void switchTerm((e.target as HTMLSelectElement).value);
-  results.value = null;
-  suggestions.value = [];
-  showSuggestions.value = false;
-}
 </script>
 
 <template>
@@ -213,23 +217,7 @@ function onTermChange(e: Event): void {
     <!-- Header row: label + term picker -->
     <div class="flex flex-wrap items-baseline justify-between gap-2">
       <h3 class="text-xs font-semibold uppercase tracking-widest text-fg-faint">Search</h3>
-      <select
-        :value="term"
-        class="rounded-md bg-input border border-edge px-2 py-0.5 text-xs text-fg focus:outline-none focus:ring-2 focus:ring-ring"
-        @change="onTermChange"
-      >
-        <option v-for="t in termOptions" :key="t.code" :value="t.code">
-          {{ t.description }}
-        </option>
-        <!-- Fallback for a persisted term not in the live list -->
-        <option
-          v-if="!termOptions.some((t) => t.code === term)"
-          :key="term"
-          :value="term"
-        >
-          {{ term }}
-        </option>
-      </select>
+      <TermPicker />
     </div>
 
     <!-- Tag-chip input with autocomplete dropdown -->

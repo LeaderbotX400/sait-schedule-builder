@@ -7,8 +7,8 @@
 
 import { ref } from "vue";
 import { Icon } from "@iconify/vue";
-import { formatTimeCompact } from "../../domain/time";
-import type { CourseSection, MeetingBlock } from "../../domain/types";
+import type { CourseSection } from "@/domain/types";
+import { meetingsSummary, seatsLabel, sectionsLabel, totalSeats } from "@/ui/course/format";
 
 const props = defineProps<{
   courseGroups: Map<string, CourseSection[]>;
@@ -28,12 +28,6 @@ function toggleExpanded(name: string): void {
   if (next.has(name)) next.delete(name);
   else next.add(name);
   expanded.value = next;
-}
-
-function meetingSummary(m: MeetingBlock): string {
-  const days = m.days.join("");
-  const time = `${formatTimeCompact(m.startTime)}–${formatTimeCompact(m.endTime)}`;
-  return `${days} ${time}`;
 }
 </script>
 
@@ -65,7 +59,7 @@ function meetingSummary(m: MeetingBlock): string {
 
           <button
             type="button"
-            :aria-label="`${name} — ${sections[0]?.title ?? name}, ${sections.length} ${sections.length === 1 ? 'section' : 'sections'}, ${sections.reduce((sum, s) => sum + s.seatsAvailable, 0)} ${sections.reduce((sum, s) => sum + s.seatsAvailable, 0) === 1 ? 'seat' : 'seats'} available. Click to ${props.selectedCourses.has(name) ? 'deselect' : 'select'}.`"
+            :aria-label="`${name} — ${sections[0]?.title ?? name}, ${sectionsLabel(sections.length)}, ${seatsLabel(totalSeats(sections))} available. Click to ${props.selectedCourses.has(name) ? 'deselect' : 'select'}.`"
             class="flex-1 min-w-0 text-left"
             @click="emit('toggle', name)"
           >
@@ -74,10 +68,7 @@ function meetingSummary(m: MeetingBlock): string {
               <span class="text-fg-muted truncate flex-1 min-w-0">{{ sections[0]?.title ?? name }}</span>
             </div>
             <div class="text-[0.6875rem] text-fg-faint truncate">
-              {{ sections.length }} {{ sections.length === 1 ? "section" : "sections" }}
-              &middot;
-              {{ sections.reduce((sum, s) => sum + s.seatsAvailable, 0) }}
-              {{ sections.reduce((sum, s) => sum + s.seatsAvailable, 0) === 1 ? "seat" : "seats" }}
+              {{ sectionsLabel(sections.length) }} &middot; {{ seatsLabel(totalSeats(sections)) }}
             </div>
           </button>
 
@@ -125,7 +116,7 @@ function meetingSummary(m: MeetingBlock): string {
               <span v-if="s.instructor" class="text-fg-faint">&middot; {{ s.instructor }}</span>
             </div>
             <div class="text-fg-muted">
-              {{ s.meetings.length === 0 ? "—" : s.meetings.map(meetingSummary).join(", ") }}
+              {{ meetingsSummary(s) }}
             </div>
           </div>
         </div>
