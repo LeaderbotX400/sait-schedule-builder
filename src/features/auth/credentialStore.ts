@@ -3,7 +3,7 @@ import type { CredentialState, LoginResult } from "./types";
 /**
  * Abstract source-of-truth for Banner credentials. The auth service
  * routes every read/write through one of these so we can swap the
- * implementation (extension cookies vs demo vs future direct-fetch)
+ * implementation (extension cookies today; future direct-fetch possible)
  * without touching the rest of the app.
  */
 export interface CredentialStore {

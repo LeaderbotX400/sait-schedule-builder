@@ -1,88 +1,43 @@
 /**
- * Bridge to the SAIT Schedule Builder extension service worker.
- *
- * Works in two contexts:
- *   - in-extension: app loaded at chrome-extension://<id>/index.html.
- *     `chrome.runtime.sendMessage(msg, cb)` routes to the same extension.
- *   - web: app loaded at localhost / pages.dev. The extension ID must be
- *     provided explicitly: `chrome.runtime.sendMessage(extensionId, msg, cb)`.
- *     The manifest's externally_connectable list authorizes the origin.
+ * Banner-facing convenience wrappers over the typed extension bridge.
+ * The message protocol lives in `lib/bridge/protocol.ts`; the context
+ * resolution (in-extension vs web + extension ID) in `lib/bridge/client.ts`.
  */
 
-import { getExtensionId, isExtensionContext } from "./extensionId";
+import { sendBridgeMessage } from "./bridge/client";
+import type { BannerFetchResult, BannerPrimeResult, BridgeFetchInit } from "./bridge/protocol";
 
-export interface BannerFetchResponse {
-  ok: boolean;
-  status: number;
-  contentType: string;
-  body: string;
-  error?: string;
+export interface BannerFetchResponse extends BannerFetchResult {
   message?: string;
 }
 
-type ErrorEnvelope = { ok: false; error: string; message: string };
-
-function noExtensionError(message: string): ErrorEnvelope {
-  return { ok: false, error: "NO_EXTENSION", message };
+export function bannerFetch(url: string, init?: BridgeFetchInit): Promise<BannerFetchResponse> {
+  const message: { type: "BANNER_FETCH"; url: string; init?: BridgeFetchInit } = init
+    ? { type: "BANNER_FETCH", url, init }
+    : { type: "BANNER_FETCH", url };
+  return sendBridgeMessage<"BANNER_FETCH">(message).then(normalizeFetchResult);
 }
 
-function send<T>(message: { type: string; [k: string]: unknown }): Promise<T> {
-  if (typeof chrome === "undefined" || !chrome.runtime) {
-    return Promise.resolve(noExtensionError("Chrome extension runtime is unavailable.") as T);
-  }
-
-  if (isExtensionContext()) {
-    return new Promise<T>((resolve) => {
-      chrome.runtime.sendMessage(message, (response: T) => {
-        const err = chrome.runtime.lastError;
-        if (err) {
-          resolve({
-            ok: false,
-            error: "RUNTIME_ERROR",
-            message: err.message ?? "Extension messaging failed",
-          } as T);
-          return;
-        }
-        resolve(response);
-      });
-    });
-  }
-
-  const extensionId = getExtensionId();
-  if (!extensionId) {
-    return Promise.resolve(
-      noExtensionError(
-        "Extension ID is not set. Install the SAIT Schedule Builder extension or paste its ID in settings.",
-      ) as T,
-    );
-  }
-
-  return new Promise<T>((resolve) => {
-    chrome.runtime.sendMessage(extensionId, message, (response: T) => {
-      const err = chrome.runtime.lastError;
-      if (err) {
-        resolve({
-          ok: false,
-          error: "RUNTIME_ERROR",
-          message: err.message ?? "Extension messaging failed",
-        } as T);
-        return;
-      }
-      resolve(response);
-    });
-  });
+/**
+ * A BridgeErrorEnvelope has no status/contentType/body — normalize it into
+ * the RawResponse-compatible shape ExtensionTransport expects (status 0 +
+ * error string is the SDK's network/auth-failure signal).
+ */
+function normalizeFetchResult(
+  result: BannerFetchResult | { ok: false; error: string; message: string },
+): BannerFetchResponse {
+  if ("status" in result) return result;
+  return {
+    ok: false,
+    status: 0,
+    contentType: "",
+    body: "",
+    error: result.error,
+    message: result.message,
+  };
 }
 
-export function bannerFetch(
-  url: string,
-  init?: { method?: string; headers?: Record<string, string>; body?: string },
-): Promise<BannerFetchResponse> {
-  return send<BannerFetchResponse>({ type: "BANNER_FETCH", url, init });
-}
-
-export interface BannerPrimeResponse {
-  ok: boolean;
-  error?: string;
+export interface BannerPrimeResponse extends BannerPrimeResult {
   message?: string;
 }
 
@@ -92,5 +47,5 @@ export interface BannerPrimeResponse {
  * bootstrap ssag1/ssag2 sessions; ssag6 is primed by the login popup.
  */
 export function bannerPrime(url: string): Promise<BannerPrimeResponse> {
-  return send<BannerPrimeResponse>({ type: "BANNER_PRIME", url });
+  return sendBridgeMessage<"BANNER_PRIME">({ type: "BANNER_PRIME", url });
 }
