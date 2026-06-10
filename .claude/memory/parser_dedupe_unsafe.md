@@ -37,8 +37,8 @@ between distinct sections that happened to share a time-key.
   should stay rolled back.
 - Do NOT add cross-section dedupe in `parseBannerData` either —
   different sections at the same time/place are real.
-- For React duplicate-key warnings, fix in the RENDER layer with a
-  uniquely-qualified key like `${section.crn}-${idx}` for meetings
+- For duplicate-key warnings, fix in the RENDER layer with a
+  uniquely-qualified `:key` like `${section.crn}-${idx}` for meetings
   within a section, or `${section.crn}` for sections in a list.
 - If a CRN appears twice in `response.data` or in `registrations[]`
   from Banner, THAT is the case where CRN-level dedupe is safe — but

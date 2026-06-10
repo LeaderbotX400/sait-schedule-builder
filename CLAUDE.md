@@ -18,7 +18,7 @@ bun run format   # oxfmt
 bun run check    # type-check + lint + test:run + build (full CI)
 ```
 
-Dev environment uses a Nix flake — run `direnv allow` or `nix develop` to enter the shell.
+Dev environment uses `devenv` (https://devenv.sh/) use `devenv shell` to spawn a shell with all tooling and env vars.
 
 ## Architecture
 
@@ -169,7 +169,7 @@ skips hydration. Persisted: term, rules, selection (incl. pins),
 current overrides+included, saved, theme.
 
 `plugins/migrateLegacy.ts` is the only file that knows pre-v2 shapes —
-it translates every legacy key (sait-sb-v1:*, pre-slot v0 keys, raw
+it translates every legacy key (sait-sb-v1:\*, pre-slot v0 keys, raw
 sait-sb-theme) once at plugin install and deletes the originals. Auth
 state persists separately under `sait-auth-v1` inside
 `extensionCookieStore`.
@@ -182,7 +182,7 @@ To wipe local prefs: `clearPersistedState()` from `plugins/persistence.ts`.
   (watch/enabled gating, retry, AbortSignal, scope-dispose cancel).
   Any composable doing cancellable fetches uses it.
 - `composables/useScheduleSync.ts` — mount-once: `[auth.status,
-  auth.liveChecked]` → `syncActiveTerm`; `watchDebounced` (200ms) over
+auth.liveChecked]` → `syncActiveTerm`; `watchDebounced` (200ms) over
   `[catalog, selection, rules]` → `regenerate()`.
 - `features/auth/useAuthInit.ts` — mount-once: service init, 60s
   live-check poll, 10s age tick, visibility refresh, studentId task.

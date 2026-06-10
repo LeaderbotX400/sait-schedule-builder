@@ -23,6 +23,6 @@ Eric runs this project with a "drive the ship sharp and hard" directive. The pat
 - Cross-store cascades go through the destination store's own clear action; no cross-store knowledge of internal shape
 - One short JSDoc per file explaining WHY it's interesting; never comment WHAT the code does
 
-**Why:** Eric is rewriting a working React app in Vue; the React architecture is battle-tested and he wants the same discipline. Lapses here are noticed.
+**Why:** This app was ported from a battle-tested React architecture and Eric wants the same discipline maintained as it evolves. Lapses here are noticed.
 
 **How to apply:** Default to parallel sub-agents for ≥3 independent ports. Commit each landed wave before starting the next. Refuse to take shortcuts that compromise the patterns above even under time pressure.

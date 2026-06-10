@@ -15,7 +15,7 @@ The repo is Vue 3.5 + Pinia 3 with strict maintainability discipline. These are 
 - **Return all reactive state from the setup function.** Anything not returned is invisible to DevTools, persistence plugins, and SSR.
 - **One concern per store.** Already the rule (10 stores post-rewrite). ([masteringpinia.com — best practices](https://masteringpinia.com/blog/5-best-practices-for-scalable-vuejs-state-management-with-pinia))
 - **Stores never call other stores' actions.** Cross-store workflows are named awaitable functions in `features/planner/actions.ts`. Reads via parameters where practical (`current/store.ts` takes the catalog as an argument).
-- **`acceptHMRUpdate` on every store file.** Missing today on some stores. Add:
+- **`acceptHMRUpdate` on every store file.** Adopted repo-wide (verified 2026-06-10) — keep it on new stores:
   ```ts
   if (import.meta.hot) import.meta.hot.accept(acceptHMRUpdate(useFooStore, import.meta.hot))
   ```

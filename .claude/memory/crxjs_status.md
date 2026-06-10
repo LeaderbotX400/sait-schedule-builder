@@ -9,7 +9,7 @@ metadata:
 
 `@crxjs/vite-plugin@2.5.0` (the Chrome MV3 build plugin this repo uses) is **effectively unmaintained** as of mid-2026.
 
-- Latest published version 2.4.0; the project sought new maintainers with a June 2025 archival deadline ([GitHub discussion #872](https://github.com/crxjs/chrome-extension-tools/discussions/872)).
+- The repo uses 2.5.0; the project sought new maintainers with a June 2025 archival deadline ([GitHub discussion #872](https://github.com/crxjs/chrome-extension-tools/discussions/872)).
 - `peerDependencies` explicitly list Vite `^3 || ^4 || ^5 || ^6 || ^7 || ^8.0.0-beta.0` — Vite 8 is supported, the harmless `rolldownOptions` warning notwithstanding (see [[dev-server-gotchas]]).
 - Popup-page HMR works. Service worker "HMR" is actually fetch-intercepted reload, which is the correct MV3 behavior — SWs cannot hot-patch.
 
@@ -23,7 +23,5 @@ metadata:
 - `chrome.storage.session` for ephemeral SW state (cleared on browser close); `chrome.storage.local` for anything that must survive browser restart.
 - This repo's port-based login flow (`onConnect` in `background.ts` for the SAML dance) is correct — ports keep the SW alive for the full handshake.
 - Cookies are the real session vehicle — the SW reads them fresh each time rather than caching in memory, which is right.
-
-**Message passing.** Vanilla `chrome.runtime.onMessage` / `onMessageExternal` + a discriminated-union `m.type` switch is fine for ~5 message types. If the surface grows, `@webext-core/proxy-service` is the most ergonomic upgrade — define a service in the background, call it as a typed async function from any context.
 
 Related: [[security-banner-fetch-allowlist]], [[dev-server-gotchas]]
