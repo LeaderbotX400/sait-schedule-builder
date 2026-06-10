@@ -1,4 +1,6 @@
-import { getExtensionId, isExtensionContext } from "@/lib/extensionId";
+import { openBridgePort, sendBridgeMessage } from "@/lib/bridge/client";
+import type { LoginPortName, LoginPortResult } from "@/lib/bridge/protocol";
+import { isExtensionContext } from "@/lib/extensionId";
 import type { CredentialStore } from "./credentialStore";
 import type { CredentialState, LoginResult } from "./types";
 
@@ -7,42 +9,6 @@ const SOURCE = "extension-cookies";
 
 function chromeRuntimeAvailable(): boolean {
   return typeof chrome !== "undefined" && !!chrome.runtime;
-}
-
-function sendRuntimeMessage<T>(message: unknown): Promise<T | null> {
-  return new Promise<T | null>((resolve) => {
-    if (!chromeRuntimeAvailable()) {
-      resolve(null);
-      return;
-    }
-    const cb = (res: T | undefined) => {
-      if (chrome.runtime.lastError) {
-        resolve(null);
-        return;
-      }
-      resolve(res ?? null);
-    };
-    if (isExtensionContext()) {
-      chrome.runtime.sendMessage(message, cb);
-    } else {
-      const extensionId = getExtensionId();
-      if (!extensionId) {
-        resolve(null);
-        return;
-      }
-      chrome.runtime.sendMessage(extensionId, message, cb);
-    }
-  });
-}
-
-function openRuntimePort(portName: string): chrome.runtime.Port | null {
-  if (!chromeRuntimeAvailable()) return null;
-  if (isExtensionContext()) {
-    return chrome.runtime.connect({ name: portName });
-  }
-  const extensionId = getExtensionId();
-  if (!extensionId) return null;
-  return chrome.runtime.connect(extensionId, { name: portName });
 }
 
 interface PersistedShape {
@@ -99,8 +65,8 @@ export class ExtensionCookieCredentialStore implements CredentialStore {
     if (!chromeRuntimeAvailable()) {
       return { status: "unauthenticated", acquiredAt: null, source: SOURCE };
     }
-    const res = await sendRuntimeMessage<{ loggedIn?: boolean }>({ type: "CHECK_LOGIN" });
-    const loggedIn = !!res?.loggedIn;
+    const res = await sendBridgeMessage<"CHECK_LOGIN">({ type: "CHECK_LOGIN" });
+    const loggedIn = "loggedIn" in res && !!res.loggedIn;
 
     const persisted = readLocal();
     if (loggedIn) {
@@ -155,11 +121,11 @@ export class ExtensionCookieCredentialStore implements CredentialStore {
         message: "Browser extension is not available.",
       });
     }
-    const portName = opts?.force ? "force-reauth" : "login";
+    const portName: LoginPortName = opts?.force ? "force-reauth" : "login";
     return new Promise<LoginResult>((resolve) => {
       let port: chrome.runtime.Port | null;
       try {
-        port = openRuntimePort(portName);
+        port = openBridgePort(portName);
       } catch (e) {
         resolve({
           ok: false,
@@ -194,13 +160,13 @@ export class ExtensionCookieCredentialStore implements CredentialStore {
         resolve(result);
       };
 
-      port.onMessage.addListener((msg: { ok?: boolean; error?: string; message?: string }) => {
+      port.onMessage.addListener((msg: LoginPortResult) => {
         if (msg.ok) finish({ ok: true });
         else
           finish({
             ok: false,
-            error: msg.error ?? "LOGIN_FAILED",
-            message: msg.message ?? "Login failed. Please try again.",
+            error: msg.error || "LOGIN_FAILED",
+            message: msg.message || "Login failed. Please try again.",
           });
       });
       port.onDisconnect.addListener(() => {
@@ -231,6 +197,6 @@ export class ExtensionCookieCredentialStore implements CredentialStore {
       fn({ status: "unauthenticated", acquiredAt: null, source: SOURCE });
     }
     if (!chromeRuntimeAvailable()) return;
-    await sendRuntimeMessage({ type: "CLEAR_SESSION" });
+    await sendBridgeMessage<"CLEAR_SESSION">({ type: "CLEAR_SESSION" });
   }
 }

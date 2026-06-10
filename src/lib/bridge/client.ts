@@ -4,6 +4,7 @@ import type {
   BridgeMessageKind,
   BridgeRequests,
   BridgeResult,
+  LoginPortName,
 } from "./protocol";
 
 /**
@@ -62,4 +63,18 @@ function resolveResponse<K extends BridgeMessageKind>(response: BridgeResult<K>)
 
 function noExtension(message: string): BridgeErrorEnvelope {
   return { ok: false, error: "NO_EXTENSION", message };
+}
+
+/**
+ * Open a long-lived port to the extension (the SAML login flow). Returns
+ * null when the runtime is unavailable or no extension ID is resolvable.
+ */
+export function openBridgePort(name: LoginPortName): chrome.runtime.Port | null {
+  if (typeof chrome === "undefined" || !chrome.runtime) return null;
+  if (isExtensionContext()) {
+    return chrome.runtime.connect({ name });
+  }
+  const extensionId = getExtensionId();
+  if (!extensionId) return null;
+  return chrome.runtime.connect(extensionId, { name });
 }
