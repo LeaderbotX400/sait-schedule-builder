@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
-import { clearTermData, refreshAllData, regenerate, switchTerm } from "@/features/planner/actions";
+import { clearTermData, refreshAllData, regenerate } from "@/features/planner/actions";
 import { downloadICal } from "@/domain/ical";
 import ConnectionStatus from "@/features/auth/ConnectionStatus.vue";
 import ThemePicker from "@/features/theme/ThemePicker.vue";
 import { describeTerm } from "@/lib/terms";
+import TermPicker from "@/features/term/TermPicker.vue";
 import { useCatalogStore } from "@/features/catalog/store";
 import { useSchedulesStore } from "@/features/schedules/store";
 import { useSelectionStore } from "@/features/selection/store";
@@ -49,11 +50,6 @@ const canGenerate = computed(
   () => hasData.value && selectedCourses.value.size > 0 && !generating.value,
 );
 
-function onTermChange(event: Event): void {
-  const target = event.target as HTMLSelectElement;
-  void switchTerm(target.value);
-}
-
 function onExport(): void {
   if (activeSchedule.value) downloadICal(activeSchedule.value);
 }
@@ -94,22 +90,7 @@ function onExport(): void {
       <div class="flex-1 min-w-0" />
 
       <div class="flex flex-wrap items-center gap-2 ml-auto">
-        <label class="flex items-center gap-1.5">
-          <span
-            class="text-[0.625rem] font-semibold uppercase tracking-widest text-fg-faint"
-          >
-            Term
-          </span>
-          <select
-            :value="term"
-            class="text-xs bg-input border border-edge rounded-md px-2 py-1 text-fg"
-            @change="onTermChange"
-          >
-            <option v-for="t in termOptions" :key="t.code" :value="t.code">
-              {{ t.description }}
-            </option>
-          </select>
-        </label>
+        <TermPicker />
 
         <UiButton
           :disabled="registrationsLoading"

@@ -33,11 +33,9 @@ async function handleDisconnect(close: () => void): Promise<void> {
 
 <template>
   <Popover align="right" width-class="w-60">
-    <template #trigger="{ toggle, expanded }">
+    <template #trigger>
       <button
         type="button"
-        :aria-expanded="expanded"
-        aria-haspopup="menu"
         :aria-label="`Connected to Banner${termLabel ? `, ${termLabel}` : ''}${loading ? ', loading' : ''} — open session menu`"
         :class="[
           'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors',
@@ -45,7 +43,6 @@ async function handleDisconnect(close: () => void): Promise<void> {
             ? 'bg-tint-warning/90 border border-tint-warning-bd text-tint-warning-fg hover:bg-tint-warning'
             : 'bg-tint-success/90 border border-tint-success-bd text-tint-success-fg hover:bg-tint-success',
         ]"
-        @click="toggle"
       >
         <StatusDot :tone="isStale ? 'warn' : 'ok'" />
         <span class="hidden sm:inline">Connected</span>

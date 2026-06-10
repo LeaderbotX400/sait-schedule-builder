@@ -65,7 +65,7 @@ const onNext = (): void => {
 
     <div class="flex overflow-x-auto gap-1.5 px-1 overflow-y-hidden">
       <Popover v-for="(s, i) in schedules" :key="s.id" align="left" widthClass="w-72">
-        <template #trigger="{ toggle }">
+        <template #trigger>
           <button
             :title="`Schedule #${s.id} · Score ${s.qualityScore}`"
             :aria-label="`Schedule ${s.id}, score ${s.qualityScore} out of 100`"
@@ -80,7 +80,6 @@ const onNext = (): void => {
             @click="
               (e) => {
                 onBadgeClick(i);
-                toggle();
                 e.stopPropagation();
               }
             "

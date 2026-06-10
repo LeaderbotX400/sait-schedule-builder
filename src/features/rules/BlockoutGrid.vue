@@ -686,16 +686,14 @@ function togglePin(course: CourseSection): void {
                 }"
               >
                 <Popover :align="popoverAlignForDay(tile.day)" widthClass="w-72">
-                  <template #trigger="{ toggle, expanded }">
+                  <template #trigger>
                     <button
                       type="button"
                       class="w-full h-full rounded-r-md overflow-hidden flex items-center justify-center cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-surface-hover/40 border border-dashed border-edge-hover/60 hover:bg-tint-success/20 hover:border-tint-success-bd"
                       :title="`${tile.members.length} more alternatives at this time — click to view`"
                       :aria-label="`${tile.members.length} more alternative sections`"
-                      :aria-haspopup="true"
-                      :aria-expanded="expanded"
                       @mousedown.stop
-                      @click.stop="toggle"
+                      @click.stop
                     >
                       <span
                         class="text-[0.6875rem] font-bold text-fg-muted tabular-nums leading-none"

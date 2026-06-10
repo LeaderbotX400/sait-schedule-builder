@@ -22,12 +22,9 @@ const options: { key: ThemeChoice; label: string; swatches?: [string, string, st
 
 <template>
   <Popover align="right" widthClass="w-52">
-    <template #trigger="{ toggle, expanded }">
+    <template #trigger>
       <button
         type="button"
-        @click="toggle"
-        :aria-expanded="expanded"
-        aria-haspopup="menu"
         aria-label="Change theme"
         class="px-2 py-1 text-xs rounded-md border border-edge bg-surface text-fg hover:bg-surface-hover hover:border-edge-hover transition-colors"
         title="Change theme"
