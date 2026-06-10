@@ -20,7 +20,8 @@ schedule combination, ranked by a quality score you can tune with rules
 
 There is **no backend of our own**. All data comes from Banner over the
 user's authenticated session; all computation (conflict detection,
-schedule generation, scoring) happens in the browser.
+schedule generation, scoring) happens in the browser — generation itself
+in a Web Worker.
 
 Two runtime shapes share one codebase:
 
@@ -28,7 +29,6 @@ Two runtime shapes share one codebase:
 |---|---|---|
 | **In-extension** | `chrome-extension://<id>/index.html` | `chrome.runtime.sendMessage(msg)` → background worker |
 | **Web (dev / pages.dev)** | `localhost:5173` or `*.sait-scheduler.pages.dev` | `chrome.runtime.sendMessage(extId, msg)` — extension ID supplied explicitly, origin authorized by `externally_connectable` |
-| **Demo** | either, with `?demo=1` or `VITE_DEMO` | no network — seeded `MockTransport` |
 
 ---
 
@@ -65,12 +65,6 @@ CI gate.
    announces it to localhost/pages.dev automatically; if that fails you can
    paste the ID via the in-app settings ([ExtensionIdSettings.vue](../src/features/auth/ExtensionIdSettings.vue)).
 
-### Demo mode (no SAIT account needed)
-
-Append `?demo=1` to the URL (or set `VITE_DEMO`). Auth, identity, profile,
-and catalog all resolve from fixtures — see §8. Switching in/out of demo
-requires a page reload.
-
 ---
 
 ## 3. The layering (the one rule that matters)
@@ -80,40 +74,54 @@ Each concern lives in **exactly one layer**, and dependencies point
 is "this belongs one layer down/up."
 
 ```
-  ┌─────────────────────────────────────────────────────────┐
+  ┌──────────────────────────────────────────────────────────┐
   │ shell/  +  features/<x>/*.vue        UI (Vue SFCs)        │  knows Vue, knows stores
-  ├─────────────────────────────────────────────────────────┤
-  │ features/<x>/use<X>.ts               composables          │  per-feature side effects
-  │ composables/                         cross-feature glue   │  mounted once at root
-  ├─────────────────────────────────────────────────────────┤
-  │ features/<x>/store.ts                Pinia stores         │  reactive state, no SDK calls*
-  ├─────────────────────────────────────────────────────────┤
-  │ lib/                                 plumbing             │  bridge, SDK singleton, persistence, types
-  ├─────────────────────────────────────────────────────────┤
-  │ banner-sdk/                          typed Banner client  │  no Vue
+  ├──────────────────────────────────────────────────────────┤
+  │ features/planner/actions.ts          orchestration        │  ALL cross-store workflows
+  │ composables/                         mount-once glue      │  watchers → planner actions
+  ├──────────────────────────────────────────────────────────┤
+  │ features/<x>/store.ts                Pinia stores         │  own slice only — never call
+  │                                                           │  another store's actions
+  ├──────────────────────────────────────────────────────────┤
+  │ ui/                                  presentational kit   │  NO store imports, ever
+  │ lib/  +  plugins/                    plumbing             │  bridge, SDK singleton,
+  │                                                           │  termSlots, persistence
+  ├──────────────────────────────────────────────────────────┤
+  │ banner-sdk/                          typed Banner client  │  no Vue — FROZEN wire contract
   │ domain/                              pure scheduling      │  no Vue, no Banner shapes
-  └─────────────────────────────────────────────────────────┘
+  └──────────────────────────────────────────────────────────┘
 ```
 
-\* Stores hold state and synchronous mutations. **SDK fetches live in
-composables**, not stores — composables call the SDK, then write results
-into the store. `schedules/store.ts` is the one store that calls into the
-pure `domain/` scheduler (synchronous, no I/O), which is fine.
+Three rules are structural, not stylistic:
+
+1. **Stores never call other stores' actions.** Any mutation that spans
+   stores is a named, awaitable function in
+   [features/planner/actions.ts](../src/features/planner/actions.ts).
+   Reading another store is fine; better still, take the data as a
+   parameter (see `current/store.ts`'s `swapSection(…, catalog)`).
+2. **`src/ui/` never imports stores.** That's what keeps `WeekGrid`,
+   the Reka wrappers, and the course formatters shareable.
+3. **The Banner SDK's wire behavior is frozen.** Internal refactors fine;
+   anything that changes hosts/endpoints/shapes/errors is not. The tests
+   in `src/banner-sdk/tests/` are the contract pin.
 
 Two layers are **pure** and have **zero framework imports**:
 
 - **`domain/`** — types, scheduler, scorer, conflict detection, time math,
-  iCal export. No Vue, no Banner. Unit-testable in isolation.
+  explainEmpty diagnostics, iCal export. No Vue, no Banner.
 - **`banner-sdk/`** — typed Banner HTTP client. No Vue. Pluggable transport.
 
-The seam between Banner shapes and domain shapes is [src/domain/parser.ts](../src/domain/parser.ts).
-Banner JSON → `CourseSection` happens there and **only** there.
+The seam between Banner shapes and domain shapes is
+[src/domain/parser.ts](../src/domain/parser.ts). Banner JSON →
+`CourseSection` happens there and **only** there.
 
 ### Import conventions
 
 - Cross-feature or feature→top-level: use the `@/` alias
-  (`@/features/courses/store`, `@/lib/sdk`, `@/domain/types`).
-- **Within** a feature: relative (`./store`, `./useFoo`).
+  (`@/features/catalog/store`, `@/lib/sdk`, `@/domain/types`).
+- **Within** a feature: relative (`./store`).
+- **No barrel files** — the only `index.ts` is `banner-sdk/index.ts`
+  (part of the SDK's public facade).
 
 ---
 
@@ -121,65 +129,63 @@ Banner JSON → `CourseSection` happens there and **only** there.
 
 ```
 src/
-  banner-sdk/        # typed Banner client (see §6)
+  banner-sdk/        # typed Banner client (see §6) — FROZEN wire contract
     apps/            #   one folder per Banner app: general / registration / selfService
-    core/            #   request chokepoint, session priming, forms/headers/json, host primer
-    transport/       #   ExtensionTransport (real) + MockTransport (tests/demo) + errors
+    core/            #   request chokepoint (classifyRawResponse + hooks), session priming
+    transport/       #   ExtensionTransport (real) + MockTransport (tests) + errors
     config/hosts.ts  #   host-per-endpoint pinning (ssag1/2/6)
-    facade.ts        #   createBannerSdk() — wires transports + apps together
-    index.ts         #   public barrel
+    facade.ts        #   createBannerSdk(transport, { hosts?, uniqueSessionId?, hooks? })
   domain/            # pure scheduling logic (see §5)
-    types.ts         #   CourseSection, Schedule, ScheduleRules, MeetingBlock, warnings…
-    scheduler.ts     #   generate combinations, prune conflicts, build Schedule[]
-    scoring.ts       #   quality score (penalties + clustering bonuses + blockout fit)
-    conflicts.ts     #   time-overlap detection
-    blockout.ts      #   blockout grid + DEFAULT_RULES
-    time.ts          #   HHMM ⇄ minutes, formatting
-    ical.ts          #   .ics export
-    parser.ts        #   Banner shapes → domain shapes  (THE seam)
   lib/               # cross-cutting plumbing
-    sdk.ts           #   getSdk() singleton — picks demo vs extension transport
-    extension.ts     #   BANNER_FETCH bridge to the service worker
-    extensionId.ts / extensionIdListener.ts   #   ext-ID handshake (web context)
-    persistence.ts   #   $subscribe-based localStorage helper
-    terms.ts         #   term constants + mergeTermOptions
-    types.ts         #   Banner-shape types (still here; migrating into banner-sdk/apps/*/types)
-    logger.ts
-  composables/       # cross-feature side effects, mounted once at App root
-    useScheduleSync.ts   #   the spine — fetch on auth/term change, debounce auto-regenerate
-    useDemoBootstrap.ts  #   no-op unless demo mode
-  demo/              # demo bootstrap: isDemoMode(), fixtures, createDemoTransport()
-  ui/                # shared primitives: Button, Card, Spinner, EmptyState, StatusDot, Popover
-  shell/             # top-level layout: SignInScreen, AppShell, AppHeader, CoursesPanel, MainArea
-  features/          # one folder per domain — store + use<X> + components + tests colocated
-  App.vue            # mounts all side-effect composables; swaps SignInScreen ⇄ AppShell
-  main.ts            # createApp + Pinia + persist*Store() calls + mount
+    sdk.ts           #   getSdk() singleton + setSdkErrorHandler (via SDK hooks.onError)
+    termSlots.ts     #   createTermSlots<T>() — THE per-term slot implementation
+    bridge/          #   app↔extension protocol
+      protocol.ts    #     message types + createBridgeRouter (imported by BOTH sides)
+      client.ts      #     sendBridgeMessage / openBridgePort
+    extension.ts     #   bannerFetch/bannerPrime wrappers over the bridge
+    extensionId.ts / extensionIdListener.ts   # ext-ID handshake (web context)
+    terms.ts / types.ts / logger.ts
+  plugins/
+    persistence.ts   #   THE Pinia persistence plugin (persist spec per store + codecs)
+    migrateLegacy.ts #   one-shot legacy localStorage translation (only file that
+                     #   knows pre-v2 shapes)
+  composables/       # mount-once cross-feature glue + the async primitive
+    useAsyncTask.ts  #   latest-wins async task (watch/enabled/retry/AbortSignal)
+    useScheduleSync.ts   # auth watcher → syncActiveTerm; debounced regenerate
+    useExtensionIdListener.ts
+  ui/                # presentational kit — NO store imports
+    Button/Card/Spinner/StatusDot/EmptyState    # hand-rolled
+    Popover.vue / Select.vue                    # Reka UI wrappers
+    course/          #   shared course/section label formatting + format tests
+    week-grid/       #   useWeekGridLayout + WeekGrid chrome + layout tests
+  shell/             # SignInScreen, AppShell, AppHeader, CoursesPanel, MainArea
+  features/          # one folder per domain — store + components + tests colocated
+  App.vue            # mounts root composables; swaps SignInScreen ⇄ AppShell
+  main.ts            # createApp + pinia.use(createPersistencePlugin()) + mount
 extension/
-  background.ts      # MV3 service worker: credential capture, cookie mgmt, BANNER_FETCH proxy
+  background.ts      # MV3 service worker — typed router over lib/bridge/protocol
+  bannerProxy.ts     # BANNER_FETCH / BANNER_PRIME with the *.sait.ca SSRF allowlist
+  cookies.ts         # CHECK_LOGIN / CLEAR_SESSION
+  login.ts           # port-based SAML login flow (port keeps the SW alive)
   inject.ts          # content script: announces extension ID to localhost / pages.dev
 ```
 
 ### The feature modules
 
-Each lives under `src/features/<name>/` and (mostly) follows
-`store.ts` + `use<Name>.ts` + `index.ts` + `components` + `tests/`.
-
 | Feature | Owns | Notes |
 |---|---|---|
-| `auth/` | login state, `AuthService` singleton, pluggable credential stores | most complex feature — see §7 |
-| `identity/` | `studentId` resolution | validates login on auth transition |
-| `profile/` | GPA + registration notices | `GpaChip.vue` header badge |
-| `holds/` | holds count | |
-| `registration-status/` | derived status | **no store, no fetch** — computed over profile |
-| `theme/` | theme selection | `data-theme` + Tailwind layers |
-| `term/` | active term + picker options | `setTerm` **cascade-wipes** every per-term store |
-| `courses/` | `courseGroups: Map<subjectCourse, CourseSection[]>` | the catalog |
-| `selection/` | `selectedCourses: Set<subjectCourse>` | what the planner plans for |
+| `auth/` | login state + `studentId`, `AuthService`, credential store | see §7 |
+| `term/` | active term + picker options — **pure state** | the cascade lives in planner |
+| `catalog/` | `Map<subjectCourse, CourseSection[]>` per term | live cache, not persisted |
+| `selection/` | selected courses **+ pinned CRNs** per term | persisted |
 | `rules/` | `ScheduleRules` | **survives** term switches (real prefs) |
-| `schedules/` | generated `Schedule[]`, activeIndex, `generate()`, `explainEmpty` | calls `domain/` |
-| `current/` | current Banner registration editor | store id stays `"currentReg"` for the localStorage key |
-| `ui-state/` | `loadError`, `registrationsLoading`, `authRequired` | transient, **not** persisted |
-| `search/` | `CourseSearch.vue` | reads courses, no store |
+| `schedules/` | generated `Schedule[]`, activeIndex, async `generate(input)` | Web Worker executor |
+| `current/` | current-registration slots + overrides + editor | catalog injected as param |
+| `saved/` | saved picks per term — pure CRUD | reload logic lives in planner |
+| `search/` | `CourseSearch.vue` | no store |
+| `planner/` | **no store** — all cross-store workflow actions | see §9 |
+| `theme/` | theme choice (`data-theme` + Tailwind tokens) | persisted |
+| `ui-state/` | `loadError`, `registrationsLoading`, `authRequired`, slot warnings | transient |
 
 ---
 
@@ -187,192 +193,180 @@ Each lives under `src/features/<name>/` and (mostly) follows
 
 This is the heart, and it's pure functions you can test without a browser.
 
-1. **Input**: the set of selected `subjectCourse`s, each mapping to a list
-   of `CourseSection`s (from `courses/store`), plus the current
-   `ScheduleRules` (from `rules/store`).
+1. **Input**: `GenerateInput` — the selected slice of the catalog
+   (`Map<subjectCourse, CourseSection[]>`), the current `ScheduleRules`,
+   and the pinned CRNs. Assembled by
+   `planner.currentGenerateInput()`; the schedules store takes it as an
+   explicit argument.
 2. **Filter** ([scheduler.ts](../src/domain/scheduler.ts)): drop sections
-   that violate hard rules — too early (`earliestStart`), too late
-   (`latestEnd`), meeting on a `freeDay`, full when `requireOpenSeats`.
-   When a course is fully eliminated, `explainFilteredOut` records *why*
-   (this powers the empty-state diagnostics).
-3. **Combine**: take the cartesian product of remaining sections across
-   courses, pruning any combination where two sections overlap in time
-   ([conflicts.ts](../src/domain/conflicts.ts)). If no full combination
-   exists, partial schedules are produced with `omittedCourses` + reasons.
-4. **Score** ([scoring.ts](../src/domain/scoring.ts)): each schedule starts
-   at baseline **100**, then accumulates **penalties** and **clustering
-   bonuses**, and blends in a **blockout-fit** score weighted by
-   `rules.blockoutWeight / 100`. Final score clamped to `[0, 100]`.
+   that violate hard rules — too early/late, meeting on a `freeDay`, full
+   when `requireOpenSeats`. Pinned sections bypass the filter.
+3. **Combine**: cartesian product of remaining sections, pruning
+   time-overlapping combinations ([conflicts.ts](../src/domain/conflicts.ts)).
+   If no full combination exists, partial schedules carry `omittedCourses`.
+4. **Score** ([scoring.ts](../src/domain/scoring.ts)): baseline **100**,
+   penalties + clustering bonuses + blockout-fit blended by
+   `rules.blockoutWeight / 100`. **If you're tuning the ranking, this file
+   is the only place to touch.**
+5. **Output**: `Schedule[]` sorted by `qualityScore`. Zero results are
+   diagnosed by [explain.ts](../src/domain/explain.ts) into the
+   user-facing empty-state blurb.
 
-   Penalty/bonus weights live as named constants at the top of
-   `scoring.ts` (early-morning is the harshest; per-day-used is a tiebreak
-   nudge). Dense days are rewarded via `meetings_per_day²` sums. **If you're
-   tuning the ranking, this file is the only place to touch.**
-5. **Output**: `Schedule[]` sorted by `qualityScore`, each carrying
-   `warnings`, `daysUsed`, on-campus counts, penalty breakdowns, and
-   `omittedCourses`.
+Generation runs **off the main thread**:
+[features/schedules/executor.ts](../src/features/schedules/executor.ts)
+defines a pluggable executor — a module Web Worker in the app
+(`generate.worker.ts`), `syncExecutor` in tests and as automatic fallback.
+Inputs are unwrapped with `toRaw` at the worker boundary
+(`toClonableInput`) because Pinia hands back reactive proxies that
+structured clone rejects.
 
 **Conventions baked into domain types** ([types.ts](../src/domain/types.ts)):
 
-- **Time = HHMM 24-hour integers.** `1400` = 2:00 PM, `800` = 8:00 AM.
-  Never store times as strings or Date objects in domain code.
-- **Days = `"Mon" | "Tue" | … | "Sun"`** (`DayOfWeek`).
-- `subjectCourse` (e.g. `"CPRG306"`) is the **group key**. `crn` is the
-  **per-instance key**. Banner does **not** collapse cross-listed aliases,
-  and neither do we — don't add dedup that assumes it does (this has bitten
-  us; the parser must not dedupe by time/room either, real sections share
-  rooms).
+- **Time = HHMM 24-hour integers.** `1400` = 2:00 PM. Never strings/Dates.
+- **Days = `"Mon" | … | "Sun"`** (`DayOfWeek`).
+- `subjectCourse` is the **group key**; `crn` the **per-instance key**.
+  Banner does **not** collapse cross-listed aliases — don't dedupe by
+  time/room in the parser (real sections share rooms; this has bitten us).
 
 ---
 
-## 6. Banner SDK — talking to SAIT
+## 6. Banner SDK — talking to SAIT (FROZEN CONTRACT)
 
 Pure TypeScript, no Vue. Built around a **pluggable transport** so tests
-and demo mode never hit the wire.
+never hit the wire.
 
 ```
 createBannerSdk(transport, opts)  →  { session, registration, general, selfService, disconnect }
         │
-        ├─ registration  → ssag6.sait.ca/StudentRegistrationSsb   (class search, section details, terms, active regs)
-        ├─ general        → ssag2.sait.ca/BannerGeneralSsb        (getBannerId — the login-validation chokepoint)
-        └─ selfService    → ssag1.sait.ca/StudentSelfService      (GPA, notices, registered courses, holds, picture)
+        ├─ registration  → ssag6 StudentRegistrationSsb   (class search, terms, lookups, active regs)
+        ├─ general        → ssag2 BannerGeneralSsb        (getBannerId — the login-validation chokepoint)
+        └─ selfService    → ssag1 StudentSelfService      (profile, holds — kept intact though unused by the app)
 ```
 
 Key pieces:
 
-- **Transport** ([transport/](../src/banner-sdk/transport/)) — interface
-  with two impls: `ExtensionTransport` (forwards `BANNER_FETCH` to the
-  service worker) and `MockTransport` (records every call, returns canned
-  responses — the test/demo backbone).
+- **Transport** — `ExtensionTransport` (forwards `BANNER_FETCH` through
+  the bridge) and `MockTransport` (records calls, returns canned
+  responses — the test backbone; note function handlers receive a
+  `RecordedCall`, use `call.url`).
 - **Host pinning** ([config/hosts.ts](../src/banner-sdk/config/hosts.ts)) —
-  each endpoint lives on exactly one host (ssag1/2/6). The host is encoded
-  per-endpoint inside each app module.
+  each endpoint lives on exactly one host.
 - **Session priming** ([core/session.ts](../src/banner-sdk/core/session.ts)) —
-  `RegistrationSession.ensureTermPrimed(term)` runs Banner's required
-  term-prime dance (usage tracking → saveTerm → term search → usage
-  tracking) and caches `primedTerm` so it only runs once per term. ssag1 &
-  ssag2 also need a one-shot credentialed GET to bootstrap per-host cookies
-  — that's the `HostPrimer` in [facade.ts](../src/banner-sdk/facade.ts).
-  `uniqueSessionId` is generated once per SDK construction via `nanoid()`.
+  `ensureTermPrimed(term)` runs Banner's 4-call term-prime dance and
+  caches `primedTerm`. ssag1/ssag2 get a one-shot credentialed GET via the
+  `HostPrimer`. `uniqueSessionId` is `nanoid()` per SDK construction.
 - **The request chokepoint** ([core/request.ts](../src/banner-sdk/core/request.ts)) —
-  *every* call funnels through here, which classifies responses into a
-  typed error taxonomy:
+  every call funnels through `classifyRawResponse`:
 
   | Response | Error |
   |---|---|
   | 403 + small `{"error":"access denied"}` JSON | `BannerNotPermittedError` |
-  | 200 + `text/html` (login page) | `BannerSessionExpiredError` |
+  | network failure, status 0 | `BannerAuthRequiredError` |
+  | other transport error | `BannerNetworkError` |
   | other non-2xx | `BannerHttpError` |
-  | network failure / no extension | `BannerNetworkError` / `BannerAuthRequiredError` |
+  | 200 + `text/html` (login page) | `BannerSessionExpiredError` |
 
-  Consumers branch on these error **types**, never on status codes — keep
-  it that way.
+  Consumers branch on these error **types**, never on status codes.
 
-The browser extension is deliberately **dumb**: it captures cookies and
-proxies `BANNER_FETCH`. All validation, retry, and priming logic lives in
-the SDK, not the worker.
+- **`hooks.onError`** (additive option on `createBannerSdk`) fires from
+  the chokepoint on every classified failure. `lib/sdk.ts` exposes
+  `setSdkErrorHandler`; the auth service uses it to flip auth state on
+  `BannerSessionExpiredError`. `validateLogin` deliberately runs hookless —
+  the login probe's failures are expected outcomes, not expiry events.
 
-> **Security note:** `BANNER_FETCH` should be allowlisted to `*.sait.ca`.
-> The content script broadcasts the extension ID to localhost/pages.dev, so
-> an open proxy is an SSRF vector. See the memory note on this if hardening.
-
----
-
-## 7. Auth — the most involved feature
-
-[src/features/auth/](../src/features/auth/) — five collaborating files:
-
-- **`store.ts`** — Pinia state: `status`, `busy`, `lastError`,
-  `acquiredAt`, `liveChecked`, a `tick` for age-derived computeds.
-- **`service.ts`** — `AuthService` singleton. Drives login / refresh /
-  disconnect and wires `setSessionExpiredHandler` from `lib/sdk.ts`. Picks
-  `DemoCredentialStore` vs `ExtensionCookieCredentialStore` based on
-  `isDemoMode()`.
-- **`credentialStore.ts` / `extensionCookieStore.ts` / `demoStore.ts`** —
-  pluggable backends. Real auth state persists under `sait-auth-v1` inside
-  `extensionCookieStore.ts` (separate from the planner persistence) so
-  login survives reloads.
-- **`useAuth.ts`** — component-facing composable: reactive refs + bound
-  action callbacks.
-- **`useAuthInit.ts`** — mounted once at root. Kicks off init + a **60s
-  live-check poll** + a **10s age tick** + a `visibilitychange` refresh.
+The browser extension is deliberately **dumb**: it proxies allowlisted
+fetches and manages cookies. All validation, retry, and priming logic
+lives in the SDK.
 
 ---
 
-## 8. Demo mode
+## 7. Auth
 
-[src/demo/](../src/demo/):
+[src/features/auth/](../src/features/auth/):
 
-- `index.ts` — `isDemoMode()` (checks `?demo=1` and `VITE_DEMO`) +
-  `DEMO_STUDENT_ID` / `DEMO_TERM`.
-- `fixtures.ts` — canned Banner responses (terms, active regs, search
-  catalog, lookup suggestions).
-- `mockBanner.ts` — `createDemoTransport()` wires fixtures into a
-  `MockTransport`.
-- `composables/useDemoBootstrap.ts` — root-mounted; no-op outside demo,
-  else calls `login()` once on mount so the planner has data immediately.
-
-Both `lib/sdk.ts` and the auth service branch on `isDemoMode()` to choose
-demo vs real backends. **Switching modes needs a page reload.**
+- **`store.ts`** — `status`, `busy`, `lastError`, `acquiredAt`,
+  `liveChecked`, age tick, plus **`studentId`/`validating`** (the old
+  identity feature, folded in).
+- **`service.ts`** — `AuthService` singleton: login/refresh/disconnect,
+  wires `setSdkErrorHandler`.
+- **`credentialStore.ts` / `extensionCookieStore.ts`** — the pluggable
+  backend. Auth state persists under `sait-auth-v1` (separate from
+  planner persistence). Talks to the SW via the shared bridge client.
+- **`useAuth.ts`** — component-facing composable.
+- **`useAuthInit.ts`** — mounted once at root: service init, 60s
+  live-check poll + 10s age tick (vueuse `useIntervalFn`), visibility
+  refresh (`useDocumentVisibility`), and a `useAsyncTask` that resolves
+  `studentId` via `validateLogin` when the session becomes live-checked
+  authenticated.
 
 ---
 
-## 9. State, side effects, and persistence
+## 8. State, side effects, and persistence
 
-### The data-flow spine: `useScheduleSync`
+### Orchestration: planner actions
 
-[src/composables/useScheduleSync.ts](../src/composables/useScheduleSync.ts)
-is mounted once at the App root and does two things:
+[features/planner/actions.ts](../src/features/planner/actions.ts) is the
+only place multiple stores are mutated together:
 
-1. **watch `[auth.status, auth.liveChecked, term]`** → pull the term list +
-   active registrations from Banner, populate `courses`/`term` stores.
-   Uses a snapshot/apply split (`fetchBannerSnapshot` returns data; caller
-   decides whether to apply or discard if superseded) so a late response
-   can't clobber a newer term. Errors fall through to `ui.loadError`; a
-   `BannerAuthRequiredError` flips `ui.authRequired` to surface a reconnect
-   button.
-2. **watch `[courseGroups, selectedCourses, rules]`** → **debounce 200ms**
-   then auto-regenerate schedules.
+- `switchTerm(code)` — THE term cascade: set term → clear derived
+  schedules → reset transient UI → `await syncActiveTerm()`. Only
+  `TermPicker` and `loadSavedSchedule` call it; nothing else writes `term`.
+- `addSearchResults` / `removeCourse` / `clearTermData`.
+- `swapSection` / `getCurrentSchedule` — inject the catalog into the
+  current store.
+- `loadSavedSchedule` — switch term → `search.byCourses` → rehydrate →
+  `await generate()` → seek the best-matching schedule index.
+- `syncActiveTerm` — latest-wins Banner sync with one explicit retry for
+  Banner's term-prime lag; revalidates persisted future-term selection
+  slots against a fresh class search (slot warnings surface in the UI).
 
-This is *the* place cross-store orchestration happens. **New cross-store
-side effects go in `composables/` and mount at the App root — never inside
-a feature component.**
+[composables/useScheduleSync.ts](../src/composables/useScheduleSync.ts)
+is thin wiring: `[auth.status, auth.liveChecked]` → `syncActiveTerm`;
+`watchDebounced` (200 ms) over `[catalog, selection, rules]` →
+`regenerate()`.
 
-### Store discipline (non-negotiable)
+### Per-term slots
 
-- **Setup-style** Pinia stores throughout.
-- `Map` and `Set` state lives in `shallowRef` and is **replaced
-  wholesale** on every mutation:
-  `courseGroups.value = new Map(courseGroups.value); …`. **Never mutate in
-  place** — reactivity depends on the replacement.
-- Use `storeToRefs` when destructuring reactive state in components.
-- All async composables use a `runId` cancellation token + `onUnmounted`
-  cleanup so a late SDK response can't write into a stale store.
+`catalog`, `selection`, `current`, `saved` are thin CRUD over
+[`createTermSlots<T>()`](../src/lib/termSlots.ts): a
+`Map<termCode, T>` in a `shallowRef`, replaced immutably, with a
+reference-stable empty `active` computed. **Switching terms swaps the
+visible slot — nothing is wiped.** `rules` is the deliberate exception:
+it survives term switches.
+
+### Async discipline
+
+Any cancellable fetch goes through
+[`useAsyncTask`](../src/composables/useAsyncTask.ts) — latest-wins
+(superseded runs write nothing), `enabled` gating, retry, AbortSignal,
+auto-cancel on scope dispose. Don't hand-roll `runId` counters.
 
 ### Persistence
 
-[src/lib/persistence.ts](../src/lib/persistence.ts) is a tiny
-`$subscribe` helper. Each store exports its own `persist<Store>Store()`,
-called once in [main.ts](../src/main.ts). Persisted today (prefix
-`sait-sb-v1:`):
+[plugins/persistence.ts](../src/plugins/persistence.ts) is one Pinia
+plugin. A store opts in declaratively:
 
-- `rules` (whole object)
-- `term` (string)
-- `selectedCourses` (Set → array)
-- `currentReg.sectionOverrides` (Map → array) + `includedCourses` (Set → array)
+```ts
+defineStore("term", () => { … }, {
+  persist: { key: "term", version: 1, pick: (s) => s.term, apply: (s, d) => … },
+});
+```
 
-**Generated schedules and transient UI flags are deliberately NOT
-persisted.** To wipe local prefs: `clearPersistedState("sait-sb-v1:")`.
+Values are versioned envelopes `{ v, data }` under `sait-sb-v2:<key>`.
+The `codecs` toolbox handles Map/Set shapes; corrupt payloads skip
+hydration. Persisted: term, rules, selection (incl. pins), current
+overrides+included, saved, theme. **Generated schedules and transient UI
+flags are deliberately NOT persisted.**
 
-### Term cascade
+[plugins/migrateLegacy.ts](../src/plugins/migrateLegacy.ts) is the only
+file that knows pre-v2 localStorage shapes — it translates every legacy
+key once at plugin install and deletes the originals (fixture-tested).
 
-`term/store.ts`'s `setTerm` **wipes every per-term store** (courses,
-selection, current, schedules) so a `subjectCourse` key from one term can
-never leak into another. `rules` is the deliberate exception — it survives.
+To wipe local prefs: `clearPersistedState()` from `plugins/persistence.ts`.
 
 ---
 
-## 10. UI structure
+## 9. UI structure
 
 No router. Tab-style navigation inside [MainArea.vue](../src/shell/MainArea.vue).
 
@@ -380,18 +374,48 @@ No router. Tab-style navigation inside [MainArea.vue](../src/shell/MainArea.vue)
 App.vue
   ├─ SignInScreen.vue          (when not authenticated)
   └─ AppShell.vue              (when authenticated)
-       ├─ AppHeader.vue        (GpaChip, ConnectionStatus, ThemePicker, holds)
+       ├─ AppHeader.vue        (TermPicker, ConnectionStatus, ThemePicker, actions)
        ├─ CoursesPanel.vue     (CourseSearch + CourseSelector)
-       └─ MainArea.vue         (tabs: Schedules / Rules / Current registration)
-            ├─ schedules/      CalendarGrid, ScheduleStrip, ScheduleDetail
-            ├─ rules/          RulesPanel, BlockoutGrid
+       └─ MainArea.vue         (tabs: Current registration / Planner)
+            ├─ rules/          RulesPanel, BlockoutEditor   (WeekGrid consumer)
+            ├─ schedules/      CalendarGrid (WeekGrid consumer), ScheduleStrip,
+            │                  ScheduleDetail, LockedSectionsBanner
             └─ current/        CurrentScheduleEditor
 ```
 
-Shared primitives live in [src/ui/](../src/ui/) (`Button`, `Card`,
-`Spinner`, `EmptyState`, `StatusDot`, `Popover`). Styling is **Tailwind 4**
-(CSS-first `@theme` config); multi-theme via `data-theme` + `@layer base`.
-Use `@apply` **only** inside `ui/` primitives, not feature components.
+- **Floating UI is Reka UI** (headless): `ui/Popover.vue`,
+  `ui/Select.vue`, and the calendar's HoverCard. Reka portals render to
+  `<body>`; the theme attribute lives on `documentElement`, so tokens
+  apply. In the Popover's `#trigger` slot, **don't bind your own click
+  handler** — `as-child` wires it.
+- **Week-grid layout math lives only in
+  [ui/week-grid/](../src/ui/week-grid/)** — `useWeekGridLayout` (hour
+  range expansion, weekend auto-add, HHMM→rem positioning) + the
+  `WeekGrid` chrome with `#day-header` / `#cell` / `#day` slots. Both
+  `CalendarGrid` and `BlockoutEditor` consume it; never duplicate the math.
+- **Course/section label formatting lives only in
+  [ui/course/format.ts](../src/ui/course/format.ts)**.
+- Styling is **Tailwind 4** (CSS-first `@theme`); multi-theme via
+  `data-theme` + token layers in [src/index.css](../src/index.css).
+
+---
+
+## 10. Extension bridge
+
+[lib/bridge/protocol.ts](../src/lib/bridge/protocol.ts) is the single
+source of truth for the app↔extension protocol — message names, payload
+types, `createBridgeRouter`. Both `extension/background.ts` and the app
+compile against it. **The on-the-wire values are frozen** (an installed
+extension may be older than the deployed web app); only typing improves.
+
+- App side: `sendBridgeMessage` / `openBridgePort`
+  ([lib/bridge/client.ts](../src/lib/bridge/client.ts)) — resolve with a
+  `BridgeErrorEnvelope`, never reject.
+- SW side: all `chrome.*` listener registrations stay **synchronous at
+  `background.ts` top level** (MV3 requirement). The SAML login runs over
+  a long-lived port (`login` / `force-reauth`) that keeps the SW alive.
+- `bannerProxy.ts` enforces the `*.sait.ca` allowlist — without it, any
+  page that learns the extension ID could ride the user's cookies (SSRF).
 
 ---
 
@@ -401,41 +425,34 @@ Use `@apply` **only** inside `ui/` primitives, not feature components.
 bun run test:run    # vitest run, CI-safe
 ```
 
-~88 tests across ~15 files. **Tests live in a `tests/` subfolder of the
-module they cover:**
+Tests live in a `tests/` subfolder of the module they cover:
 
 - `domain/tests/` — scheduler, scoring, conflicts, time, parser
-- `banner-sdk/tests/` — request chokepoint (error classification), search,
-  registration listActive, selfService priming
-- `features/{term,courses,schedules,current}/tests/` — store-level tests
-- `features/auth/tests/` — AuthService init / login / reauth / disconnect
-- `features/identity/tests/` — `useIdentity` composable
+- `banner-sdk/tests/` — request chokepoint, hooks, search, registration,
+  selfService priming — **the SDK contract pin; must pass unmodified**
+- `lib/tests/` (termSlots), `lib/bridge/tests/` (router),
+  `composables/tests/` (useAsyncTask), `plugins/tests/` (persistence +
+  legacy migration fixtures), `ui/week-grid/tests/`, `ui/course/tests/`
+- `features/*/tests/` — planner actions (term cascade, saved best-match),
+  catalog/schedules/current stores, auth service + useAuthInit
 
-**`MockTransport`** ([transport/mock.ts](../src/banner-sdk/transport/mock.ts))
-records every call and returns canned responses — pass it to
-`createBannerSdk` to test SDK consumers without the wire. Store tests use
-`createPinia` + `setActivePinia`. jsdom environment, `tsconfigPaths` on.
+Store tests: `createPinia` + `setActivePinia`. **Pinia plugins only run
+once the pinia instance is installed into an app** — persistence-plugin
+tests create a throwaway `createApp({}).use(pinia)`.
 
 ---
 
 ## 12. Build & ship
 
-- `bun run build` → type-check (vue-tsc) + Vite build → `dist/`, a loadable
-  unpacked MV3 extension.
+- `bun run build` → type-check + Vite build → `dist/`, a loadable
+  unpacked MV3 extension (includes the schedule worker chunk).
 - `@crxjs/vite-plugin` generates the manifest from
-  [manifest.config.ts](../manifest.config.ts) (permissions: `cookies`,
-  `tabs`, `storage`; host perms `https://*.sait.ca/*`).
-- Vite config ([vite.config.ts](../vite.config.ts)): `@` alias, Vue +
-  devtools + Tailwind + crxjs + Vue-MCP plugins, sourcemaps on.
-- TypeScript is split: `tsconfig.app.json` (the SPA),
-  `tsconfig.extension.json` (the worker/content scripts),
-  `tsconfig.node.json` (build tooling).
-- Dev shell via **devenv/Nix** (`devenv.nix`, `.envrc`); `direnv allow` or
-  `nix develop`.
-
-> `@crxjs/vite-plugin` v2.5 is unmaintained but Vite-8 compatible (expect
-> a few harmless warnings). **WXT** is the actively-maintained successor if
-> the extension build is ever restructured.
+  [manifest.config.ts](../manifest.config.ts).
+- TypeScript is split: `tsconfig.app.json` (SPA),
+  `tsconfig.extension.json` (worker/content scripts — imports
+  `src/lib/bridge/protocol.ts` relatively), `tsconfig.node.json` (tooling).
+- `@crxjs/vite-plugin` v2.5 is unmaintained but Vite-8 compatible; **WXT**
+  is the successor if the extension build is ever restructured.
 
 ---
 
@@ -443,16 +460,18 @@ records every call and returns canned responses — pass it to
 
 | I want to… | Go to |
 |---|---|
-| Tune how schedules rank | [domain/scoring.ts](../src/domain/scoring.ts) — named penalty/bonus constants at top |
+| Tune how schedules rank | [domain/scoring.ts](../src/domain/scoring.ts) |
 | Change conflict / overlap logic | [domain/conflicts.ts](../src/domain/conflicts.ts) |
-| Add/change a scheduling rule | [domain/types.ts](../src/domain/types.ts) (`ScheduleRules`) + filter in [scheduler.ts](../src/domain/scheduler.ts) + UI in [rules/RulesPanel.vue](../src/features/rules/RulesPanel.vue) |
+| Add/change a scheduling rule | `ScheduleRules` in [domain/types.ts](../src/domain/types.ts) + filter in scheduler + UI in `rules/` |
+| Change the empty-result diagnostics | [domain/explain.ts](../src/domain/explain.ts) |
 | Map a new Banner field into the app | [domain/parser.ts](../src/domain/parser.ts) — the only seam |
-| Add a Banner endpoint | new fn in the right `banner-sdk/apps/<app>/`, pin host in `config/hosts.ts`, route errors through `core/request.ts` |
-| Add cross-store side effect | new composable in `composables/`, mount in [App.vue](../src/App.vue) |
-| Add per-feature reactive state | the feature's `store.ts` (shallowRef + immutable replace) |
-| Persist new state | export `persist<X>Store()` from the store, call it in [main.ts](../src/main.ts) |
-| Add a shared UI widget | [src/ui/](../src/ui/) |
-| Add demo data | [demo/fixtures.ts](../src/demo/fixtures.ts) |
+| Add a Banner endpoint | the right `banner-sdk/apps/<app>/`, host in `config/hosts.ts`, errors via `core/request.ts` — **wire contract review required** |
+| Add a cross-store workflow | [features/planner/actions.ts](../src/features/planner/actions.ts) |
+| Add a mount-once side effect | new composable in `composables/`, mount in [App.vue](../src/App.vue) |
+| Add per-term state | the feature's store on `createTermSlots` |
+| Persist new state | a `persist` spec on the store + codec; bump `version` on shape change |
+| Add a shared UI widget | [src/ui/](../src/ui/) — no store imports |
+| Add an app↔extension message | [lib/bridge/protocol.ts](../src/lib/bridge/protocol.ts) + handler in `extension/` |
 | Change extension permissions / hosts | [manifest.config.ts](../manifest.config.ts) |
 
 ---
@@ -461,16 +480,16 @@ records every call and returns canned responses — pass it to
 
 - **Times are HHMM integers**, not strings/Dates. `830` ≠ 8.5 hours.
 - **Don't dedupe sections by time+room** in the parser — real distinct
-  sections legitimately share a room/time; CRN is the only safe instance
-  key, `subjectCourse` the only group key.
-- **Don't mutate Map/Set state in place** — replace the whole value or
-  reactivity silently breaks.
-- **SDK fetches belong in composables, not stores.**
+  sections share rooms; CRN is the only safe instance key.
+- **Don't mutate Map/Set state in place** — `createTermSlots` replaces
+  wholesale; reactivity depends on it.
+- **Pinia hands back reactive proxies** — anything crossing a structured-
+  clone boundary (Worker postMessage) must go through `toRaw` first
+  (`toClonableInput` in the schedules executor).
 - **Branch on Banner error types, not HTTP status codes.**
-- **Switching demo/real needs a page reload** — the SDK + auth backends are
-  chosen at construction.
+- **Don't write `term.term` directly** — go through `planner.switchTerm`
+  or the cascade won't run.
+- **Don't bind `@click` on a Reka Popover trigger** — `as-child` already
+  wires it; you'll double-toggle.
 - Zombie Vite processes can squat port 5173 — check
   `pgrep -af "vite|bun.*dev"` before `bun dev`.
-- `setTerm` is destructive across per-term stores by design; `rules`
-  survives — don't "fix" that.
-```

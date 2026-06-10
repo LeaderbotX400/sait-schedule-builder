@@ -3,8 +3,7 @@
 - [Banner API Architecture](banner_api.md) — Auth/proxy setup, all key endpoints, response format differences, parser mapping, term-filtering logic
 - [User collaboration style](user_collaboration_style.md) — drive sharp + hard: parallel sub-agents, commit each wave, strict maintainability discipline.
 - [Vue docs MCP](vue_docs_mcp.md) — activate at session start; api_lookup works, docs_search + server itself flaky — fall back to WebFetch on official docs.
-- [Vue + Pinia conventions](vue_pinia_conventions.md) — setup stores, shallowRef + immutable, storeToRefs, composables-at-root for cross-store side effects, acceptHMRUpdate on every store.
-- [Folder structure recommendation](folder_structure_recommendation.md) — consolidate planner stores into `src/features/<name>/`, move identity/profile/holds/theme under features/; keep pure layers (banner-sdk, domain, lib, ui, shell) top-level.
+- [Vue + Pinia conventions](vue_pinia_conventions.md) — setup stores, shallowRef + immutable via createTermSlots, planner actions for cross-store workflows, declarative persist specs, toRaw at clone boundaries.
 - [CRXJS status](crxjs_status.md) — `@crxjs/vite-plugin` v2.5 unmaintained but Vite-8 compatible; WXT is the actively-maintained successor for any future restructure.
 - [Security: BANNER_FETCH allowlist](security_banner_fetch_allowlist.md) — real SSRF risk via inject.ts ext-ID broadcast + open BANNER_FETCH; two-line `*.sait.ca` allowlist closes it.
 - [Tailwind 4 patterns](tailwind_4_patterns.md) — CSS-first `@theme` config; multi-theme via `data-theme` + `@layer base`; `@apply` only inside ui/ primitives.

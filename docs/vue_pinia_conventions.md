@@ -13,7 +13,8 @@ The repo is Vue 3.5 + Pinia 3 with strict maintainability discipline. These are 
 
 - **Setup-style only.** `defineStore('name', () => { ... })` with refs/computeds/functions. Options-style stores are inferior for TS and can't call composables. ([pinia.vuejs.org/core-concepts](https://pinia.vuejs.org/core-concepts/))
 - **Return all reactive state from the setup function.** Anything not returned is invisible to DevTools, persistence plugins, and SSR.
-- **One concern per store.** Already the rule. The `holds/` store (just `count` + `loading`) is on the edge — keep it only if it has an independent fetch lifecycle from `currentReg`; otherwise fold its fields into the store that already fetches them. ([masteringpinia.com — best practices](https://masteringpinia.com/blog/5-best-practices-for-scalable-vuejs-state-management-with-pinia))
+- **One concern per store.** Already the rule (10 stores post-rewrite). ([masteringpinia.com — best practices](https://masteringpinia.com/blog/5-best-practices-for-scalable-vuejs-state-management-with-pinia))
+- **Stores never call other stores' actions.** Cross-store workflows are named awaitable functions in `features/planner/actions.ts`. Reads via parameters where practical (`current/store.ts` takes the catalog as an argument).
 - **`acceptHMRUpdate` on every store file.** Missing today on some stores. Add:
   ```ts
   if (import.meta.hot) import.meta.hot.accept(acceptHMRUpdate(useFooStore, import.meta.hot))
@@ -29,10 +30,10 @@ The repo is Vue 3.5 + Pinia 3 with strict maintainability discipline. These are 
 
 ## Cross-store communication (in preference order)
 
-1. `useOtherStore()` inside an action or computed — idiomatic. Call before any `await`.
-2. **Watchers in `src/composables/`** — for side effects that span multiple stores. Mount ONCE at App.vue root. This is the repo's established rule and matches official guidance. ([pinia.vuejs.org/cookbook/composables](https://pinia.vuejs.org/cookbook/composables.html))
+1. **Planner actions** (`features/planner/actions.ts`) — ALL multi-store mutations. Explicit, awaitable, testable.
+2. **Watchers in `src/composables/`** — thin wiring from reactive sources to planner actions. Mount ONCE at App.vue root. ([pinia.vuejs.org/cookbook/composables](https://pinia.vuejs.org/cookbook/composables.html))
 3. `$onAction` — only for audit/log plugins. Not for primary wiring.
-4. `$subscribe` — persistence and logging. Not for driving reactive side effects (use watchers).
+4. `$subscribe` — persistence (the plugin) and logging only.
 
 ## Composables vs stores
 
@@ -40,21 +41,20 @@ The repo is Vue 3.5 + Pinia 3 with strict maintainability discipline. These are 
 |------|-----|
 | Global, persisted, plugin-visible | Store |
 | Reusable logic with independent instances | Composable |
-| Cross-store side effect (fetch on watch) | Composable in `src/composables/`, mounted at App.vue root |
+| Cross-store side effect (fetch on watch) | Watcher in `src/composables/` calling a planner action |
 | Thin readonly projection | Composable returning `computed()` over a source store — **no store needed** |
-
-`registration-status/` correctly has no store — it's a projection. Keep it that way.
+| Cancellable fetch | `useAsyncTask` (`src/composables/useAsyncTask.ts`) — never hand-roll runId counters |
 
 **Anti-pattern:** composables that call `onMounted` / `provide` / `inject` cannot be used inside a Pinia setup store. Those belong in components or root composables.
 
-## `$subscribe` for persistence
+## Persistence
 
-- Called from `main.ts` (outside any component) — `detached: true` is irrelevant. Don't set it.
-- `flush: 'sync'` is fine for small serialized blobs (the repo's `selectedCourses`, `sectionOverrides`). Avoid for large Maps with rapid mutation — blocks the main thread.
-- `$patch()` always fires synchronously regardless of `flush`.
+One Pinia plugin (`src/plugins/persistence.ts`); stores opt in with a declarative `persist: { key, version, pick, apply }` in their `defineStore` options. Versioned `{ v, data }` envelopes under `sait-sb-v2:*`; legacy shapes live only in `plugins/migrateLegacy.ts`. Don't add per-store `persist*Store()` functions or raw `$subscribe` persistence — that pattern was retired in the 2026-06 rewrite.
 
-## Demo mode boundary
+**Plugins only run once pinia is installed into an app** — tests need `createApp({}).use(pinia)`.
 
-Demo branching belongs at the **SDK construction site** (`src/lib/sdk.ts` chooses `MockTransport` vs `ExtensionTransport`) and at the **credential store** (`DemoCredentialStore` vs extension-cookies). Stores themselves stay demo-agnostic — they only see the SDK and the credential store interfaces. Don't sprinkle `isDemoMode()` checks into feature stores.
+## Reactive proxies at clone boundaries
 
-Related: [[folder-structure-recommendation]], [[vue-docs-mcp]]
+Pinia store reads return Vue reactive proxies. Anything crossing a structured-clone boundary (Worker `postMessage`) must be unwrapped with `toRaw` first — see `toClonableInput` in `features/schedules/executor.ts`.
+
+Related: [[vue-docs-mcp]]
