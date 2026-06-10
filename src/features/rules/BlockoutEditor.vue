@@ -20,6 +20,7 @@ import Popover from "@/ui/Popover.vue";
 import WeekGrid from "@/ui/week-grid/WeekGrid.vue";
 import { useWeekGridLayout, type WeekGridEvent } from "@/ui/week-grid/useWeekGridLayout";
 import { Icon } from "@iconify/vue";
+import { onKeyStroke } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { createEmptyBlockout } from "@/domain/blockout";
@@ -58,17 +59,33 @@ const ZOOM_MIN = 1;
 const ZOOM_MAX = 10;
 const zoom = ref<number>(1);
 
-// ── Paint mode (used in the toolbar) ────────────────────────────────────────
+// ── Brush + paint mode (used in the toolbar) ────────────────────────────────
 
-type PaintMode = BlockoutCell;
-const paintMode = ref<PaintMode>("preferred");
+type Brush = BlockoutCell;
+const brush = ref<Brush>("preferred");
 const isPainting = ref(false);
 
-const PAINT_MODES: { value: PaintMode; label: string }[] = [
+const BRUSHES: { value: Brush; label: string }[] = [
   { value: "preferred", label: "Classes here" },
   { value: "blocked", label: "No classes" },
   { value: "neutral", label: "Erase" },
 ];
+
+/**
+ * Paint mode locks the ghost/locked section tiles (pointer-events off,
+ * dimmed) so drags paint the cells underneath them. Outside paint mode
+ * the tiles are clickable to lock/unlock sections. Escape exits.
+ */
+const paintMode = ref(false);
+
+function setPaintMode(on: boolean): void {
+  paintMode.value = on;
+  if (!on) isPainting.value = false;
+}
+
+onKeyStroke("Escape", () => {
+  if (paintMode.value) setPaintMode(false);
+});
 
 // ── Hard-blocked helpers ─────────────────────────────────────────────────────
 
@@ -326,7 +343,7 @@ function popoverAlignForDay(day: DayOfWeek): "left" | "right" {
 function paint(day: DayOfWeek, hour: number): void {
   if (isHardBlocked(day, hour)) return;
   const next: BlockoutGridType = { ...props.blockout };
-  next[day] = { ...next[day], [hour]: paintMode.value };
+  next[day] = { ...next[day], [hour]: brush.value };
   emit("update:blockout", next);
 }
 
@@ -413,13 +430,13 @@ function togglePin(course: CourseSection): void {
         class="flex rounded-lg overflow-hidden border border-edge-subtle text-xs font-medium shrink-0"
       >
         <button
-          v-for="(mode, i) in PAINT_MODES"
+          v-for="(mode, i) in BRUSHES"
           :key="mode.value"
           type="button"
           :class="[
             'px-3 py-1.5 transition-colors',
             i > 0 ? 'border-l border-edge-subtle' : '',
-            paintMode === mode.value
+            brush === mode.value
               ? mode.value === 'preferred'
                 ? 'bg-success text-success-fg'
                 : mode.value === 'blocked'
@@ -427,11 +444,38 @@ function togglePin(course: CourseSection): void {
                   : 'bg-fg-faint text-page'
               : 'bg-input/80 text-fg-muted hover:text-fg hover:bg-surface-hover/60',
           ]"
-          @click="paintMode = mode.value"
+          @click="brush = mode.value"
         >
           {{ mode.label }}
         </button>
       </div>
+
+      <!-- Paint mode: lock section tiles so drags paint through them -->
+      <button
+        type="button"
+        :aria-pressed="paintMode"
+        :title="
+          paintMode
+            ? 'Paint mode on — section tiles are locked out. Esc to exit.'
+            : 'Paint mode: lock the section tiles so you can paint underneath them'
+        "
+        :class="[
+          'flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors shrink-0',
+          paintMode
+            ? 'bg-primary text-primary-fg border-primary'
+            : 'bg-input/80 text-fg-muted border-edge-subtle hover:text-fg hover:bg-surface-hover/60',
+        ]"
+        @click="setPaintMode(!paintMode)"
+      >
+        <Icon icon="mdi:brush" aria-hidden="true" />
+        Paint mode
+        <kbd
+          v-if="paintMode"
+          class="rounded border border-primary-fg/40 px-1 text-[0.625rem] leading-tight font-sans"
+        >
+          Esc
+        </kbd>
+      </button>
 
       <button
         type="button"
@@ -541,7 +585,10 @@ function togglePin(course: CourseSection): void {
               v-for="({ course, meeting }, idx) in dayLockedGhosts.get(day) ?? []"
               :key="`locked-${course.crn}-${day}-${meeting.startTime}-${idx}`"
               type="button"
-              class="absolute left-0.5 right-0.5 rounded-r-md overflow-hidden flex flex-col justify-center px-1.5 cursor-pointer transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-tint-danger/60 border-l-[0.1875rem] border-l-destructive border border-tint-danger-bd hover:bg-tint-danger/80"
+              :class="[
+                'absolute left-0.5 right-0.5 rounded-r-md overflow-hidden flex flex-col justify-center px-1.5 cursor-pointer transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-tint-danger/60 border-l-[0.1875rem] border-l-destructive border border-tint-danger-bd hover:bg-tint-danger/80',
+                paintMode ? 'pointer-events-none opacity-30' : '',
+              ]"
               :style="{ ...layout.blockStyle(meeting), zIndex: 2 }"
               :title="`Locked: ${course.identifier} - ${course.title}\n${course.instructor}\n${meeting.building} ${meeting.room}\n${formatTime(meeting.startTime)} - ${formatTime(meeting.endTime)}\nClick to unlock`"
               :aria-label="`Unlock ${course.identifier}`"
@@ -576,7 +623,10 @@ function togglePin(course: CourseSection): void {
                 v-if="tile.kind === 'single'"
                 :key="`gtile-${tile.meeting.course.crn}-${day}-${tile.meeting.meeting.startTime}-${idx}`"
                 type="button"
-                class="absolute rounded-r-md overflow-hidden flex flex-col justify-center px-1 cursor-pointer transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-surface-hover/25 border border-dashed border-edge-hover/50 hover:bg-tint-success/30 hover:border-tint-success-bd"
+                :class="[
+                  'absolute rounded-r-md overflow-hidden flex flex-col justify-center px-1 cursor-pointer transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-surface-hover/25 border border-dashed border-edge-hover/50 hover:bg-tint-success/30 hover:border-tint-success-bd',
+                  paintMode ? 'pointer-events-none opacity-30' : '',
+                ]"
                 :style="{
                   ...layout.blockStyle(tile.meeting.meeting),
                   left: `calc(${tileLeftPct(tile)} + 0.125rem)`,
@@ -620,7 +670,7 @@ function togglePin(course: CourseSection): void {
               <div
                 v-else
                 :key="`gtile-overflow-${day}-${tile.startTime}-${idx}`"
-                class="absolute"
+                :class="['absolute', paintMode ? 'pointer-events-none opacity-30' : '']"
                 :style="{
                   ...layout.blockStyle(tile),
                   left: `calc(${tileLeftPct(tile)} + 0.125rem)`,
