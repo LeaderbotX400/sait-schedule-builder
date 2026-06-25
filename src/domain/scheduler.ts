@@ -228,8 +228,12 @@ export function generateSchedules(
 
   if (rules.allowPartialSchedules && filteredGroups.length > 1) {
     for (let omitIdx = 0; omitIdx < filteredGroups.length; omitIdx++) {
-      const partialGroups = filteredGroups.filter((_, i) => i !== omitIdx);
       const omittedName = courseNames[omitIdx];
+      // Locked courses are mandatory anchors — never build a partial that
+      // drops one. (A found locked section is already present in every full
+      // schedule; the partial loop is the only place a course gets omitted.)
+      if (omittedName !== undefined && options.pinnedCrns?.has(omittedName)) continue;
+      const partialGroups = filteredGroups.filter((_, i) => i !== omitIdx);
       const omittedSections = filteredGroups[omitIdx];
       if (!omittedName || !omittedSections) continue;
       const partialCombos = cartesianProduct(partialGroups);

@@ -144,6 +144,93 @@ describe("generateSchedules", () => {
   });
 });
 
+describe("locked sections (pinnedCrns)", () => {
+  it("includes the locked section in every schedule (no conflict)", () => {
+    const groups = new Map([
+      [
+        "CPRG306",
+        [
+          section("CPRG306-A", [meeting({ days: ["Mon"], startTime: 900, endTime: 1000 })]),
+          section("CPRG306-B", [meeting({ days: ["Tue"], startTime: 900, endTime: 1000 })]),
+        ],
+      ],
+      ["CPRG307", [section("CPRG307-A", [meeting({ days: ["Wed"], startTime: 900, endTime: 1000 })])]],
+    ]);
+    const pinnedCrns = new Map([["CPRG306", "CPRG306-A"]]);
+    const result = generateSchedules(groups, { rules, pinnedCrns });
+    expect(result.length).toBeGreaterThan(0);
+    for (const s of result) {
+      expect(s.courses.some((c) => c.crn === "CPRG306-A")).toBe(true);
+    }
+  });
+
+  it("keeps the lock and drops the conflicting course when partials are allowed", () => {
+    const r: ScheduleRules = { ...rules, allowPartialSchedules: true };
+    const groups = new Map([
+      [
+        "CPRG306",
+        [
+          section("CPRG306-A", [meeting({ days: ["Mon"], startTime: 900, endTime: 1000 })]),
+          section("CPRG306-B", [meeting({ days: ["Tue"], startTime: 900, endTime: 1000 })]),
+        ],
+      ],
+      ["CPRG307", [section("CPRG307-A", [meeting({ days: ["Mon"], startTime: 930, endTime: 1100 })])]],
+    ]);
+    const pinnedCrns = new Map([["CPRG306", "CPRG306-A"]]);
+    const result = generateSchedules(groups, { rules: r, pinnedCrns });
+
+    expect(result.length).toBeGreaterThan(0);
+    for (const s of result) {
+      // The lock is always present and never omitted...
+      expect(s.courses.some((c) => c.crn === "CPRG306-A")).toBe(true);
+      expect(s.omittedCourses.some((o) => o.subjectCourse === "CPRG306")).toBe(false);
+    }
+    // ...and the conflicting course is the one dropped.
+    expect(result.some((s) => s.omittedCourses.some((o) => o.subjectCourse === "CPRG307"))).toBe(
+      true,
+    );
+  });
+
+  it("returns nothing when a lock conflicts and partials are off", () => {
+    const groups = new Map([
+      ["CPRG306", [section("CPRG306-A", [meeting({ days: ["Mon"], startTime: 900, endTime: 1000 })])]],
+      ["CPRG307", [section("CPRG307-A", [meeting({ days: ["Mon"], startTime: 930, endTime: 1100 })])]],
+    ]);
+    const pinnedCrns = new Map([["CPRG306", "CPRG306-A"]]);
+    expect(generateSchedules(groups, { rules, pinnedCrns })).toEqual([]);
+  });
+
+  it("returns nothing when two locks conflict, even with partials on", () => {
+    const r: ScheduleRules = { ...rules, allowPartialSchedules: true };
+    const groups = new Map([
+      ["CPRG306", [section("CPRG306-A", [meeting({ days: ["Mon"], startTime: 900, endTime: 1000 })])]],
+      ["CPRG307", [section("CPRG307-A", [meeting({ days: ["Mon"], startTime: 930, endTime: 1100 })])]],
+    ]);
+    const pinnedCrns = new Map([
+      ["CPRG306", "CPRG306-A"],
+      ["CPRG307", "CPRG307-A"],
+    ]);
+    expect(generateSchedules(groups, { rules: r, pinnedCrns })).toEqual([]);
+  });
+
+  it("omits the course when the locked CRN is no longer offered", () => {
+    const groups = new Map([
+      ["CPRG306", [section("CPRG306-A", [meeting({ days: ["Mon"], startTime: 900, endTime: 1000 })])]],
+      ["CPRG307", [section("CPRG307-A", [meeting({ days: ["Wed"], startTime: 900, endTime: 1000 })])]],
+    ]);
+    const pinnedCrns = new Map([["CPRG306", "CPRG306-GONE"]]);
+    const result = generateSchedules(groups, { rules, pinnedCrns });
+    expect(result.length).toBeGreaterThan(0);
+    for (const s of result) {
+      expect(
+        s.omittedCourses.some(
+          (o) => o.subjectCourse === "CPRG306" && /no longer available/i.test(o.reason),
+        ),
+      ).toBe(true);
+    }
+  });
+});
+
 describe("sectionPrefixes filter", () => {
   it("allows everything when sectionPrefixes is empty", () => {
     const groups = new Map([["CPRG306", [section("CPRG306-FVA"), section("CPRG306-SDA")]]]);

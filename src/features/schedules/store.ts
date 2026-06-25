@@ -68,7 +68,7 @@ export const useSchedulesStore = defineStore("schedules", () => {
       activeScheduleIndex.value = 0;
       generationStatus.value =
         result.length === 0
-          ? { kind: "empty", reason: explainEmpty(input.courses, input.rules) }
+          ? { kind: "empty", reason: explainEmpty(input.courses, input.rules, input.pinnedCrns) }
           : { kind: "success", count: result.length };
       return result;
     } catch (e) {
