@@ -397,7 +397,7 @@ function fitBadgeClass(score: number): string {
 function dayHeaderClass(day: DayOfWeek): string {
   const dimmed = hardBlockedDays.value.has(day) || !WEEKDAYS.includes(day);
   return [
-    "sticky top-0 bg-surface/10 z-50 backdrop-blur-md !border-edge-subtle",
+    "sticky top-0 bg-surface/10 z-[3] backdrop-blur-md !border-edge-subtle",
     dimmed ? "opacity-40" : "",
   ].join(" ");
 }
