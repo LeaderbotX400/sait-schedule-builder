@@ -10,18 +10,37 @@ const ICAL_DAYS: Record<DayOfWeek, string> = {
   Sun: "SU",
 };
 
-const DAY_OFFSETS: Record<DayOfWeek, number> = {
-  Mon: 0,
-  Tue: 1,
-  Wed: 2,
-  Thu: 3,
-  Fri: 4,
-  Sat: 5,
-  Sun: 6,
+/** Index matching JS `Date#getDay()` (Sun=0 .. Sat=6). */
+const JS_DAY_INDEX: Record<DayOfWeek, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
 };
 
 function pad(n: number): string {
   return n.toString().padStart(2, "0");
+}
+
+/** Parse an ISO "YYYY-MM-DD" string as a local-midnight Date (never UTC —
+ * avoids the off-by-one-day shift `new Date(iso)` can introduce). */
+function parseIsoDate(iso: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) return null;
+  const [, y, m, d] = match;
+  return new Date(Number(y), Number(m) - 1, Number(d));
+}
+
+/** The first date on/after `from` that falls on `day` — no assumption about
+ * what weekday `from` itself is. */
+function firstOccurrenceOnOrAfter(from: Date, day: DayOfWeek): Date {
+  const result = new Date(from);
+  const diff = (JS_DAY_INDEX[day] - result.getDay() + 7) % 7;
+  result.setDate(result.getDate() + diff);
+  return result;
 }
 
 function formatICalDate(date: Date, time: string): string {
@@ -35,12 +54,7 @@ function escapeICalText(text: string): string {
   return text.replace(/[\\;,]/g, (c) => `\\${c}`).replace(/\n/g, "\\n");
 }
 
-export function generateICal(
-  schedule: Schedule,
-  semesterStart: Date,
-  semesterEnd: Date,
-  timezone = "America/Edmonton",
-): string {
+export function generateICal(schedule: Schedule, timezone = "America/Edmonton"): string {
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -50,15 +64,16 @@ export function generateICal(
     `X-WR-TIMEZONE:${timezone}`,
   ];
 
-  const endDateStr = `${semesterEnd.getFullYear()}${pad(semesterEnd.getMonth() + 1)}${pad(semesterEnd.getDate())}T235959`;
-
   for (const course of schedule.courses) {
     for (const meeting of course.meetings) {
+      const start = parseIsoDate(meeting.startDate);
+      const end = parseIsoDate(meeting.endDate);
+      if (!start || !end) continue;
+
+      const endDateStr = `${end.getFullYear()}${pad(end.getMonth() + 1)}${pad(end.getDate())}T235959`;
+
       for (const day of meeting.days) {
-        const offset = DAY_OFFSETS[day];
-        const eventStart = new Date(semesterStart);
-        // Find the first occurrence of this day from semester start (assumed Monday)
-        eventStart.setDate(eventStart.getDate() + offset);
+        const eventStart = firstOccurrenceOnOrAfter(start, day);
 
         const startTimeStr = meeting.startTime.toString().padStart(4, "0");
         const endTimeStr = meeting.endTime.toString().padStart(4, "0");
@@ -74,7 +89,7 @@ export function generateICal(
         lines.push(`LOCATION:${escapeICalText(`${meeting.building} ${meeting.room}`)}`);
         lines.push(
           `DESCRIPTION:${escapeICalText(
-            `Instructor: ${course.instructor}\\nCRN: ${course.crn}\\nType: ${meeting.type}`,
+            `Instructor: ${course.instructor}\nCRN: ${course.crn}\nType: ${meeting.type}`,
           )}`,
         );
         lines.push("END:VEVENT");
@@ -86,17 +101,8 @@ export function generateICal(
   return lines.join("\r\n");
 }
 
-// Hardcoded Spring 2026 semester window. Used by both the header and detail
-// export buttons; refactor when we add multi-term iCal export.
-export const SEMESTER_START = new Date(2026, 4, 4);
-export const SEMESTER_END = new Date(2026, 7, 14);
-
-export function downloadICal(
-  schedule: Schedule,
-  semesterStart: Date = SEMESTER_START,
-  semesterEnd: Date = SEMESTER_END,
-): void {
-  const content = generateICal(schedule, semesterStart, semesterEnd);
+export function downloadICal(schedule: Schedule): void {
+  const content = generateICal(schedule);
   const blob = new Blob([content], { type: "text/calendar;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

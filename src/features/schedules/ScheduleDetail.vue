@@ -6,6 +6,7 @@
 
 import { useCatalogStore } from "@/features/catalog/store";
 import { useSavedStore } from "@/features/saved/store";
+import { downloadICal } from "@/domain/ical";
 import UiButton from "@/ui/Button.vue";
 import { computed, ref } from "vue";
 import { formatTime } from "../../domain/time";
@@ -124,6 +125,10 @@ function remember(): void {
   }, 1500);
 }
 
+function exportICal(): void {
+  downloadICal(props.schedule);
+}
+
 const pinnedStore = useSelectionStore();
 const coursesStore = useCatalogStore();
 
@@ -203,6 +208,14 @@ const qualityTooltip = computed(() => {
         </div>
       </div>
       <div class="flex items-center gap-3">
+        <UiButton
+          variant="ghost"
+          size="sm"
+          title="Export this schedule as .ics"
+          @click="exportICal"
+        >
+          Export .ics
+        </UiButton>
         <UiButton variant="ghost" size="sm" :disabled="saved" @click="remember">
           {{ saved ? "Saved!" : "Remember" }}
         </UiButton>

@@ -21,6 +21,8 @@ function meeting(partial: Partial<MeetingBlock> = {}): MeetingBlock {
     campusDescription: "Main Campus",
     type: "CLAS",
     isOnline: false,
+    startDate: "2026-09-01",
+    endDate: "2026-12-17",
     ...partial,
   };
 }

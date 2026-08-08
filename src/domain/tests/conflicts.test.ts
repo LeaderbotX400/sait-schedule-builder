@@ -13,6 +13,8 @@ function meeting(over: Partial<MeetingBlock> = {}): MeetingBlock {
     campusDescription: "Campus",
     type: "Lecture",
     isOnline: false,
+    startDate: "2026-09-01",
+    endDate: "2026-12-17",
     ...over,
   };
 }

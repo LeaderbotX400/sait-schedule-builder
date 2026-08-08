@@ -15,6 +15,10 @@ export interface MeetingBlock {
   campusDescription: string;
   type: string;
   isOnline: boolean;
+  /** ISO YYYY-MM-DD — the date this meeting's weekly recurrence begins. */
+  startDate: string;
+  /** ISO YYYY-MM-DD — the date this meeting's weekly recurrence ends (inclusive). */
+  endDate: string;
 }
 
 export interface CourseSection {

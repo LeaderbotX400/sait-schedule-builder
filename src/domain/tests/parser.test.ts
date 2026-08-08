@@ -68,6 +68,13 @@ describe("parseActiveRegistrations", () => {
     expect(result.size).toBe(3);
   });
 
+  it("normalizes Banner's MM/DD/YYYY meeting dates to ISO YYYY-MM-DD", () => {
+    const result = parseActiveRegistrations([registration()]);
+    const meeting = result.get("CPRG306")?.[0]?.meetings[0];
+    expect(meeting?.startDate).toBe("2026-09-01");
+    expect(meeting?.endDate).toBe("2026-12-17");
+  });
+
   describe("term filter", () => {
     it("returns all active registrations when termCode is undefined", () => {
       const result = parseActiveRegistrations([

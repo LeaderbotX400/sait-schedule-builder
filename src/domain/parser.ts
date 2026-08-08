@@ -28,6 +28,15 @@ function clean(s: string | null | undefined): string {
   return s == null ? "" : decodeHtmlEntities(s);
 }
 
+/** Banner sends meeting dates as "MM/DD/YYYY"; normalize to ISO "YYYY-MM-DD". */
+function mmddyyyyToIso(s: string | null | undefined): string {
+  if (!s) return "";
+  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+  if (!match) return "";
+  const [, m, d, y] = match;
+  return `${y}-${m!.padStart(2, "0")}-${d!.padStart(2, "0")}`;
+}
+
 const DAY_MAP: [keyof BannerMeetingTime, DayOfWeek][] = [
   ["monday", "Mon"],
   ["tuesday", "Tue"],
@@ -60,6 +69,8 @@ function parseMeetingTime(mt: BannerMeetingTime): MeetingBlock | null {
     campusDescription: clean(mt.campusDescription),
     type: clean(mt.meetingTypeDescription),
     isOnline,
+    startDate: mmddyyyyToIso(mt.startDate),
+    endDate: mmddyyyyToIso(mt.endDate),
   };
 }
 

@@ -27,6 +27,8 @@ function makeSection(id: string, day: "Mon" | "Tue", start = 900, end = 1000): C
         campusDescription: "Main",
         type: "Lecture",
         isOnline: false,
+        startDate: "2026-09-01",
+        endDate: "2026-12-17",
       },
     ],
     creditHours: 3,
